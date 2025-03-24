@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jeu de Plateau - Phaser.js</title>
+    <style>
+
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+    <script src="utils.js"></script>
+    <script src="game.js" defer></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <h1>Jeu de Plateau - Schmitt</h1>
+    <div class="container-plateau">
+        <div class="game-container">
+            <div id="controls">
+                <button id="rollDiceButton">Lancer le dé</button>
+                <button id="validateMoveButton" disabled>Valider le déplacement</button>
+
+            </div>
+            <div>Joueur actuel : <span id="currentPlayer">1</span></div>
+            <div>Résultat du dé : <span id="diceResult">--</span></div>
+            <ul id="logList"></ul>
+        </div>
+        <div id="playerForm">
+            <input type="text" id="playerName" placeholder="Nom du joueur" />
+            <input type="color" id="playerColor" value="#ff0000" />
+            <button id="addPlayerButton">Ajouter un joueur</button>
+            <button id="startGameButton">Démarrer le jeu</button>
+        </div>
+        <div id="manualMove">
+
+            <button id="moveToTileButton">Se déplacer vers une case</button>
+            <button id="passTurnButton">Passer le tour</button>
+            <input type="number" id="targetTileInput" placeholder="Numéro de la case" />
+        </div>
+    </div>
+
+    <ul id="playerList"></ul>
+</body>
+
+</html>

@@ -1,0 +1,159 @@
+{
+    "bord": {
+        "rows": 9,
+        "columns": 6
+    },
+    "emptyTiles": [
+        6,
+        7,
+        8,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21
+    ],
+    "tiles": [
+        {
+            "id": 0,
+            "name": "START",
+            "effect": "Point de départ",
+            "image": "assets/start.png"
+        },
+        {
+            "id": 1,
+            "name": "TOURNÉE GÉNÉRALE",
+            "effect": "Tous les joueurs boivent 1 gorgée",
+            "image": "assets/tournerGeneral.png"
+        },
+        {
+            "id": 2,
+            "name": "AVANCEZ DE 2 CASES",
+            "effect": "Le joueur avance immédiatement de 2 cases",
+            "image": "assets/row.png"
+        },
+        {
+            "id": 3,
+            "name": "BUVEZ 2 GORGÉES",
+            "effect": "Le joueur doit boire 2 gorgées",
+            "image": "assets/drink_2.png"
+        },
+        {
+            "id": 4,
+            "name": "FAVEUR DES DIEUX ",
+            "effect": "Le joueur doit lancer deux dés et active l'effet correspondant",
+            "image": "assets/powerG.png"
+        },
+        {
+            "id": 5,
+            "name": "PETIT POULET",
+            "effect": "Le joueur devient le Petit Poulet",
+            "image": "assets/petitPoulet.png"
+        },
+        {
+            "id": 6,
+            "name": "DISTRIBUEZ 2 GORGÉES",
+            "effect": "Le joueur distribue 2 gorgées",
+            "image": "assets/donnerDring_2.png"
+        },
+        {
+            "id": 7,
+            "name": "BUVEZ 2 GORGÉES",
+            "effect": "Le joueur doit boire 2 gorgées",
+            "image": "assets/drink_3.png"
+        },
+        {
+            "id": 8,
+            "name": "MOUTON",
+            "effect": "Le joueur copie l'effet d'un adversaire",
+            "image": "assets/mouton.png"
+        },
+        {
+            "id": 9,
+            "name": "AVANCEZ DE 2 CASES",
+            "effect": "Le joueur avance immédiatement de 2 cases",
+            "image": "assets/row.png"
+        },
+        {
+            "id": 10,
+            "name": "DISTRIBUEZ 4 GORGÉES",
+            "effect": "Le joueur distribue 4 gorgées",
+            "image": "assets/donnerDring_4.png"
+        },
+        {
+            "id": 11,
+            "name": "SCHMITT !!!",
+            "effect": "Le dernier joueur à crier 'SCHMITT' boit 1 gorgée par joueur présent",
+            "image": "assets/schimitt.png"
+        },
+        {
+            "id": 12,
+            "name": "CRÉEZ UNE RÈGLE",
+            "effect": "Le joueur invente une nouvelle règle",
+            "image": "assets/rule.png"
+        },
+        {
+            "id": 13,
+            "name": "AVANCEZ DE 2 CASES",
+            "effect": "Le joueur avance immédiatement de 2 cases",
+            "image": "assets/row.png"
+        },
+        {
+            "id": 14,
+            "name": "MOUTON",
+            "effect": "Le joueur copie l'effet d'un adversaire",
+            "image": "assets/mouton.png"
+        },
+        {
+            "id": 15,
+            "name": "BUVEZ 4 GORGÉES",
+            "effect": "Le joueur doit boire 4 gorgées",
+            "image": "assets/drink_4.png"
+        },
+        {
+            "id": 16,
+            "name": "DISTRIBUEZ 3 GORGÉES",
+            "effect": "Le joueur distribue 3 gorgées",
+            "image": "assets/donnerDrink_3.png"
+        },
+        {
+            "id": 17,
+            "name": "PETIT POULET",
+            "effect": "Le joueur devient le Petit Poulet",
+            "image": "assets/petitPoulet.png"
+        },
+        {
+            "id": 18,
+            "name": "FAVEUR DES DIEUX ",
+            "effect": "Le joueur doit lancer deux dés et active l'effet correspondant",
+            "image": "assets/powerG.png"
+        },
+        {
+            "id": 19,
+            "name": "DISTRIBUEZ 2 GORGÉES",
+            "effect": "Le joueur distribue 2 gorgées",
+            "image": "assets/donnerDring_2.png"
+        },
+        {
+            "id": 20,
+            "name": "AVANCEZ DE 2 CASES",
+            "effect": "Le joueur avance immédiatement de 2 cases",
+            "image": "assets/row.png"
+        },
+        {
+            "id": 21,
+            "name": "TOURNÉE GÉNÉRALE",
+            "effect": "Tous les joueurs boivent 1 gorgée",
+            "image": "assets/tournerGeneral.png"
+        },
+        {
+            "id": 22,
+            "name": "FINISH",
+            "effect": "Si le joueur arrive ici avec le bon nombre de cases, il obtient le Pouvoir du Schmitt",
+            "image": "assets/finish.png"
+        }
+    ]
+}
