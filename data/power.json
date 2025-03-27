@@ -61,8 +61,8 @@
         },
         {
             "id": 7,
-            "name": "BUVEZ 2 GORGÉES",
-            "effect": "Le joueur doit boire 2 gorgées",
+            "name": "BUVEZ 3 GORGÉES",
+            "effect": "Le joueur doit boire 3 gorgées",
             "image": "assets/drink_3.png"
         },
         {
