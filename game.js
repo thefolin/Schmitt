@@ -91,6 +91,11 @@ let titles = [];
  */
 let isPlayerMoving = false;
 
+/**
+ * Indique si le joueur doit rejouer.
+ */
+let rejoue = false;
+
 
 /**
  * Précharge les assets nécessaires au jeu.
@@ -143,6 +148,7 @@ function create() {
             return;
         }
         allowManualMove = false;
+        console.log("currentPlayerIndex", currentPlayerIndex);
         movePlayer(this, players[currentPlayerIndex], diceResult);
         document.getElementById("validateMoveButton").disabled = true;
     });
@@ -392,6 +398,7 @@ function updatePlayerPosition(scene, player) {
         },
         onComplete: () => {
             if (!allowManualMove) {
+
                 endTurn(scene);
             }
         },
@@ -411,6 +418,7 @@ function checkTileEffect(scene, player) {
             logAction(`${player.name} ${player.position} a obtenu le pouvoir du Schmitt !`);
             reverseMode = true;
             logAction("Tous les joueurs retournent à la case START !");
+            rejoue = true;
         }
 
     }
@@ -447,7 +455,9 @@ function checkTileEffect(scene, player) {
                     }, 1000); // Temps pour terminer le déplacement
                 }, 1500); // Temps avant de commencer le déplacement
                 break;
-
+            case 22:
+                rejoue = true;
+                break;
             default:
                 logAction(`${player.name} - case ${player.position}: ${tile.effect}`);
                 break;
@@ -497,7 +507,14 @@ function passTurn(scene) {
  * @param {Phaser.Scene} scene - La scène Phaser.
  */
 function endTurn(scene) {
-    currentPlayerIndex = (currentPlayerIndex + 1) % players.length;
+    console.log("rejoue", rejoue);
+    if (rejoue === true) {
+        rejoue = false;
+
+    } else {
+        currentPlayerIndex = (currentPlayerIndex + 1) % players.length;
+    }
+    console.log("currentPlayerIndex", currentPlayerIndex);
     document.getElementById("currentPlayer").textContent = currentPlayerIndex + 1;
     diceResult = null;
     document.getElementById("diceResult").textContent = "--";
