@@ -190,13 +190,13 @@ function createBoard(scene) {
         }
 
         // Ajouter un texte pour les cases START et FINISH ou les indices
-        scene.add.text(x - 10, y - 10, i === 0 ? "START" : i === numTiles - 1 ? "FINISH" : i, {
-            fontSize: 12,
-            color: "#000",
-        });
+        // scene.add.text(x - 10, y - 10, i === 0 ? "START" : i === numTiles - 1 ? "FINISH" : i, {
+        //     fontSize: 12,
+        //     color: "#000",
+        // });
 
         // Ajouter la case au tableau des cases
-        boardTiles.push({ x, y, tileData });
+        boardTiles.push({ x, y, });
     }
 }
 
