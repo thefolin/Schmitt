@@ -97,6 +97,9 @@ let isPlayerMoving = false;
 let rejoue = false;
 
 
+let playersData = [];
+
+
 /**
  * Précharge les assets nécessaires au jeu.
  */
@@ -108,7 +111,6 @@ function preload() {
 
     // Vérifier si le fichier JSON est chargé
     this.load.on('filecomplete-json-powerData', (key, type, data) => {
-        console.log("JSON chargé avec succès :", data);
         if (data && data.tiles) {
             data.tiles.forEach(tile => {
                 this.load.image(`tile-${tile.id}`, tile.image); // Charger l'image avec une clé unique
@@ -129,7 +131,6 @@ function preload() {
     });
     // Vérifier les images après le chargement
     this.load.on('complete', () => {
-        // console.log("Images chargées :", Object.keys(this.textures.list));
     });
 }
 /**
@@ -148,7 +149,6 @@ function create() {
             return;
         }
         allowManualMove = false;
-        console.log("currentPlayerIndex", currentPlayerIndex);
         movePlayer(this, players[currentPlayerIndex], diceResult);
         document.getElementById("validateMoveButton").disabled = true;
     });
@@ -196,7 +196,7 @@ function createBoard(scene) {
         // });
 
         // Ajouter la case au tableau des cases
-        boardTiles.push({ x, y, });
+        boardTiles.push({ x, y, tileData });
     }
 }
 
@@ -235,31 +235,50 @@ function afficherBoutonDeplacementManuel(afficher) {
  * @requires logAction - Fonction pour enregistrer ou afficher des messages d'action.
  */
 function btnPlateauPlayer(scene) {
-    const playersData = [];
     document.getElementById("addPlayerButton").addEventListener("click", () => {
         const name = document.getElementById("playerName").value;
         const color = document.getElementById("playerColor").value;
 
         if (name && color) {
-            playersData.push({ name, color });
+            // Ajouter le joueur avec une position initiale (par exemple, case 0)
+            const player = { name, color, currentTile: 0 };
+            playersData.push(player);
 
-            // Afficher la liste des joueurs ajoutés
+            // Créer un élément de liste pour afficher le joueur
             const playerList = document.getElementById("playerList");
             const listItem = document.createElement("li");
-            listItem.textContent = `${name} (${color})`;
-            playerList.appendChild(listItem);
 
-            // Réinitialiser les champs
-            document.getElementById("playerName").value = "";
-            document.getElementById("playerColor").value = "#ff0000";
-            // Ajouter un input color désactivé pour afficher la couleur du joueur
+
+
+            // Ajouter le texte du joueur
+            listItem.appendChild(document.createTextNode(`${name}  `));
+            listItem.id = `player-${playersData.length - 1}`; // ID unique pour chaque joueur
+            playerList.appendChild(listItem);
             const colorInput = document.createElement("input");
             colorInput.type = "color";
             colorInput.value = color;
+
             colorInput.disabled = true;
             listItem.appendChild(colorInput);
-        }
 
+
+            // Créer une balise image pour afficher la case actuelle
+            const tileImage = document.createElement("img");
+            const powerData = scene.cache.json.get('powerData'); // Récupérer les données JSON
+            const firstTileImage = powerData.tiles[0]?.image || 'default-tile.png'; // Utiliser une image par défaut si aucune n'est trouvée
+
+            tileImage.src = firstTileImage; // Utiliser l'image récupérée du JSON
+            tileImage.alt = `Case ${player.currentTile}`;
+            tileImage.style.width = "30px"; // Ajustez la taille de l'image
+            tileImage.style.height = "30px";
+            tileImage.style.marginRight = "10px"; // Ajoutez un espace entre l'image et le texte
+
+            // Ajouter l'image au listItem
+            listItem.appendChild(tileImage);
+            // Réinitialiser les champs
+            document.getElementById("playerName").value = "";
+            document.getElementById("playerColor").value = "#ff0000";
+        }
     });
 
     document.getElementById("startGameButton").addEventListener("click", () => {
@@ -346,7 +365,6 @@ function rollDice() {
  * @param {number} diceValue - Valeur du dé.
  */
 function movePlayer(scene, player, diceValue) {
-    console.log(`Déplacement normal : ${player.name} avance de ${diceValue} cases.`);
     let newPosition = reverseMode
         ? player.position - diceValue
         : player.position + diceValue;
@@ -378,6 +396,10 @@ function movePlayer(scene, player, diceValue) {
  */
 function updatePlayerPosition(scene, player) {
     const { x, y } = boardTiles[player.position];
+    console.log("player", playersData);
+
+    // Mettre à jour l'image de la case dans la liste des joueurs
+    updatePlayerTileImage(scene, player);
 
     // Calculer un décalage visible pour les joueurs sur la même case
     const playersOnSameTile = players.filter(p => p.position === player.position);
@@ -398,11 +420,35 @@ function updatePlayerPosition(scene, player) {
         },
         onComplete: () => {
             if (!allowManualMove) {
-
                 endTurn(scene);
             }
         },
     });
+}
+
+/**
+ * Met à jour l'image de la case dans la liste des joueurs.
+ * @param {Phaser.Scene} scene - La scène Phaser.
+ * @param {Object} player - Le joueur à mettre à jour.
+ */
+function updatePlayerTileImage(scene, player) {
+    const listItem = document.getElementById(`player-${currentPlayerIndex}`);
+    if (listItem) {
+        const tileImage = listItem.querySelector("img"); // Trouver l'image dans le listItem
+        console.log("tileImage", tileImage);
+
+        if (tileImage) {
+            const powerData = scene.cache.json.get('powerData');
+            const tileData = powerData.tiles.find(tile => tile.id === player.position); // Récupérer les données de la case actuelle
+            tileImage.src = tileData?.image
+                ? tileData.image // Utiliser l'image définie dans le JSON
+                : 'assets/default-tile.png'; // Utiliser une image par défaut si aucune n'est trouvée
+            tileImage.alt = `Case ${player.position}`;
+        }
+
+        // Mettre à jour le texte de la case
+        listItem.lastChild.textContent = ` (${player.color})`;
+    }
 }
 
 /**
@@ -427,11 +473,7 @@ function checkTileEffect(scene, player) {
         logAction(`${player.name} - casse ${player.position} a gagné la partie en atteignant la case START avec le pouvoir du Schmitt !`);
         resetGame(scene);
     }
-    console.log("position joeur", player.position);
-
     const tile = titles.find(t => t.id === player.position);
-    console.log("tile", tile);
-
     if (tile && tile.effect) {
         switch (tile.id) {
             case 2:
@@ -451,7 +493,10 @@ function checkTileEffect(scene, player) {
                     setTimeout(() => {
                         logAction(`${player.name} a terminé son tour.`);
                         isPlayerMoving = false;
+
+
                         endTurn(scene); // Terminer le tour
+
                     }, 1000); // Temps pour terminer le déplacement
                 }, 1500); // Temps avant de commencer le déplacement
                 break;
@@ -507,14 +552,12 @@ function passTurn(scene) {
  * @param {Phaser.Scene} scene - La scène Phaser.
  */
 function endTurn(scene) {
-    console.log("rejoue", rejoue);
     if (rejoue === true) {
         rejoue = false;
 
     } else {
         currentPlayerIndex = (currentPlayerIndex + 1) % players.length;
     }
-    console.log("currentPlayerIndex", currentPlayerIndex);
     document.getElementById("currentPlayer").textContent = currentPlayerIndex + 1;
     diceResult = null;
     document.getElementById("diceResult").textContent = "--";
