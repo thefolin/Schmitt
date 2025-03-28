@@ -2,6 +2,10 @@
 
 Bienvenue dans **Schmitt Odyssée**, un jeu de plateau interactif développé avec **Phaser.js**. Ce projet est une adaptation numérique des règles du célèbre jeu de société, avec des fonctionnalités personnalisées et des visuels immersifs.
 
+Jeux de plateau : 
+[Schmitt Odyssée - web](https://thefolin.github.io/Schmitt).
+
+
 ---
 
 ## 📖 Description
