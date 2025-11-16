@@ -1,0 +1,17 @@
+{
+  "name": "schmitt-odyssee",
+  "version": "1.0.0",
+  "description": "Schmitt Odyssée - Jeu de plateau interactif multiplateforme",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.3.3",
+    "vite": "^5.0.11"
+  }
+}
