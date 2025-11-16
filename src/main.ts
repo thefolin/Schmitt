@@ -1,7 +1,7 @@
 import { GameManager } from '@managers/GameManager';
 import { SoundManager } from '@managers/SoundManager';
 import { UIManager } from '@managers/UIManager';
-import './styles/main.css';
+import './styles/mobile-optimized.css';
 
 /**
  * Point d'entrée principal de l'application
