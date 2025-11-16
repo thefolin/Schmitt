@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Schmitt Odyssée - Architecture Features</title>
+</head>
+
+<body>
+    <div class="container">
+        <button class="sound-toggle" id="soundToggle">🔊</button>
+
+        <div class="header">
+            <h1>🏛️ Schmitt Odyssée 🏛️</h1>
+            <p>La victoire n'est qu'ivresse du jeu !</p>
+        </div>
+
+        <div class="game-area">
+            <div class="board-container">
+                <canvas id="gameCanvas"></canvas>
+            </div>
+
+            <div class="sidebar">
+                <div class="panel">
+                    <h2>Joueurs</h2>
+                    <div class="player-list" id="playerList"></div>
+                </div>
+
+                <div class="panel">
+                    <h2>Contrôles</h2>
+                    <div class="dice-result" id="diceResult">🎲</div>
+                    <div class="controls">
+                        <button class="btn btn-primary" id="rollDiceBtn">Lancer le dé</button>
+                        <button class="btn btn-primary" id="resetBtn" style="background: #e74c3c;">Nouvelle partie</button>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <h2>Historique</h2>
+                    <div class="history-panel" id="historyList"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de configuration -->
+    <div class="setup-screen" id="setupScreen">
+        <div class="setup-panel">
+            <h2>Configuration de la partie</h2>
+            <div class="form-group">
+                <label>Nombre de joueurs (2-10)</label>
+                <input type="number" id="playerCount" min="2" max="10" value="4">
+            </div>
+            <div class="player-inputs" id="playerInputs"></div>
+            <button class="btn btn-primary" id="startGameBtn" style="width: 100%;">Commencer la partie</button>
+        </div>
+    </div>
+
+    <!-- Modal d'effets -->
+    <div class="modal" id="effectModal">
+        <div class="modal-content">
+            <button class="close-modal">✕</button>
+            <div class="tile-effect-icon" id="modalIcon">🎲</div>
+            <h2 id="modalTitle">Titre</h2>
+            <p id="modalDescription">Description</p>
+        </div>
+    </div>
+
+    <!-- Écran de victoire -->
+    <div class="victory-screen" id="victoryScreen">
+        <div class="victory-content">
+            <h1>🎉 VICTOIRE ! 🎉</h1>
+            <div class="winner-name" id="winnerName"></div>
+            <button class="btn btn-primary" onclick="location.reload()"
+                    style="margin-top: 20px; font-size: 1.2em;">Nouvelle partie</button>
+        </div>
+    </div>
+
+    <!-- NOUVELLE ARCHITECTURE FEATURES-BASED -->
+    <script type="module" src="/src/main-new.ts"></script>
+</body>
+</html>

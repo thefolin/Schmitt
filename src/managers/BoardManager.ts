@@ -159,7 +159,7 @@ export class BoardManager {
     centerY: number,
     radius: number
   ): void {
-    players.forEach((player, playerIndex) => {
+    players.forEach((player) => {
       const visualPosition = player.position;
       const angle = (visualPosition / BOARD_SIZE) * Math.PI * 2 - Math.PI / 2;
       const baseX = centerX + Math.cos(angle) * radius;
