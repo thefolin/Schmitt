@@ -3,9 +3,16 @@ import { GameRenderer } from '../features/game/game.renderer';
 import { BoardCameraRenderer } from '../features/board/camera/board.renderer.camera';
 import { TILE_CONFIGS } from '../features/tiles/tile.config';
 import { assetManager } from '../core/assets/AssetManager';
+import type { BoardLayoutConfig } from '../features/board/camera/board-layout.config';
 import '../styles/common/main.css';
 import '../styles/common/mobile-optimized.css';
 import '../styles/camera/board-camera.css';
+
+interface SavedLayout {
+  name: string;
+  timestamp: number;
+  config: BoardLayoutConfig;
+}
 
 /**
  * Application principale - Version Caméra
@@ -15,6 +22,9 @@ class SchmittOdysseeCamera {
   private gameLogic: GameLogic;
   private gameRenderer: GameRenderer;
   private boardRenderer: BoardCameraRenderer;
+  private savedLayouts: SavedLayout[] = [];
+  private selectedLayout: BoardLayoutConfig | null = null;
+  private importedLayout: BoardLayoutConfig | null = null;
 
   constructor() {
     this.gameLogic = new GameLogic();
@@ -26,9 +36,53 @@ class SchmittOdysseeCamera {
 
   private init(): void {
     assetManager.loadDefaultAssets();
+    this.loadSavedLayouts();
+    this.populateMapSelect();
     this.setupEventListeners();
     this.generatePlayerInputs(4);
     this.gameRenderer.showSetupScreen();
+  }
+
+  /**
+   * Charge les layouts sauvegardés depuis localStorage
+   */
+  private loadSavedLayouts(): void {
+    const data = localStorage.getItem('schmitt-board-layouts');
+    if (data) {
+      try {
+        this.savedLayouts = JSON.parse(data);
+      } catch {
+        this.savedLayouts = [];
+      }
+    }
+  }
+
+  /**
+   * Remplit le sélecteur de map avec les layouts disponibles
+   */
+  private populateMapSelect(): void {
+    const select = document.getElementById('mapSelect') as HTMLSelectElement;
+    if (!select) return;
+
+    // Garder l'option par défaut
+    select.innerHTML = '<option value="default">Plateau par défaut</option>';
+
+    // Ajouter les layouts sauvegardés
+    this.savedLayouts.forEach((layout, index) => {
+      const option = document.createElement('option');
+      option.value = `saved-${index}`;
+      option.textContent = `${layout.name} (${layout.config.placements.length} cases)`;
+      select.appendChild(option);
+    });
+
+    // Option pour l'import
+    if (this.importedLayout) {
+      const option = document.createElement('option');
+      option.value = 'imported';
+      option.textContent = 'Layout importé';
+      option.selected = true;
+      select.appendChild(option);
+    }
   }
 
   private setupEventListeners(): void {
@@ -37,6 +91,17 @@ class SchmittOdysseeCamera {
     playerCountInput?.addEventListener('change', () => {
       const count = parseInt(playerCountInput.value);
       this.generatePlayerInputs(count);
+    });
+
+    // Sélection de la map
+    const mapSelect = document.getElementById('mapSelect') as HTMLSelectElement;
+    mapSelect?.addEventListener('change', () => {
+      this.onMapSelected(mapSelect.value);
+    });
+
+    // Import de map JSON
+    document.getElementById('importMapBtn')?.addEventListener('click', () => {
+      this.importMapJson();
     });
 
     // Démarrer le jeu
@@ -91,6 +156,63 @@ class SchmittOdysseeCamera {
     }
   }
 
+  /**
+   * Gère la sélection d'une map dans le dropdown
+   */
+  private onMapSelected(value: string): void {
+    if (value === 'default') {
+      this.selectedLayout = null;
+    } else if (value === 'imported' && this.importedLayout) {
+      this.selectedLayout = this.importedLayout;
+    } else if (value.startsWith('saved-')) {
+      const index = parseInt(value.replace('saved-', ''));
+      const layout = this.savedLayouts[index];
+      if (layout) {
+        this.selectedLayout = layout.config;
+      }
+    }
+  }
+
+  /**
+   * Importe un fichier JSON de layout
+   */
+  private importMapJson(): void {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      try {
+        const text = await file.text();
+        const config = JSON.parse(text) as BoardLayoutConfig;
+
+        // Validation basique
+        if (!config.placements || !Array.isArray(config.placements)) {
+          throw new Error('Format de fichier invalide');
+        }
+
+        this.importedLayout = config;
+        this.selectedLayout = config;
+        this.populateMapSelect();
+
+        // Sélectionner l'option importée
+        const select = document.getElementById('mapSelect') as HTMLSelectElement;
+        if (select) {
+          select.value = 'imported';
+        }
+
+        this.gameRenderer.showNotification(`Layout "${file.name}" importé avec succès !`);
+      } catch (error) {
+        alert(`Erreur d'importation: ${(error as Error).message}`);
+      }
+    };
+
+    input.click();
+  }
+
   private startGame(): void {
     const inputs = document.querySelectorAll('#playerInputs input[type="text"]') as NodeListOf<HTMLInputElement>;
     const colorInputs = document.querySelectorAll('#playerInputs input[type="color"]') as NodeListOf<HTMLInputElement>;
@@ -106,6 +228,11 @@ class SchmittOdysseeCamera {
     if (players.length < 2) {
       alert('Il faut au moins 2 joueurs pour commencer !');
       return;
+    }
+
+    // Appliquer le layout sélectionné
+    if (this.selectedLayout) {
+      this.boardRenderer.setLayout(this.selectedLayout);
     }
 
     this.gameLogic.startGame(players);

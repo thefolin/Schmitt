@@ -22,6 +22,7 @@ export default defineConfig({
         main: path.resolve(__dirname, 'index.html'),
         '3d': path.resolve(__dirname, 'index-3d.html'),
         camera: path.resolve(__dirname, 'index-camera.html'),
+        editor: path.resolve(__dirname, 'index-editor.html'),
       },
     },
   },

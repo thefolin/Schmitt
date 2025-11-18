@@ -5,10 +5,19 @@ import {
   calculateSerpentineLayout,
   calculateGodPowersLayout,
   getBoardDimensions,
+  calculateBoardSlots,
   type TilePosition,
   type GodPowerPosition,
-  type SerpentineLayoutConfig
+  type SerpentineLayoutConfig,
+  type BoardSlot
 } from './serpentine.layout';
+import {
+  DEFAULT_BOARD_LAYOUT,
+  calculatePlacementBounds,
+  fetchBoardLayout,
+  type BoardLayoutConfig,
+  type TilePlacement
+} from './board-layout.config';
 
 /**
  * Renderer avec système de caméra
@@ -21,16 +30,19 @@ export class BoardCameraRenderer {
   private camera: Camera;
 
   private tilePositions: TilePosition[] = [];
+  private boardSlots: BoardSlot[] = [];
   private godPowerPositions: GodPowerPosition[] = [];
   private tileElements: Map<number, HTMLElement> = new Map();
   private pawnElements: Map<number, HTMLElement> = new Map();
   private godPowerElements: Map<number, HTMLElement> = new Map();
 
   private config: SerpentineLayoutConfig = {
-    tileSize: 80,
-    tileGap: 10,
+    tileSize: 120,
+    tileGap: 15,
     godPowerSize: 60
   };
+
+  private boardLayout: BoardLayoutConfig = DEFAULT_BOARD_LAYOUT;
 
   // Touch/Mouse state
   private isDragging: boolean = false;
@@ -227,11 +239,49 @@ export class BoardCameraRenderer {
   }
 
   /**
+   * Définit le layout du plateau
+   */
+  public setLayout(layout: BoardLayoutConfig): void {
+    this.boardLayout = layout;
+    this.config.tileSize = layout.tileSize;
+    this.config.tileGap = layout.tileGap;
+  }
+
+  /**
+   * Charge le layout depuis un fichier JSON externe
+   */
+  public async loadLayoutFromJson(url: string): Promise<void> {
+    const layout = await fetchBoardLayout(url);
+    this.setLayout(layout);
+  }
+
+  /**
+   * Calcule les positions des cases à partir du layout configurable
+   */
+  private calculatePositionsFromLayout(): TilePosition[] {
+    const positions: TilePosition[] = [];
+
+    for (const placement of this.boardLayout.placements) {
+      const bounds = calculatePlacementBounds(placement, this.boardLayout);
+
+      positions[placement.tileId] = {
+        x: bounds.x,
+        y: bounds.y,
+        row: placement.gridRow,
+        col: placement.gridCol
+      };
+    }
+
+    return positions;
+  }
+
+  /**
    * Dessine le plateau complet
    */
   public render(tiles: TileConfig[], players: Player[]): void {
-    // Calculer les positions
-    this.tilePositions = calculateSerpentineLayout(tiles.length, this.config);
+    // Calculer les positions à partir du layout
+    this.tilePositions = this.calculatePositionsFromLayout();
+    this.boardSlots = calculateBoardSlots(tiles.length, this.config);
     this.godPowerPositions = calculateGodPowersLayout(this.config);
 
     // Configurer les bounds de la caméra
@@ -281,13 +331,29 @@ export class BoardCameraRenderer {
   }
 
   /**
-   * Crée un élément de case
+   * Crée un élément de case avec taille configurable
    */
   private createTileElement(tile: TileConfig, index: number): HTMLElement {
     const el = document.createElement('div');
     el.className = 'board-tile';
     el.dataset.index = index.toString();
     el.dataset.type = tile.type;
+
+    // Trouver le placement pour cette case
+    const placement = this.boardLayout.placements.find(p => p.tileId === index);
+
+    // Calculer la taille selon le placement
+    let width = this.config.tileSize;
+    let height = this.config.tileSize;
+
+    if (placement) {
+      const bounds = calculatePlacementBounds(placement, this.boardLayout);
+      width = bounds.width;
+      height = bounds.height;
+
+      // Ajouter classe pour le style selon la taille
+      el.dataset.size = placement.size;
+    }
 
     // Image ou icône
     if (tile.image) {
@@ -302,8 +368,8 @@ export class BoardCameraRenderer {
       `;
     }
 
-    el.style.width = `${this.config.tileSize}px`;
-    el.style.height = `${this.config.tileSize}px`;
+    el.style.width = `${width}px`;
+    el.style.height = `${height}px`;
 
     return el;
   }
@@ -385,24 +451,26 @@ export class BoardCameraRenderer {
 
   /**
    * Met à jour la position d'un pion
+   * Utilise les 4 slots de la case pour placer les joueurs
    */
   private updatePawnPosition(pawnEl: HTMLElement, player: Player, allPlayers: Player[]): void {
-    const pos = this.tilePositions[player.position];
-    if (!pos) return;
+    const boardSlot = this.boardSlots[player.position];
+    if (!boardSlot) return;
 
-    // Décalage si plusieurs joueurs sur la même case
+    // Trouver les joueurs sur la même case
     const playersOnSameTile = allPlayers.filter(p => p.position === player.position);
     const indexOnTile = playersOnSameTile.indexOf(player);
-    const totalOnTile = playersOnSameTile.length;
 
-    const offsetX = (indexOnTile - (totalOnTile - 1) / 2) * 20;
-    const offsetY = (indexOnTile - (totalOnTile - 1) / 2) * 20;
+    // Utiliser les slots (4 coins de la case)
+    const slotIndex = indexOnTile % 4;
+    const slot = boardSlot.slots[slotIndex];
 
     const pawnSize = 30;
-    const centerOffset = (this.config.tileSize - pawnSize) / 2;
+    const slotSize = this.config.tileSize / 2;
+    const centerInSlot = (slotSize - pawnSize) / 2;
 
-    pawnEl.style.left = `${pos.x + centerOffset + offsetX}px`;
-    pawnEl.style.top = `${pos.y + centerOffset + offsetY}px`;
+    pawnEl.style.left = `${slot.x + centerInSlot}px`;
+    pawnEl.style.top = `${slot.y + centerInSlot}px`;
 
     // Mettre à jour le pouvoir Schmitt
     const powerEl = pawnEl.querySelector('.pawn-power');

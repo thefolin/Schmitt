@@ -46,6 +46,22 @@
     <div class="setup-screen" id="setupScreen">
         <div class="setup-panel">
             <h2>Configuration de la partie</h2>
+
+            <div class="form-group">
+                <label>Plateau de jeu</label>
+                <select id="mapSelect" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ddd; font-size: 14px;">
+                    <option value="default">Plateau par défaut</option>
+                </select>
+                <div style="margin-top: 8px; display: flex; gap: 8px;">
+                    <button type="button" class="btn" id="importMapBtn" style="flex: 1; padding: 8px; font-size: 12px; background: #6c757d;">
+                        Importer JSON
+                    </button>
+                    <a href="/index-editor.html" class="btn" style="flex: 1; padding: 8px; font-size: 12px; background: #17a2b8; text-align: center; text-decoration: none; color: white; border-radius: 8px;">
+                        Éditeur
+                    </a>
+                </div>
+            </div>
+
             <div class="form-group">
                 <label>Nombre de joueurs (2-10)</label>
                 <input type="number" id="playerCount" min="2" max="10" value="4">

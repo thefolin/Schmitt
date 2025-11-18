@@ -4,9 +4,10 @@
    ================================ */
 
 :root {
-  --tile-size: 80px;
-  --tile-gap: 10px;
+  --tile-size: 120px;
+  --tile-gap: 15px;
   --pawn-size: 30px;
+  --slot-size: 60px;
   --camera-bg: #2c3e50;
 }
 
@@ -111,6 +112,42 @@
   background: rgba(255, 255, 255, 0.8);
   padding: 2px 4px;
   border-radius: 4px;
+}
+
+/* Tailles de cases configurables */
+.board-tile[data-size="quarter"] {
+  border-radius: 8px;
+}
+
+.board-tile[data-size="quarter"] .tile-icon {
+  font-size: 20px;
+}
+
+.board-tile[data-size="quarter"] .tile-number {
+  font-size: 8px;
+  padding: 1px 2px;
+}
+
+.board-tile[data-size="quarter"] .tile-image {
+  width: 85%;
+  height: 85%;
+}
+
+.board-tile[data-size="half"] {
+  border-radius: 10px;
+}
+
+.board-tile[data-size="half"] .tile-icon {
+  font-size: 26px;
+}
+
+.board-tile[data-size="half"] .tile-number {
+  font-size: 9px;
+}
+
+.board-tile[data-size="half"] .tile-image {
+  width: 88%;
+  height: 88%;
 }
 
 /* Couleurs selon le type */
