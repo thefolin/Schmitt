@@ -1,10 +1,11 @@
-import { GameLogic } from './features/game/game.logic';
-import { GameRenderer } from './features/game/game.renderer';
-import { BoardRenderer } from './features/board/board.renderer';
-import { TILE_CONFIGS } from './features/tiles/tile.config';
-import { assetManager } from './core/assets/AssetManager';
-import type { LayoutType } from './features/board/board.layouts';
-import './styles/mobile-optimized.css';
+import { GameLogic } from '../features/game/game.logic';
+import { GameRenderer } from '../features/game/game.renderer';
+import { BoardRenderer } from '../features/board/2d/board.renderer';
+import { TILE_CONFIGS } from '../features/tiles/tile.config';
+import { assetManager } from '../core/assets/AssetManager';
+import type { LayoutType } from '../features/board/board.layouts';
+import '../styles/common/main.css';
+import '../styles/common/mobile-optimized.css';
 
 /**
  * Application principale - Architecture Features-Based

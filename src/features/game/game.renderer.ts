@@ -9,26 +9,26 @@ export class GameRenderer {
    * Affiche l'écran de setup
    */
   public showSetupScreen(): void {
-    const setupScreen = document.querySelector('.setup-screen');
-    const gameArea = document.querySelector('.game-area');
-    const sidebar = document.querySelector('.sidebar');
+    const setupScreen = document.querySelector('.setup-screen') as HTMLElement;
+    const gameArea = document.querySelector('.game-area') as HTMLElement;
+    const sidebar = document.querySelector('.sidebar') as HTMLElement;
 
-    setupScreen?.classList.add('show');
-    gameArea?.classList.add('hidden');
-    sidebar?.classList.add('hidden');
+    if (setupScreen) setupScreen.style.display = 'flex';
+    if (gameArea) gameArea.style.display = 'none';
+    if (sidebar) sidebar.style.display = 'none';
   }
 
   /**
    * Cache l'écran de setup et affiche le jeu
    */
   public hideSetupScreen(): void {
-    const setupScreen = document.querySelector('.setup-screen');
-    const gameArea = document.querySelector('.game-area');
-    const sidebar = document.querySelector('.sidebar');
+    const setupScreen = document.querySelector('.setup-screen') as HTMLElement;
+    const gameArea = document.querySelector('.game-area') as HTMLElement;
+    const sidebar = document.querySelector('.sidebar') as HTMLElement;
 
-    setupScreen?.classList.remove('show');
-    gameArea?.classList.remove('hidden');
-    sidebar?.classList.remove('hidden');
+    if (setupScreen) setupScreen.style.display = 'none';
+    if (gameArea) gameArea.style.display = 'flex';
+    if (sidebar) sidebar.style.display = 'flex';
   }
 
   /**

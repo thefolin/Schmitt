@@ -1,6 +1,6 @@
 import type { Player } from '@/core/models/Player';
 import type { TileConfig } from '@/core/models/Tile';
-import { LayoutFactory, type LayoutType, type TilePosition } from './board.layouts';
+import { LayoutFactory, type LayoutType, type TilePosition } from '../board.layouts';
 
 /**
  * Rendu du plateau (Canvas)
