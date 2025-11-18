@@ -1,0 +1,337 @@
+/* ================================
+   PLATEAU AVEC CAMÉRA
+   Vue 3/4 avec navigation
+   ================================ */
+
+:root {
+  --tile-size: 80px;
+  --tile-gap: 10px;
+  --pawn-size: 30px;
+  --camera-bg: #2c3e50;
+}
+
+/* ================================
+   CONTENEUR PRINCIPAL
+   ================================ */
+.board-camera-container {
+  position: relative;
+  width: 100%;
+  height: 60vh;
+  background: linear-gradient(135deg, #1a2a3a 0%, #2c3e50 100%);
+  overflow: hidden;
+  border-radius: 12px;
+  box-shadow: inset 0 0 50px rgba(0, 0, 0, 0.5);
+}
+
+/* ================================
+   VIEWPORT (zone visible)
+   ================================ */
+.board-camera-viewport {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  cursor: grab;
+
+  /* Vue 3/4 - légère inclinaison */
+  perspective: 1000px;
+}
+
+.board-camera-viewport:active {
+  cursor: grabbing;
+}
+
+/* ================================
+   MONDE (contenu transformé)
+   ================================ */
+.board-camera-world {
+  position: absolute;
+  transform-origin: 0 0;
+  will-change: transform;
+
+  /* Vue 3/4 */
+  transform-style: preserve-3d;
+}
+
+/* ================================
+   CASES DU PLATEAU
+   ================================ */
+.board-tile {
+  position: absolute;
+  border-radius: 12px;
+  background: linear-gradient(145deg, #f8f9fa 0%, #e9ecef 100%);
+  border: 3px solid #dee2e6;
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  cursor: pointer;
+
+  /* Vue 3/4 */
+  transform: rotateX(30deg);
+  transform-style: preserve-3d;
+}
+
+.board-tile:hover {
+  transform: rotateX(30deg) translateY(-5px) scale(1.05);
+  box-shadow:
+    0 8px 20px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+/* Image de la case */
+.tile-image {
+  width: 90%;
+  height: 90%;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+}
+
+/* Icône emoji */
+.tile-icon {
+  font-size: 32px;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+/* Numéro de case */
+.tile-number {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  font-size: 10px;
+  font-weight: bold;
+  color: #6c757d;
+  background: rgba(255, 255, 255, 0.8);
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+/* Couleurs selon le type */
+.board-tile[data-type="start"] {
+  background: linear-gradient(145deg, #d4edda 0%, #c3e6cb 100%);
+  border-color: #28a745;
+}
+
+.board-tile[data-type="finish"] {
+  background: linear-gradient(145deg, #fff3cd 0%, #ffeeba 100%);
+  border-color: #ffc107;
+  animation: finishPulse 2s ease-in-out infinite;
+}
+
+@keyframes finishPulse {
+  0%, 100% { box-shadow: 0 4px 12px rgba(255, 193, 7, 0.4); }
+  50% { box-shadow: 0 8px 24px rgba(255, 193, 7, 0.8); }
+}
+
+.board-tile[data-type*="drink"] {
+  background: linear-gradient(145deg, #f8d7da 0%, #f5c6cb 100%);
+  border-color: #dc3545;
+}
+
+.board-tile[data-type*="give"] {
+  background: linear-gradient(145deg, #d1ecf1 0%, #bee5eb 100%);
+  border-color: #17a2b8;
+}
+
+.board-tile[data-type="power"] {
+  background: linear-gradient(145deg, #e2d5f1 0%, #d4c5e8 100%);
+  border-color: #6f42c1;
+}
+
+/* ================================
+   PIONS DES JOUEURS
+   ================================ */
+.board-pawn {
+  position: absolute;
+  width: var(--pawn-size);
+  height: var(--pawn-size);
+  z-index: 100;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* Vue 3/4 */
+  transform: rotateX(30deg);
+}
+
+.pawn-body {
+  width: 100%;
+  height: 100%;
+  background: var(--player-color, #3498db);
+  border-radius: 50%;
+  border: 3px solid white;
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.4),
+    inset -3px -3px 8px rgba(0, 0, 0, 0.2),
+    inset 3px 3px 8px rgba(255, 255, 255, 0.4);
+}
+
+.pawn-power {
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 16px;
+  animation: powerBounce 1s ease-in-out infinite;
+}
+
+@keyframes powerBounce {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(-5px); }
+}
+
+/* Animation de déplacement */
+.pawn-moving {
+  animation: pawnJump 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes pawnJump {
+  0%, 100% { transform: rotateX(30deg) translateY(0) scale(1); }
+  50% { transform: rotateX(30deg) translateY(-30px) scale(1.2); }
+}
+
+/* ================================
+   ZONE POUVOIRS DES DIEUX
+   ================================ */
+.god-powers-zone {
+  position: absolute;
+  pointer-events: none;
+}
+
+.god-powers-title {
+  position: absolute;
+  top: -30px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 14px;
+  font-weight: bold;
+  color: #ffd700;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  white-space: nowrap;
+  letter-spacing: 2px;
+}
+
+.god-power {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(145deg, #2c3e50 0%, #1a252f 100%);
+  border: 2px solid #ffd700;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(255, 215, 0, 0.3);
+
+  /* Vue 3/4 */
+  transform: rotateX(30deg);
+}
+
+.god-power-icon {
+  font-size: 24px;
+  filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.6));
+}
+
+.god-power-name {
+  font-size: 8px;
+  color: #ffd700;
+  margin-top: 2px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* ================================
+   CONTRÔLES DE NAVIGATION
+   ================================ */
+.camera-controls {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 200;
+}
+
+.camera-btn {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+  font-size: 20px;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.camera-btn:hover {
+  background: white;
+  transform: scale(1.1);
+}
+
+.camera-btn:active {
+  transform: scale(0.95);
+}
+
+/* ================================
+   RESPONSIVE
+   ================================ */
+@media (max-width: 768px) {
+  .board-camera-container {
+    height: 50vh;
+  }
+
+  .board-tile {
+    font-size: 24px;
+  }
+
+  .tile-number {
+    font-size: 8px;
+  }
+
+  .camera-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 18px;
+  }
+}
+
+@media (max-width: 480px) {
+  .board-camera-container {
+    height: 45vh;
+    border-radius: 8px;
+  }
+
+  .camera-controls {
+    bottom: 8px;
+    right: 8px;
+    gap: 4px;
+  }
+
+  .camera-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+  }
+}
+
+/* ================================
+   OPTIMISATIONS GPU
+   ================================ */
+.board-camera-world,
+.board-tile,
+.board-pawn,
+.god-power {
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  will-change: transform;
+}

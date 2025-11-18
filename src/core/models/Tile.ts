@@ -52,6 +52,7 @@ export interface TileConfig {
   icon: string;
   name: string;
   description?: string; // Description optionnelle pour l'UI
+  image?: string; // Chemin de l'image optionnel
 }
 
 /**

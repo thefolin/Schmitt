@@ -21,6 +21,7 @@ export default defineConfig({
       input: {
         main: path.resolve(__dirname, 'index.html'),
         '3d': path.resolve(__dirname, 'index-3d.html'),
+        camera: path.resolve(__dirname, 'index-camera.html'),
       },
     },
   },
