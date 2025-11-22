@@ -49,6 +49,7 @@ export class BoardCameraRenderer {
   private lastTouchX: number = 0;
   private lastTouchY: number = 0;
   private lastPinchDistance: number = 0;
+  private isFirstRender: boolean = true;
 
   constructor(containerId: string = 'boardCamera') {
     const container = document.getElementById(containerId);
@@ -282,7 +283,13 @@ export class BoardCameraRenderer {
     // Calculer les positions à partir du layout
     this.tilePositions = this.calculatePositionsFromLayout();
     this.boardSlots = calculateBoardSlots(tiles.length, this.config);
-    this.godPowerPositions = calculateGodPowersLayout(this.config);
+
+    // Ne calculer les pouvoirs des dieux que si godPowersZone est défini dans le layout
+    if (this.boardLayout.godPowersZone) {
+      this.godPowerPositions = calculateGodPowersLayout(this.config);
+    } else {
+      this.godPowerPositions = [];
+    }
 
     // Configurer les bounds de la caméra
     const dimensions = getBoardDimensions(this.config);
@@ -295,16 +302,25 @@ export class BoardCameraRenderer {
 
     // Rendre les éléments
     this.renderTiles(tiles);
-    this.renderGodPowers();
+
+    // Ne rendre les pouvoirs des dieux que si le layout les définit
+    if (this.boardLayout.godPowersZone) {
+      this.renderGodPowers();
+    } else {
+      // Nettoyer les éléments de pouvoirs des dieux existants
+      this.clearGodPowers();
+    }
+
     this.renderPlayers(players);
 
-    // Centrer sur le premier joueur
-    if (players.length > 0) {
+    // Centrer sur le premier joueur uniquement au premier render
+    if (this.isFirstRender && players.length > 0) {
       const firstPlayer = players[0];
       const pos = this.tilePositions[firstPlayer.position];
       if (pos) {
         this.camera.centerOn(pos.x, pos.y, false);
       }
+      this.isFirstRender = false;
     }
   }
 
@@ -454,16 +470,25 @@ export class BoardCameraRenderer {
    * Utilise les 4 slots de la case pour placer les joueurs
    */
   private updatePawnPosition(pawnEl: HTMLElement, player: Player, allPlayers: Player[]): void {
-    const boardSlot = this.boardSlots[player.position];
-    if (!boardSlot) return;
+    // Utiliser tilePositions pour les layouts personnalisés
+    const pos = this.tilePositions[player.position];
+    if (!pos) return;
 
     // Trouver les joueurs sur la même case
     const playersOnSameTile = allPlayers.filter(p => p.position === player.position);
     const indexOnTile = playersOnSameTile.indexOf(player);
 
-    // Utiliser les slots (4 coins de la case)
+    // Calculer les 4 slots (coins de la case)
+    const halfSize = this.config.tileSize / 2;
+    const slots = [
+      { x: pos.x, y: pos.y },                           // top-left
+      { x: pos.x + halfSize, y: pos.y },                // top-right
+      { x: pos.x, y: pos.y + halfSize },                // bottom-left
+      { x: pos.x + halfSize, y: pos.y + halfSize }      // bottom-right
+    ];
+
     const slotIndex = indexOnTile % 4;
-    const slot = boardSlot.slots[slotIndex];
+    const slot = slots[slotIndex];
 
     const pawnSize = 30;
     const slotSize = this.config.tileSize / 2;
@@ -500,25 +525,17 @@ export class BoardCameraRenderer {
 
   /**
    * Anime le déplacement d'un pion
+   * Note: La caméra n'est plus centrée automatiquement ici,
+   * le centrage se fait uniquement au lancer de dé via centerOnPlayer()
    */
   public async animatePawnMove(
     playerIndex: number,
     _fromPos: number,
-    toPos: number,
+    _toPos: number,
     duration: number = 500
   ): Promise<void> {
     const pawnEl = this.pawnElements.get(playerIndex);
     if (!pawnEl) return;
-
-    // Centrer la caméra sur la destination
-    const destPos = this.tilePositions[toPos];
-    if (destPos) {
-      this.camera.centerOn(
-        destPos.x + this.config.tileSize / 2,
-        destPos.y + this.config.tileSize / 2,
-        true
-      );
-    }
 
     // Animation de saut
     pawnEl.classList.add('pawn-moving');
@@ -529,6 +546,40 @@ export class BoardCameraRenderer {
         resolve();
       }, duration);
     });
+  }
+
+  /**
+   * Centre la caméra sur un joueur (appelé uniquement au lancer de dé)
+   */
+  public centerOnPlayer(playerIndex: number, players: Player[]): void {
+    const player = players.find(p => p.index === playerIndex);
+    if (!player) return;
+
+    const pos = this.tilePositions[player.position];
+    if (pos) {
+      this.camera.centerOn(
+        pos.x + this.config.tileSize / 2,
+        pos.y + this.config.tileSize / 2,
+        true
+      );
+    }
+  }
+
+  /**
+   * Nettoie les éléments de pouvoirs des dieux
+   */
+  private clearGodPowers(): void {
+    // Supprimer les éléments du DOM
+    this.godPowerElements.forEach((el) => {
+      el.remove();
+    });
+    this.godPowerElements.clear();
+
+    // Supprimer la zone des pouvoirs
+    const powerZone = this.worldContainer.querySelector('.god-powers-zone');
+    if (powerZone) {
+      powerZone.remove();
+    }
   }
 
   /**

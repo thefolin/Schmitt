@@ -152,6 +152,53 @@
             color: #888;
         }
 
+        /* Sections de tuiles */
+        .tiles-section {
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            margin: 0 0 10px 0;
+            font-size: 11px;
+            color: #ffd700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #533483;
+        }
+
+        .section-list {
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Section Pouvoirs des Dieux */
+        .god-powers-section .tile-item {
+            background: linear-gradient(135deg, #2c3e50 0%, #1a252f 100%);
+            border-color: #ffd700;
+        }
+
+        .god-powers-section .tile-item:hover {
+            background: linear-gradient(135deg, #3d566e 0%, #2c3e50 100%);
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+        }
+
+        .god-power-item .tile-id {
+            color: #ffd700;
+        }
+
+        /* Tuile de pouvoir placée */
+        .placed-tile.god-power-placed {
+            background: linear-gradient(145deg, #2c3e50 0%, #1a252f 100%) !important;
+            border-color: #ffd700 !important;
+            box-shadow: 0 4px 12px rgba(255, 215, 0, 0.3);
+        }
+
+        .placed-tile.god-power-placed .tile-number {
+            background: rgba(255, 215, 0, 0.9);
+            color: #1a252f;
+        }
+
         /* Zone d'édition principale */
         .editor-main {
             flex: 1;
@@ -232,16 +279,24 @@
         .grid-container {
             flex: 1;
             overflow: auto;
-            padding: 20px;
+            padding: 40px;
             position: relative;
+        }
+
+        /* Wrapper pour centrer la grille */
+        .grid-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 100%;
+            min-height: 100%;
         }
 
         /* Grille fine pour placement précis */
         .fine-grid {
             position: relative;
             width: fit-content;
-            min-width: 100%;
-            min-height: 100%;
+            flex-shrink: 0;
         }
 
         .grid-board {
@@ -645,10 +700,12 @@
             </div>
 
             <div class="grid-container" id="gridContainer">
-                <div class="fine-grid" id="fineGrid">
-                    <div id="gridBoard" class="grid-board"></div>
-                    <div id="placedTiles"></div>
-                    <div class="placement-ghost" id="placementGhost" style="display: none;"></div>
+                <div class="grid-wrapper">
+                    <div class="fine-grid" id="fineGrid">
+                        <div id="gridBoard" class="grid-board"></div>
+                        <div id="placedTiles"></div>
+                        <div class="placement-ghost" id="placementGhost" style="display: none;"></div>
+                    </div>
                 </div>
             </div>
 

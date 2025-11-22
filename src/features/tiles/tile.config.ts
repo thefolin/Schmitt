@@ -23,7 +23,7 @@ export const TILE_CONFIGS: TileConfig[] = [
     type: 'forward_2' as TileType,
     icon: '⏩',
     name: 'AVANCEZ DE 2 CASES',
-    description: 'Le joueur avance immédiatement de 2 cases',
+    description: 'Le joueur avance de 2 cases dans le sens de la flèche (rotation). Max 2 déplacements consécutifs pour éviter les boucles.',
     image: 'assets/row.png'
   },
   {
@@ -72,7 +72,7 @@ export const TILE_CONFIGS: TileConfig[] = [
     type: 'forward_2' as TileType,
     icon: '⏩',
     name: 'AVANCEZ DE 2 CASES',
-    description: 'Le joueur avance immédiatement de 2 cases',
+    description: 'Le joueur avance de 2 cases dans le sens de la flèche (rotation). Max 2 déplacements consécutifs pour éviter les boucles.',
     image: 'assets/row.png'
   },
   {
@@ -100,7 +100,7 @@ export const TILE_CONFIGS: TileConfig[] = [
     type: 'forward_2' as TileType,
     icon: '⏩',
     name: 'AVANCEZ DE 2 CASES',
-    description: 'Le joueur avance immédiatement de 2 cases',
+    description: 'Le joueur avance de 2 cases dans le sens de la flèche (rotation). Max 2 déplacements consécutifs pour éviter les boucles.',
     image: 'assets/row.png'
   },
   {
@@ -149,7 +149,7 @@ export const TILE_CONFIGS: TileConfig[] = [
     type: 'forward_2' as TileType,
     icon: '⏩',
     name: 'AVANCEZ DE 2 CASES',
-    description: 'Le joueur avance immédiatement de 2 cases',
+    description: 'Le joueur avance de 2 cases dans le sens de la flèche (rotation). Max 2 déplacements consécutifs pour éviter les boucles.',
     image: 'assets/row.png'
   },
   {

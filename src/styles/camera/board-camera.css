@@ -372,3 +372,491 @@
   backface-visibility: hidden;
   will-change: transform;
 }
+
+/* ================================
+   INTERFACE IMMERSIVE
+   ================================ */
+
+/* Zone de jeu plein écran */
+.game-area-fullscreen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.game-area-fullscreen .board-camera-container {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+}
+
+/* ================================
+   DÉS 3D SUR LE PLATEAU
+   ================================ */
+.dice-container {
+  position: absolute;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 300;
+  perspective: 600px;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+}
+
+.dice-3d {
+  width: 60px;
+  height: 60px;
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.1s ease;
+}
+
+.dice-3d.rolling {
+  animation: diceRoll 1s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+@keyframes diceRoll {
+  0% { transform: rotateX(0) rotateY(0) rotateZ(0); }
+  25% { transform: rotateX(180deg) rotateY(90deg) rotateZ(45deg); }
+  50% { transform: rotateX(360deg) rotateY(180deg) rotateZ(90deg); }
+  75% { transform: rotateX(540deg) rotateY(270deg) rotateZ(135deg); }
+  100% { transform: rotateX(var(--final-x)) rotateY(var(--final-y)) rotateZ(0); }
+}
+
+.dice-face {
+  position: absolute;
+  width: 60px;
+  height: 60px;
+  background: linear-gradient(145deg, #fff 0%, #f0f0f0 100%);
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: bold;
+  color: #333;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.face-1 { transform: rotateY(0deg) translateZ(30px); }
+.face-2 { transform: rotateY(180deg) translateZ(30px); }
+.face-3 { transform: rotateY(-90deg) translateZ(30px); }
+.face-4 { transform: rotateY(90deg) translateZ(30px); }
+.face-5 { transform: rotateX(90deg) translateZ(30px); }
+.face-6 { transform: rotateX(-90deg) translateZ(30px); }
+
+.dice-hint {
+  position: absolute;
+  bottom: -35px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.8);
+  background: rgba(0, 0, 0, 0.6);
+  padding: 4px 12px;
+  border-radius: 12px;
+  opacity: 1;
+  transition: opacity 0.3s;
+}
+
+.dice-container.holding .dice-hint {
+  opacity: 0;
+}
+
+.dice-container.holding .dice-3d {
+  transform: scale(1.2);
+  animation: diceShake 0.1s infinite;
+}
+
+@keyframes diceShake {
+  0%, 100% { transform: scale(1.2) rotate(-2deg); }
+  50% { transform: scale(1.2) rotate(2deg); }
+}
+
+/* ================================
+   BOUTONS JOUEURS STYLE TIKTOK
+   ================================ */
+.player-buttons {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 250;
+}
+
+.player-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 3px solid white;
+  cursor: pointer;
+  position: relative;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: bold;
+  color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.player-btn:hover {
+  transform: scale(1.1);
+}
+
+.player-btn:active {
+  transform: scale(0.95);
+}
+
+.player-btn.current {
+  animation: currentPlayerPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes currentPlayerPulse {
+  0%, 100% { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); }
+  50% { box-shadow: 0 0 20px rgba(255, 255, 255, 0.8), 0 4px 12px rgba(0, 0, 0, 0.3); }
+}
+
+.player-btn-drinks {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  background: #e74c3c;
+  color: white;
+  font-size: 10px;
+  padding: 2px 5px;
+  border-radius: 8px;
+  font-weight: bold;
+  min-width: 16px;
+  text-align: center;
+}
+
+.player-btn-power {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  font-size: 14px;
+}
+
+/* ================================
+   BOUTON MENU
+   ================================ */
+.menu-btn {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  font-size: 20px;
+  cursor: pointer;
+  z-index: 250;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s ease;
+}
+
+.menu-btn:hover {
+  background: rgba(0, 0, 0, 0.8);
+  transform: scale(1.05);
+}
+
+/* ================================
+   INDICATEUR JOUEUR ACTUEL
+   ================================ */
+.current-player-indicator {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.7);
+  padding: 8px 20px;
+  border-radius: 20px;
+  text-align: center;
+  z-index: 250;
+  backdrop-filter: blur(10px);
+}
+
+.current-player-indicator .player-name {
+  display: block;
+  font-weight: bold;
+  font-size: 16px;
+  color: white;
+}
+
+.current-player-indicator .player-turn {
+  display: block;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-top: 2px;
+}
+
+/* ================================
+   MODAL INFO JOUEUR (SLIDE UP)
+   ================================ */
+.player-modal {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1000;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.player-modal.active {
+  pointer-events: auto;
+  opacity: 1;
+}
+
+.player-modal::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.player-modal.active::before {
+  opacity: 1;
+}
+
+.player-modal-content {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background: linear-gradient(180deg, #2c3e50 0%, #1a252f 100%);
+  border-radius: 20px 20px 0 0;
+  padding: 20px;
+  transform: translateY(100%);
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.player-modal.active .player-modal-content {
+  transform: translateY(0);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 20px;
+  color: white;
+}
+
+.close-modal-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.close-modal-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.player-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 15px;
+}
+
+.stat-item {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 15px;
+  border-radius: 12px;
+  text-align: center;
+}
+
+.stat-icon {
+  display: block;
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+.stat-label {
+  display: block;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+
+.stat-value {
+  display: block;
+  font-size: 18px;
+  font-weight: bold;
+  color: white;
+}
+
+/* ================================
+   MODAL MENU
+   ================================ */
+.menu-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1000;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.menu-modal.active {
+  pointer-events: auto;
+  opacity: 1;
+}
+
+.menu-modal::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.menu-modal-content {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.9);
+  background: linear-gradient(180deg, #2c3e50 0%, #1a252f 100%);
+  border-radius: 16px;
+  padding: 20px;
+  min-width: 280px;
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.menu-modal.active .menu-modal-content {
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.menu-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.menu-item {
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  padding: 15px 20px;
+  border-radius: 10px;
+  color: white;
+  font-size: 16px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.menu-item:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* ================================
+   RESPONSIVE MOBILE
+   ================================ */
+@media (max-width: 768px) {
+  .dice-container {
+    bottom: 80px;
+  }
+
+  .dice-3d {
+    width: 50px;
+    height: 50px;
+  }
+
+  .dice-face {
+    width: 50px;
+    height: 50px;
+    font-size: 24px;
+  }
+
+  .face-1 { transform: rotateY(0deg) translateZ(25px); }
+  .face-2 { transform: rotateY(180deg) translateZ(25px); }
+  .face-3 { transform: rotateY(-90deg) translateZ(25px); }
+  .face-4 { transform: rotateY(90deg) translateZ(25px); }
+  .face-5 { transform: rotateX(90deg) translateZ(25px); }
+  .face-6 { transform: rotateX(-90deg) translateZ(25px); }
+
+  .player-buttons {
+    right: 8px;
+    gap: 10px;
+  }
+
+  .player-btn {
+    width: 42px;
+    height: 42px;
+    font-size: 16px;
+  }
+
+  .current-player-indicator {
+    padding: 6px 16px;
+  }
+
+  .current-player-indicator .player-name {
+    font-size: 14px;
+  }
+
+  .player-stats {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .player-btn {
+    width: 38px;
+    height: 38px;
+    font-size: 14px;
+  }
+
+  .menu-btn {
+    width: 38px;
+    height: 38px;
+    font-size: 18px;
+  }
+}

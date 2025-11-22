@@ -25,6 +25,7 @@ class SchmittOdysseeCamera {
   private savedLayouts: SavedLayout[] = [];
   private selectedLayout: BoardLayoutConfig | null = null;
   private importedLayout: BoardLayoutConfig | null = null;
+  private consecutiveForwardMoves = 0; // Compteur pour éviter les boucles infinies
 
   constructor() {
     this.gameLogic = new GameLogic();
@@ -130,6 +131,12 @@ class SchmittOdysseeCamera {
 
     document.querySelector('.close-modal')?.addEventListener('click', () => {
       this.gameRenderer.closeEffectModal();
+    });
+
+    // Toggle sidebar
+    document.getElementById('sidebarToggle')?.addEventListener('click', () => {
+      const sidebar = document.getElementById('sidebar');
+      sidebar?.classList.toggle('collapsed');
     });
   }
 
@@ -248,8 +255,14 @@ class SchmittOdysseeCamera {
 
     this.gameRenderer.setDiceButtonEnabled(false);
 
+    // Réinitialiser le compteur de déplacements consécutifs au début du tour
+    this.consecutiveForwardMoves = 0;
+
     const roll = this.gameLogic.rollDice();
     this.gameRenderer.showDiceResult(roll);
+
+    // Centrer la caméra sur le joueur actuel au lancer de dé
+    this.boardRenderer.centerOnPlayer(currentPlayer.index, this.gameLogic.getPlayers());
 
     setTimeout(() => {
       this.moveCurrentPlayer(roll);
@@ -294,6 +307,26 @@ class SchmittOdysseeCamera {
       case 'drink_5':
         this.gameLogic.addDrinks(currentPlayer.index, 5);
         break;
+      case 'forward_2':
+        // Limiter à 2 déplacements consécutifs pour éviter les boucles infinies
+        if (this.consecutiveForwardMoves < 2) {
+          this.consecutiveForwardMoves++;
+          const newPos = this.gameLogic.movePlayer(currentPlayer.index, 2);
+          this.gameRenderer.showNotification(`${currentPlayer.name} avance de 2 cases !`);
+
+          // Animation et application de l'effet de la nouvelle case
+          setTimeout(async () => {
+            await this.boardRenderer.animatePawnMove(currentPlayer.index, position, newPos);
+            this.updateBoard();
+            setTimeout(() => {
+              this.applyTileEffect(newPos);
+            }, 300);
+          }, 500);
+          return; // Ne pas passer au joueur suivant
+        } else {
+          this.gameRenderer.showNotification(`${currentPlayer.name} a atteint la limite de déplacements consécutifs !`);
+        }
+        break;
       case 'power':
         this.gameLogic.setSchmittPower(currentPlayer.index, true);
         this.gameRenderer.showNotification(`${currentPlayer.name} obtient le pouvoir Schmitt !`);
@@ -322,12 +355,7 @@ class SchmittOdysseeCamera {
       this.gameLogic.nextPlayer();
       this.updateUI();
       this.gameRenderer.setDiceButtonEnabled(true);
-
-      // Centrer la caméra sur le nouveau joueur
-      const newCurrentPlayer = this.gameLogic.getCurrentPlayer();
-      if (newCurrentPlayer) {
-        this.boardRenderer.focusOnPlayer(newCurrentPlayer.index, this.gameLogic.getPlayers());
-      }
+      // La caméra reste libre - le centrage se fait uniquement au prochain lancer de dé
     }, 2000);
   }
 

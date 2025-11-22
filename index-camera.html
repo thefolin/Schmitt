@@ -15,28 +15,77 @@
             <p>La victoire n'est qu'ivresse du jeu !</p>
         </div>
 
-        <div class="game-area">
-            <!-- Zone du plateau avec caméra -->
+        <div class="game-area-fullscreen">
+            <!-- Zone du plateau avec caméra (plein écran) -->
             <div id="boardCamera" class="board-camera-container"></div>
 
-            <div class="sidebar">
-                <div class="panel">
-                    <h2>Joueurs</h2>
-                    <div class="player-list" id="playerList"></div>
+            <!-- Dés 3D sur le plateau -->
+            <div class="dice-container" id="diceContainer">
+                <div class="dice-3d" id="dice1">
+                    <div class="dice-face face-1">1</div>
+                    <div class="dice-face face-2">2</div>
+                    <div class="dice-face face-3">3</div>
+                    <div class="dice-face face-4">4</div>
+                    <div class="dice-face face-5">5</div>
+                    <div class="dice-face face-6">6</div>
                 </div>
+                <div class="dice-hint" id="diceHint">Maintenez pour lancer</div>
+            </div>
 
-                <div class="panel">
-                    <h2>Contrôles</h2>
-                    <div class="dice-result" id="diceResult">🎲</div>
-                    <div class="controls">
-                        <button class="btn btn-primary" id="rollDiceBtn">Lancer le dé</button>
-                        <button class="btn btn-primary" id="resetBtn" style="background: #e74c3c;">Nouvelle partie</button>
+            <!-- Boutons joueurs style TikTok (côté droit) -->
+            <div class="player-buttons" id="playerButtons">
+                <!-- Générés dynamiquement -->
+            </div>
+
+            <!-- Bouton menu/settings -->
+            <button class="menu-btn" id="menuBtn">☰</button>
+
+            <!-- Indicateur joueur actuel -->
+            <div class="current-player-indicator" id="currentPlayerIndicator">
+                <span class="player-name" id="currentPlayerName">Joueur 1</span>
+                <span class="player-turn">À vous de jouer !</span>
+            </div>
+        </div>
+
+        <!-- Modal info joueur (slide up) -->
+        <div class="player-modal" id="playerModal">
+            <div class="player-modal-content">
+                <div class="modal-header">
+                    <h3 id="modalPlayerName">Joueur</h3>
+                    <button class="close-modal-btn" id="closePlayerModal">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="player-stats">
+                        <div class="stat-item">
+                            <span class="stat-icon">📍</span>
+                            <span class="stat-label">Position</span>
+                            <span class="stat-value" id="modalPlayerPosition">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-icon">🍺</span>
+                            <span class="stat-label">Gorgées</span>
+                            <span class="stat-value" id="modalPlayerDrinks">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-icon">⚡</span>
+                            <span class="stat-label">Pouvoir</span>
+                            <span class="stat-value" id="modalPlayerPower">Non</span>
+                        </div>
                     </div>
                 </div>
+            </div>
+        </div>
 
-                <div class="panel">
-                    <h2>Historique</h2>
-                    <div class="history-panel" id="historyPanel"></div>
+        <!-- Modal menu -->
+        <div class="menu-modal" id="menuModal">
+            <div class="menu-modal-content">
+                <div class="modal-header">
+                    <h3>Menu</h3>
+                    <button class="close-modal-btn" id="closeMenuModal">×</button>
+                </div>
+                <div class="menu-actions">
+                    <button class="menu-item" id="showHistoryBtn">📜 Historique</button>
+                    <button class="menu-item" id="resetBtn">🔄 Nouvelle partie</button>
                 </div>
             </div>
         </div>

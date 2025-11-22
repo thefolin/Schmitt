@@ -69,6 +69,85 @@ body {
   display: flex;
   flex-direction: column;
   gap: 15px;
+  position: relative;
+  transition: width 0.3s ease;
+}
+
+/* Sidebar repliable */
+.sidebar.collapsed {
+  width: 90px;
+}
+
+.sidebar.collapsed .sidebar-content {
+  opacity: 0;
+  pointer-events: none;
+  height: 0;
+  overflow: hidden;
+}
+
+.sidebar-toggle {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(83, 52, 131, 0.8);
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+  z-index: 10;
+  transition: all 0.2s;
+}
+
+.sidebar-toggle:hover {
+  background: #533483;
+  transform: scale(1.1);
+}
+
+.sidebar.collapsed .sidebar-toggle {
+  right: 50%;
+  transform: translateX(50%);
+}
+
+/* Contrôle principal toujours visible */
+.main-control {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 15px;
+  padding: 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+}
+
+.sidebar.collapsed .main-control {
+  padding: 15px 10px;
+}
+
+.sidebar.collapsed .main-control .dice-result {
+  font-size: 2em;
+}
+
+.btn-large {
+  padding: 15px 20px;
+  font-size: 1.1em;
+  width: 100%;
+}
+
+.sidebar.collapsed .btn-large {
+  padding: 10px;
+  font-size: 0.8em;
+}
+
+/* Contenu repliable */
+.sidebar-content {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  transition: opacity 0.3s ease, height 0.3s ease;
 }
 
 .panel {
