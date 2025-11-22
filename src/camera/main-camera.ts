@@ -4,6 +4,7 @@ import { BoardCameraRenderer } from '../features/board/camera/board.renderer.cam
 import { TILE_CONFIGS } from '../features/tiles/tile.config';
 import { assetManager } from '../core/assets/AssetManager';
 import type { BoardLayoutConfig } from '../features/board/camera/board-layout.config';
+import { DiceManager } from '../features/dice';
 import '../styles/common/main.css';
 import '../styles/common/mobile-optimized.css';
 import '../styles/camera/board-camera.css';
@@ -22,6 +23,7 @@ class SchmittOdysseeCamera {
   private gameLogic: GameLogic;
   private gameRenderer: GameRenderer;
   private boardRenderer: BoardCameraRenderer;
+  private diceManager: DiceManager;
   private savedLayouts: SavedLayout[] = [];
   private selectedLayout: BoardLayoutConfig | null = null;
   private importedLayout: BoardLayoutConfig | null = null;
@@ -31,6 +33,7 @@ class SchmittOdysseeCamera {
     this.gameLogic = new GameLogic();
     this.gameRenderer = new GameRenderer();
     this.boardRenderer = new BoardCameraRenderer('boardCamera');
+    this.diceManager = new DiceManager('boardCamera');
 
     this.init();
   }
@@ -245,28 +248,58 @@ class SchmittOdysseeCamera {
     this.gameLogic.startGame(players);
     this.gameRenderer.hideSetupScreen();
     this.updateUI();
+
+    // Afficher le dé normal et connecter le clic
+    this.diceManager.showNormalDice();
+    this.diceManager.setNormalDiceOnClick(() => {
+      this.rollDice();
+    });
   }
 
-  private rollDice(): void {
+  private async rollDice(): Promise<void> {
     if (!this.gameLogic.isGameStarted()) return;
 
     const currentPlayer = this.gameLogic.getCurrentPlayer();
     if (!currentPlayer) return;
+
+    // Vérifier si un dé est déjà en train de rouler
+    if (this.diceManager.isAnyDiceRolling()) {
+      console.log('Un dé est déjà en train de rouler');
+      return;
+    }
 
     this.gameRenderer.setDiceButtonEnabled(false);
 
     // Réinitialiser le compteur de déplacements consécutifs au début du tour
     this.consecutiveForwardMoves = 0;
 
-    const roll = this.gameLogic.rollDice();
-    this.gameRenderer.showDiceResult(roll);
-
     // Centrer la caméra sur le joueur actuel au lancer de dé
     this.boardRenderer.centerOnPlayer(currentPlayer.index, this.gameLogic.getPlayers());
 
-    setTimeout(() => {
-      this.moveCurrentPlayer(roll);
-    }, 800);
+    try {
+      let totalRoll: number;
+
+      // Si le joueur a le pouvoir Schmitt, lancer les deux dés
+      if (currentPlayer.hasSchmittPower) {
+        const result = await this.diceManager.rollBothDice();
+        totalRoll = result.total;
+        this.gameRenderer.showNotification(
+          `🎲 Dé normal: ${result.normalDice} + Pouvoir des dieux: ${result.godPowerDice} = Total: ${result.total}`
+        );
+      } else {
+        // Lancer uniquement le dé normal
+        totalRoll = await this.diceManager.rollNormalDice();
+        this.gameRenderer.showDiceResult(totalRoll);
+      }
+
+      // Attendre un peu avant de déplacer le joueur
+      setTimeout(() => {
+        this.moveCurrentPlayer(totalRoll);
+      }, 500);
+    } catch (error) {
+      console.error('Erreur lors du lancer de dés:', error);
+      this.gameRenderer.setDiceButtonEnabled(true);
+    }
   }
 
   private async moveCurrentPlayer(steps: number): Promise<void> {
@@ -372,6 +405,7 @@ class SchmittOdysseeCamera {
   private resetGame(): void {
     this.gameLogic.reset();
     this.boardRenderer.destroy();
+    this.diceManager.hideAll();
     this.gameRenderer.showSetupScreen();
     this.generatePlayerInputs(4);
   }
