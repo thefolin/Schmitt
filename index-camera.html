@@ -24,6 +24,34 @@
             <!-- Bouton menu/settings -->
             <button class="menu-btn" id="menuBtn">☰</button>
 
+            <!-- Zone de boutons d'action (bas à droite) -->
+            <div class="action-buttons-zone">
+                <!-- Contrôles de caméra -->
+                <button class="action-btn camera-control-btn" data-action="zoom-in" title="Zoom +">
+                    +
+                </button>
+                <button class="action-btn camera-control-btn" data-action="zoom-out" title="Zoom -">
+                    −
+                </button>
+                <button class="action-btn camera-control-btn" data-action="focus-dice" title="Focus dés">
+                    🎲
+                </button>
+                <button class="action-btn camera-control-btn" data-action="reset" title="Recentrer">
+                    ⌂
+                </button>
+
+                <!-- Séparateur visuel -->
+                <div style="height: 8px;"></div>
+
+                <!-- Actions de jeu -->
+                <button class="action-btn" id="rollDiceBtn" title="Lancer le dé">
+                    🎲
+                </button>
+                <button class="action-btn" id="manualMoveBtn" title="Déplacement manuel">
+                    🎯
+                </button>
+            </div>
+
             <!-- Indicateur joueur actuel -->
             <div class="current-player-indicator" id="currentPlayerIndicator">
                 <span class="player-name" id="currentPlayerName">Joueur 1</span>

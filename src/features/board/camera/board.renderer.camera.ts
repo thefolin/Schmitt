@@ -105,45 +105,28 @@ export class BoardCameraRenderer {
 
   /**
    * Crée les boutons de navigation
+   * Note: Les contrôles sont maintenant dans le HTML principal (action-buttons-zone)
+   * Cette méthode est conservée pour compatibilité mais ne fait plus rien
    */
   private createNavigationControls(): void {
-    const controls = document.createElement('div');
-    controls.className = 'camera-controls';
-    controls.innerHTML = `
-      <button class="camera-btn" data-action="zoom-in">+</button>
-      <button class="camera-btn" data-action="zoom-out">-</button>
-      <button class="camera-btn" data-action="focus-dice">🎲</button>
-      <button class="camera-btn" data-action="reset">⌂</button>
-    `;
+    // Les contrôles sont maintenant intégrés dans le HTML principal
+    // Voir index-camera.html > action-buttons-zone
+  }
 
-    controls.addEventListener('click', (e) => {
-      const target = e.target as HTMLElement;
-      const action = target.dataset.action;
-
-      switch (action) {
-        case 'zoom-in':
-          this.camera.zoomBy(1.2);
-          break;
-        case 'zoom-out':
-          this.camera.zoomBy(0.8);
-          break;
-        case 'focus-dice':
-          this.focusOnDice();
-          break;
-        case 'reset':
-          this.camera.setZoom(1);
-          this.camera.centerOn(0, 0, true);
-          break;
-      }
-    });
-
-    this.container.appendChild(controls);
+  /**
+   * Retourne l'instance de la caméra
+   */
+  public getCamera(): Camera {
+    return this.camera;
   }
 
   /**
    * Centre la caméra sur le dé
    */
   public focusOnDice(): void {
+    // Arrêter toute animation en cours pour permettre le contrôle immédiat
+    this.camera.stopAnimation();
+
     // Centrer sur le centre de la table
     if (this.tableBounds) {
       const centerX = (this.tableBounds.minX + this.tableBounds.maxX) / 2;

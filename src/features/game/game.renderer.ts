@@ -88,9 +88,9 @@ export class GameRenderer {
    */
   public showEffectModal(icon: string, title: string, description: string): void {
     const modal = document.getElementById('effectModal');
-    const modalIcon = document.getElementById('modalIcon');
-    const modalTitle = document.getElementById('modalTitle');
-    const modalDescription = document.getElementById('modalDescription');
+    const modalIcon = document.getElementById('effectIcon') || document.getElementById('modalIcon');
+    const modalTitle = document.getElementById('effectTitle') || document.getElementById('modalTitle');
+    const modalDescription = document.getElementById('effectDescription') || document.getElementById('modalDescription');
 
     if (modal && modalIcon && modalTitle && modalDescription) {
       modalIcon.textContent = icon;

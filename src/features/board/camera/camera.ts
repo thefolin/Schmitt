@@ -150,6 +150,15 @@ export class Camera {
   }
 
   /**
+   * Arrête l'animation en cours et permet le contrôle immédiat
+   */
+  public stopAnimation(): void {
+    this.animating = false;
+    this.targetState.x = this.state.x;
+    this.targetState.y = this.state.y;
+  }
+
+  /**
    * Applique les limites à l'état actuel
    */
   private clampState(): void {
