@@ -5,6 +5,7 @@ import { TILE_CONFIGS } from '../features/tiles/tile.config';
 import { assetManager } from '../core/assets/AssetManager';
 import type { BoardLayoutConfig } from '../features/board/camera/board-layout.config';
 import type { TileType } from '@/core/models/Tile';
+import type { Player } from '@/core/models/Player';
 import { DiceManager } from '../features/dice';
 import { PlayerSelector } from '../features/game/player-selector';
 import { ManualMovement } from '../features/game/manual-movement';

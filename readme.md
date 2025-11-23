@@ -27,8 +27,15 @@ Bienvenue dans **Schmitt Odyssée**, un jeu de plateau interactif développé av
 
 | Version | Description | URL |
 |---------|-------------|-----|
-| **2D Canvas** | Version classique avec rendu Canvas | `http://localhost:3000/` |
+| **Vue Caméra** ⭐ | **VERSION PAR DÉFAUT** - Vue 3/4 avec pan/zoom, physique des dés 3D | `http://localhost:3000/` |
+| **Éditeur** | Éditeur visuel de plateau (drag & drop) | `http://localhost:3000/index-editor.html` |
 | **3D Isométrique** | Style Monopoly GO avec CSS 3D | `http://localhost:3000/index-3d.html` |
+| **2D Features** | Version 2D avec layouts personnalisables | `http://localhost:3000/index-new.html` |
+| **2D Legacy** | Version classique avec rendu Canvas | `http://localhost:3000/index-legacy.html` |
+
+**Navigation intégrée** :
+- Depuis le jeu → Bouton "✏️ Éditeur de plateau" en haut à droite
+- Depuis l'éditeur → Bouton "🎮 Retour au jeu" en haut à droite
 
 ---
 

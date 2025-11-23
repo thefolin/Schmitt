@@ -5,6 +5,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Schmitt Odyssée - Éditeur de Plateau</title>
     <style>
+        .game-link {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 10000;
+            background: rgba(46, 204, 113, 0.9);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: bold;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            transition: all 0.3s ease;
+        }
+        .game-link:hover {
+            background: rgba(39, 174, 96, 0.95);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+        }
+        .game-link::before {
+            content: '🎮 ';
+            margin-right: 5px;
+        }
+
         * {
             box-sizing: border-box;
         }
@@ -662,6 +686,8 @@
     </style>
 </head>
 <body>
+    <a href="index.html" class="game-link">Retour au jeu</a>
+
     <div class="editor-container">
         <!-- Panneau des cases -->
         <div class="side-panel tiles-panel" id="tilesPanel">

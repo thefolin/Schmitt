@@ -2,6 +2,8 @@ import { defineConfig } from 'vite';
 import path from 'path';
 
 export default defineConfig({
+  // Important pour GitHub Pages - remplacez 'Schmitt' par le nom exact de votre repo
+  base: process.env.NODE_ENV === 'production' ? '/Schmitt/' : '/',
   publicDir: 'public',
   resolve: {
     alias: {
@@ -20,8 +22,9 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: path.resolve(__dirname, 'index.html'),
+        legacy: path.resolve(__dirname, 'index-legacy.html'),
         '3d': path.resolve(__dirname, 'index-3d.html'),
-        camera: path.resolve(__dirname, 'index-camera.html'),
+        new: path.resolve(__dirname, 'index-new.html'),
         editor: path.resolve(__dirname, 'index-editor.html'),
       },
     },

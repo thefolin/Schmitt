@@ -775,7 +775,7 @@ export class BoardCameraRenderer {
 
     if (iconEl) iconEl.textContent = tile.icon;
     if (titleEl) titleEl.textContent = tile.name;
-    if (descEl) descEl.textContent = tile.description;
+    if (descEl) descEl.textContent = tile.description || '';
     if (numberEl) numberEl.textContent = `Case ${index}`;
 
     // Afficher la modal
