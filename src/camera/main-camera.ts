@@ -979,9 +979,7 @@ class SchmittOdysseeCamera {
 
     // Ouvrir le panel de déplacement manuel
     this.manualMovement.show(allPlayers, (movements) => {
-      if (movements.length === 0) {
-        return;
-      }
+      if (movements.length === 0) return;
 
       // Traiter les déplacements un par un avec un délai
       let delay = 0;

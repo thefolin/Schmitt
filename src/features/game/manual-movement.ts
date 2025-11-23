@@ -93,7 +93,7 @@ export class ManualMovement {
 
           <div class="panel-actions">
             <button class="btn btn-secondary" id="backBtn">Retour</button>
-            <button class="btn btn-success" id="confirmAllMovements" style="display: none;">Confirmer</button>
+            <button class="btn btn-success" id="confirmAllMovements" disabled>Confirmer tous les déplacements</button>
           </div>
         </div>
       </div>
@@ -316,25 +316,24 @@ export class ManualMovement {
 
     this.renderPlayerList();
     this.updateConfirmButton();
-
-    // Auto-confirmer si tous les joueurs sont configurés
-    if (this.movements.size === this.requiredCount) {
-      const confirmBtn = this.modal?.querySelector('#confirmAllMovements') as HTMLElement;
-      if (confirmBtn) confirmBtn.style.display = 'block';
-    }
   }
 
   /**
    * Met à jour le bouton de confirmation
    */
   private updateConfirmButton(): void {
-    const confirmBtn = this.modal?.querySelector('#confirmAllMovements') as HTMLElement;
+    const confirmBtn = this.modal?.querySelector('#confirmAllMovements') as HTMLButtonElement;
     if (!confirmBtn) return;
 
-    if (this.movements.size === this.requiredCount) {
-      confirmBtn.style.display = 'block';
+    const configuredCount = this.movements.size;
+    const totalCount = this.requiredCount;
+
+    if (configuredCount === totalCount && totalCount > 0) {
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = `Confirmer tous les déplacements (${configuredCount}/${totalCount})`;
     } else {
-      confirmBtn.style.display = 'none';
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = `Confirmer tous les déplacements (${configuredCount}/${totalCount})`;
     }
   }
 
@@ -345,11 +344,14 @@ export class ManualMovement {
     if (this.movements.size !== this.requiredCount) return;
 
     const choices = Array.from(this.movements.values());
-    this.hide();
 
+    // IMPORTANT : Appeler le callback AVANT de cacher le panel (sinon currentCallback sera null)
     if (this.currentCallback) {
       this.currentCallback(choices);
     }
+
+    // Cacher le panel APRÈS avoir appelé le callback
+    this.hide();
   }
 
   /**
@@ -391,6 +393,9 @@ export class ManualMovement {
 
     // Rendre la liste des joueurs à configurer
     this.renderPlayerList();
+
+    // Mettre à jour le bouton de confirmation
+    this.updateConfirmButton();
 
     // Sélectionner automatiquement le premier joueur
     if (this.playersToMove.length > 0) {
