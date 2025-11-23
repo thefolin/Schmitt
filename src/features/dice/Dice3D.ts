@@ -6,8 +6,13 @@
 import { DicePhysics } from './DicePhysics';
 import type { Vector2D } from './DicePhysics';
 import type { DicePhysicsConfig, DiceVisualConfig } from './DiceConfig';
+import type { TableBounds, TableBorderConfig } from '../board/camera/table.config';
 
 export type DiceType = 'normal' | 'godPower';
+
+export interface DiceFallEvent {
+  diceType: DiceType;
+}
 
 export class Dice3D {
   private physics: DicePhysics;
@@ -19,6 +24,10 @@ export class Dice3D {
   private animationFrameId: number | null = null;
   private lastTimestamp: number = 0;
   private onClickCallback: (() => void) | null = null;
+  private onFallCallback: ((event: DiceFallEvent) => void) | null = null;
+  private onRollEndCallback: ((result: number) => void) | null = null;
+  private tableBounds: TableBounds | null = null;
+  private tableBorders: TableBorderConfig | null = null;
 
   // Drag-to-throw state
   private isDragging: boolean = false;
@@ -67,26 +76,31 @@ export class Dice3D {
    * Crée l'élément DOM du dé
    */
   private createDiceElement(): HTMLElement {
-    // Conteneur externe (pour positionnement)
+    // Conteneur externe (pour positionnement ET zone cliquable élargie)
+    // Le wrapper doit être plus grand que le cube pour éviter la troncature en 3D
+    const wrapperSize = this.config.size * 2.5; // 2.5x la taille du dé pour avoir plus de marge
     const wrapper = document.createElement('div');
     wrapper.className = `dice-3d dice-${this.type}`;
     wrapper.style.cssText = `
       position: absolute;
-      width: ${this.config.size}px;
-      height: ${this.config.size}px;
+      width: ${wrapperSize}px;
+      height: ${wrapperSize}px;
       cursor: grab;
       user-select: none;
       touch-action: none;
       perspective: 1000px;
     `;
 
-    // Cube interne (pour rotation 3D)
+    // Cube interne (pour rotation 3D) - taille réelle du dé, centré dans le wrapper
     const cube = document.createElement('div');
     cube.className = 'dice-cube';
+    const offset = (wrapperSize - this.config.size) / 2;
     cube.style.cssText = `
-      position: relative;
-      width: 100%;
-      height: 100%;
+      position: absolute;
+      left: ${offset}px;
+      top: ${offset}px;
+      width: ${this.config.size}px;
+      height: ${this.config.size}px;
       transform-style: preserve-3d;
       -webkit-transform-style: preserve-3d;
     `;
@@ -253,12 +267,46 @@ export class Dice3D {
     const deltaTime = now - this.lastTimestamp;
     this.lastTimestamp = now;
 
-    if (this.physics.isRolling()) {
+    const isRolling = this.physics.isRolling();
+    const state = this.physics.getState();
+
+    if (isRolling) {
       this.physics.update(deltaTime);
       this.updatePosition();
+
+      // Log périodique pour debug (toutes les 10 frames environ)
+      if (Math.random() < 0.1) {
+        console.log('🎲 Animation frame:', {
+          height: state.height.toFixed(1),
+          velocity: { x: state.velocity.x.toFixed(1), y: state.velocity.y.toFixed(1) },
+          rotation: { x: state.rotation.x.toFixed(1), y: state.rotation.y.toFixed(1) }
+        });
+      }
+
+      // Vérifier si le dé est tombé hors de la table
+      // (seulement si un côté n'a pas de bordure)
+      const hasFallen = this.physics.checkFall();
+      if (hasFallen && this.onFallCallback) {
+        // Arrêter l'animation
+        this.animationFrameId = null;
+        // Notifier de la chute
+        this.onFallCallback({ diceType: this.type });
+        return;
+      }
+
       this.animationFrameId = requestAnimationFrame(this.animate);
     } else {
+      // Le dé s'est arrêté, appeler le callback
+      console.log('🎲 Animation arrêtée, isRolling =', isRolling, 'state:', state);
       this.animationFrameId = null;
+
+      // IMPORTANT : Mettre à jour la position visuelle une dernière fois
+      // pour appliquer la rotation finale après alignToValue()
+      this.updatePosition();
+
+      if (this.onRollEndCallback) {
+        this.onRollEndCallback(state.currentValue);
+      }
     }
   };
 
@@ -270,9 +318,11 @@ export class Dice3D {
 
     const state = this.physics.getState();
 
-    // Positionner le wrapper (ajusté par la hauteur pour donner l'illusion de profondeur)
-    this.element.style.left = `${state.position.x - this.config.size / 2}px`;
-    this.element.style.top = `${state.position.y - this.config.size / 2 - state.height}px`;
+    // Positionner le wrapper (centré sur la position du dé)
+    // Le wrapper fait 2.5x la taille du dé, donc on décale de wrapperSize/2
+    const wrapperSize = this.config.size * 2.5;
+    this.element.style.left = `${state.position.x - wrapperSize / 2}px`;
+    this.element.style.top = `${state.position.y - wrapperSize / 2 - state.height}px`;
 
     // Vue isométrique améliorée : rotation de base + rotation du lancer
     // Rotation de base pour voir 3 faces simultanément (isométrique)
@@ -340,28 +390,33 @@ export class Dice3D {
     const currentPos = this.getEventPosition(e);
     const deltaTime = performance.now() - this.dragStartTime;
 
+    // Calculer le delta AVANT de mettre à jour lastDragPos
+    const deltaX = currentPos.x - this.lastDragPos.x;
+    const deltaY = currentPos.y - this.lastDragPos.y;
+
     // Calculer la vélocité (pour l'effet de lancer)
     if (deltaTime > 0) {
       this.dragVelocity = {
-        x: (currentPos.x - this.lastDragPos.x) / (deltaTime / 1000),
-        y: (currentPos.y - this.lastDragPos.y) / (deltaTime / 1000)
+        x: deltaX / (deltaTime / 1000),
+        y: deltaY / (deltaTime / 1000)
       };
     }
 
-    this.lastDragPos = currentPos;
-    this.dragStartTime = performance.now();
-
     // Déplacer visuellement le dé (sans affecter la physique)
     const state = this.physics.getState();
-    const newX = state.position.x + (currentPos.x - this.lastDragPos.x);
-    const newY = state.position.y + (currentPos.y - this.lastDragPos.y);
+    state.position.x += deltaX;
+    state.position.y += deltaY;
 
-    this.element.style.left = `${newX - this.config.size / 2}px`;
-    this.element.style.top = `${newY - this.config.size / 2}px`;
+    this.element.style.left = `${state.position.x - this.config.size / 2}px`;
+    this.element.style.top = `${state.position.y - this.config.size / 2}px`;
+
+    // Mettre à jour pour le prochain frame
+    this.lastDragPos = currentPos;
+    this.dragStartTime = performance.now();
   };
 
   /**
-   * Gère la fin du drag (lancer le dé)
+   * Gère la fin du drag (lancer le dé ou le poser)
    */
   private handleDragEnd = (e: MouseEvent | TouchEvent): void => {
     if (!this.isDragging) {
@@ -375,7 +430,7 @@ export class Dice3D {
     // Restaurer le curseur
     this.element.style.cursor = 'grab';
 
-    // Si le drag était trop faible, considérer comme un clic
+    // Calculer la distance et la vitesse du drag
     const dragDistance = this.dragStartPos && this.lastDragPos
       ? Math.sqrt(
           Math.pow(this.lastDragPos.x - this.dragStartPos.x, 2) +
@@ -383,25 +438,31 @@ export class Dice3D {
         )
       : 0;
 
-    if (dragDistance < 5) {
-      // C'était un clic, pas un drag
-      if (this.onClickCallback) {
-        this.onClickCallback();
-      }
-      return;
-    }
-
-    // Lancer le dé avec la vélocité calculée
     const speed = Math.sqrt(
       this.dragVelocity.x ** 2 + this.dragVelocity.y ** 2
     );
 
-    // Limiter la vitesse
-    const maxSpeed = this.config.velocityMax;
-    const minSpeed = this.config.velocityMin;
-    const clampedSpeed = Math.max(minSpeed, Math.min(maxSpeed, speed));
+    console.log('🎲 Drag end - Distance:', dragDistance.toFixed(1), 'Speed:', speed.toFixed(1), 'Velocity:', this.dragVelocity);
 
-    // Lancer le dé
+    // Si le drag était très faible (< 15px) ET vitesse très faible, c'est une "pose"
+    // Le joueur a juste levé et reposé le dé sans bouger
+    if (dragDistance < 15 && speed < 50) {
+      console.log('🎲 Dé posé (pas de lancer)');
+      // Reposer le dé à sa position actuelle
+      const state = this.physics.getState();
+      this.element.style.left = `${state.position.x - this.config.size / 2}px`;
+      this.element.style.top = `${state.position.y - this.config.size / 2}px`;
+
+      // Réinitialiser l'état du drag
+      this.dragStartPos = null;
+      this.lastDragPos = null;
+      this.dragVelocity = { x: 0, y: 0 };
+      return;
+    }
+
+    // Sinon, c'est un vrai lancer !
+    console.log('🎲 Lancer du dé !');
+    // Lancer le dé avec la vélocité calculée
     this.rollWithVelocity(this.dragVelocity);
 
     // Réinitialiser l'état du drag
@@ -434,21 +495,37 @@ export class Dice3D {
    * Lance le dé avec une vélocité personnalisée
    */
   private rollWithVelocity(velocity: Vector2D): void {
-    // Mettre à jour la physique avec la vélocité de drag
-    const state = this.physics.getState();
-    state.velocity = velocity;
-    state.isRolling = true;
-    state.height = 100;
-    state.verticalVelocity = 0;
-
-    // Ajouter une rotation aléatoire
-    state.angularVelocity = {
-      x: this.randomBetween(this.config.rotationSpeedMin, this.config.rotationSpeedMax) * (Math.random() > 0.5 ? 1 : -1),
-      y: this.randomBetween(this.config.rotationSpeedMin, this.config.rotationSpeedMax) * (Math.random() > 0.5 ? 1 : -1)
+    // Amplifier la vélocité pour un lancer plus dynamique
+    const finalVelocity = {
+      x: velocity.x * 0.8,
+      y: velocity.y * 0.8
     };
 
+    // Donner une hauteur initiale et une vitesse verticale pour simuler un vrai lancer
+    // Plus le drag est rapide, plus le dé monte haut
+    const dragSpeed = Math.sqrt(velocity.x ** 2 + velocity.y ** 2);
+    const verticalVelocity = Math.min(800, 400 + dragSpeed * 0.5); // Vitesse vers le haut
+
+    // Ajouter une rotation aléatoire - toujours forte pour bien voir le dé tourner
+    // Rotation minimum de 1.0, jusqu'à 2.0 pour les lancers rapides
+    const rotationFactor = Math.max(1.0, Math.min(2.0, 1.0 + dragSpeed / 1000));
+    const angularVelocity = {
+      x: this.randomBetween(this.config.rotationSpeedMin, this.config.rotationSpeedMax) * rotationFactor * (Math.random() > 0.5 ? 1 : -1),
+      y: this.randomBetween(this.config.rotationSpeedMin, this.config.rotationSpeedMax) * rotationFactor * (Math.random() > 0.5 ? 1 : -1)
+    };
+
+    console.log('🎲 État initial du lancer:', {
+      velocity: finalVelocity,
+      verticalVelocity,
+      angularVelocity,
+      rotationFactor
+    });
+
     // Valeur aléatoire
-    state.currentValue = Math.floor(Math.random() * 6) + 1;
+    const targetValue = Math.floor(Math.random() * 6) + 1;
+
+    // Utiliser la méthode throwWithVelocity qui modifie directement le state interne
+    this.physics.throwWithVelocity(finalVelocity, verticalVelocity, angularVelocity, targetValue);
 
     this.startAnimation();
   }
@@ -465,6 +542,47 @@ export class Dice3D {
   }
 
   /**
+   * Définit le callback appelé quand le dé tombe hors de la table
+   */
+  public setOnFall(callback: (event: DiceFallEvent) => void): void {
+    this.onFallCallback = callback;
+  }
+
+  /**
+   * Définit le callback appelé quand le dé s'arrête de rouler
+   */
+  public setOnRollEnd(callback: (result: number) => void): void {
+    this.onRollEndCallback = callback;
+  }
+
+  /**
+   * Configure les limites de la table pour les rebonds et la détection de chute
+   */
+  public setTableBounds(bounds: TableBounds, borders: TableBorderConfig): void {
+    this.tableBounds = bounds;
+    this.tableBorders = borders;
+    // Passer les bounds à la physique pour les rebonds
+    this.physics.setTableBounds(bounds, borders);
+  }
+
+  /**
+   * Réinitialise l'état de chute du dé
+   */
+  public resetFall(): void {
+    this.physics.resetFall();
+  }
+
+  /**
+   * Définit la position du dé
+   */
+  public setPosition(x: number, y: number): void {
+    const state = this.physics.getState();
+    state.position.x = x;
+    state.position.y = y;
+    this.updatePosition();
+  }
+
+  /**
    * Affiche ou cache le dé
    */
   public show(): void {
@@ -473,6 +591,13 @@ export class Dice3D {
 
   public hide(): void {
     this.element.style.display = 'none';
+  }
+
+  /**
+   * Vérifie si le dé est visible
+   */
+  public isVisible(): boolean {
+    return this.element.style.display !== 'none';
   }
 
   /**

@@ -355,8 +355,9 @@ class BoardEditor {
     // Track mouse position for info bar
     gridContainer.addEventListener('mousemove', (e) => {
       const rect = this.fineGrid.getBoundingClientRect();
-      const x = Math.floor(e.clientX - rect.left);
-      const y = Math.floor(e.clientY - rect.top);
+      // Account for zoom in position display
+      const x = Math.floor((e.clientX - rect.left) / this.state.zoom);
+      const y = Math.floor((e.clientY - rect.top) / this.state.zoom);
       this.cursorPosEl.textContent = `Position: ${x}, ${y}`;
     });
   }
@@ -389,8 +390,9 @@ class BoardEditor {
    */
   private updatePlacementGhost(e: DragEvent): void {
     const rect = this.fineGrid.getBoundingClientRect();
-    let x = e.clientX - rect.left - this.state.tileSize / 2;
-    let y = e.clientY - rect.top - this.state.tileSize / 2;
+    // Account for zoom when calculating mouse position
+    let x = (e.clientX - rect.left) / this.state.zoom - this.state.tileSize / 2;
+    let y = (e.clientY - rect.top) / this.state.zoom - this.state.tileSize / 2;
 
     // Snap to grid
     x = Math.round(x / this.state.snapSize) * this.state.snapSize;
@@ -419,8 +421,9 @@ class BoardEditor {
    */
   private handleDrop(e: DragEvent): void {
     const rect = this.fineGrid.getBoundingClientRect();
-    let x = e.clientX - rect.left - this.state.tileSize / 2;
-    let y = e.clientY - rect.top - this.state.tileSize / 2;
+    // Account for zoom when calculating mouse position
+    let x = (e.clientX - rect.left) / this.state.zoom - this.state.tileSize / 2;
+    let y = (e.clientY - rect.top) / this.state.zoom - this.state.tileSize / 2;
 
     // Snap to grid
     x = Math.round(x / this.state.snapSize) * this.state.snapSize;

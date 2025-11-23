@@ -18,6 +18,12 @@ import {
   type BoardLayoutConfig,
   type TilePlacement
 } from './board-layout.config';
+import {
+  calculateTableBounds,
+  DEFAULT_TABLE_CONFIG,
+  type TableConfig,
+  type TableBounds
+} from './table.config';
 
 /**
  * Renderer avec système de caméra
@@ -35,6 +41,7 @@ export class BoardCameraRenderer {
   private tileElements: Map<number, HTMLElement> = new Map();
   private pawnElements: Map<number, HTMLElement> = new Map();
   private godPowerElements: Map<number, HTMLElement> = new Map();
+  private tableElement: HTMLElement | null = null;
 
   private config: SerpentineLayoutConfig = {
     tileSize: 120,
@@ -43,6 +50,8 @@ export class BoardCameraRenderer {
   };
 
   private boardLayout: BoardLayoutConfig = DEFAULT_BOARD_LAYOUT;
+  private tableConfig: TableConfig | null = null;
+  private tableBounds: TableBounds | null = null;
 
   // Touch/Mouse state
   private isDragging: boolean = false;
@@ -103,6 +112,7 @@ export class BoardCameraRenderer {
     controls.innerHTML = `
       <button class="camera-btn" data-action="zoom-in">+</button>
       <button class="camera-btn" data-action="zoom-out">-</button>
+      <button class="camera-btn" data-action="focus-dice">🎲</button>
       <button class="camera-btn" data-action="reset">⌂</button>
     `;
 
@@ -117,6 +127,9 @@ export class BoardCameraRenderer {
         case 'zoom-out':
           this.camera.zoomBy(0.8);
           break;
+        case 'focus-dice':
+          this.focusOnDice();
+          break;
         case 'reset':
           this.camera.setZoom(1);
           this.camera.centerOn(0, 0, true);
@@ -125,6 +138,18 @@ export class BoardCameraRenderer {
     });
 
     this.container.appendChild(controls);
+  }
+
+  /**
+   * Centre la caméra sur le dé
+   */
+  public focusOnDice(): void {
+    // Centrer sur le centre de la table
+    if (this.tableBounds) {
+      const centerX = (this.tableBounds.minX + this.tableBounds.maxX) / 2;
+      const centerY = (this.tableBounds.minY + this.tableBounds.maxY) / 2;
+      this.camera.centerOn(centerX, centerY, true);
+    }
   }
 
   /**
@@ -291,6 +316,9 @@ export class BoardCameraRenderer {
       this.godPowerPositions = [];
     }
 
+    // Calculer et rendre la table
+    this.calculateAndRenderTable();
+
     // Configurer les bounds de la caméra
     const dimensions = getBoardDimensions(this.config);
     this.camera.setBounds({
@@ -322,6 +350,99 @@ export class BoardCameraRenderer {
       }
       this.isFirstRender = false;
     }
+  }
+
+  /**
+   * Calcule et rend la table de jeu
+   */
+  private calculateAndRenderTable(): void {
+    // Calculer les bounds à partir des placements de cases
+    console.log('📐 Calcul des bounds de la table avec', this.boardLayout.placements.length, 'cases');
+
+    this.tableBounds = calculateTableBounds(
+      this.boardLayout.placements,
+      this.boardLayout.tileSize,
+      this.boardLayout.tileGap,
+      DEFAULT_TABLE_CONFIG.marginPercent
+    );
+
+    console.log('📐 Bounds calculés:', this.tableBounds);
+
+    // Créer la config de la table
+    this.tableConfig = {
+      bounds: this.tableBounds,
+      borders: DEFAULT_TABLE_CONFIG.borders!,
+      marginPercent: DEFAULT_TABLE_CONFIG.marginPercent!,
+      showBorders: DEFAULT_TABLE_CONFIG.showBorders!,
+      borderColor: DEFAULT_TABLE_CONFIG.borderColor!,
+      borderWidth: DEFAULT_TABLE_CONFIG.borderWidth!,
+      fallPenalty: DEFAULT_TABLE_CONFIG.fallPenalty
+    };
+
+    // Rendre visuellement la table
+    this.renderTable();
+  }
+
+  /**
+   * Rend visuellement la table (bordures)
+   */
+  private renderTable(): void {
+    if (!this.tableConfig || !this.tableBounds) return;
+
+    // Nettoyer l'ancienne table si elle existe
+    if (this.tableElement) {
+      this.tableElement.remove();
+      this.tableElement = null;
+    }
+
+    if (!this.tableConfig.showBorders) return;
+
+    // Créer l'élément de la table
+    const table = document.createElement('div');
+    table.className = 'game-table';
+    table.style.cssText = `
+      position: absolute;
+      left: ${this.tableBounds.minX}px;
+      top: ${this.tableBounds.minY}px;
+      width: ${this.tableBounds.maxX - this.tableBounds.minX}px;
+      height: ${this.tableBounds.maxY - this.tableBounds.minY}px;
+      pointer-events: none;
+      z-index: 1;
+      box-sizing: border-box;
+    `;
+
+    const borderStyle = `${this.tableConfig.borderWidth}px solid ${this.tableConfig.borderColor}`;
+
+    // Appliquer les bordures selon la config
+    if (this.tableConfig.borders.top) {
+      table.style.borderTop = borderStyle;
+    }
+    if (this.tableConfig.borders.right) {
+      table.style.borderRight = borderStyle;
+    }
+    if (this.tableConfig.borders.bottom) {
+      table.style.borderBottom = borderStyle;
+    }
+    if (this.tableConfig.borders.left) {
+      table.style.borderLeft = borderStyle;
+    }
+
+    this.worldContainer.appendChild(table);
+    this.tableElement = table;
+  }
+
+  /**
+   * Obtient les bounds de la table (pour la détection de sortie du dé)
+   */
+  public getTableBounds(): TableBounds | null {
+    return this.tableBounds;
+  }
+
+  /**
+   * Obtient la configuration de la table
+   */
+  public getTableConfig(): TableConfig | null {
+    return this.tableConfig;
   }
 
   /**
@@ -524,28 +645,71 @@ export class BoardCameraRenderer {
   }
 
   /**
-   * Anime le déplacement d'un pion
-   * Note: La caméra n'est plus centrée automatiquement ici,
-   * le centrage se fait uniquement au lancer de dé via centerOnPlayer()
+   * Anime le déplacement d'un pion case par case avec suivi caméra
+   * Simule un déplacement humain sur un plateau physique
    */
   public async animatePawnMove(
     playerIndex: number,
-    _fromPos: number,
-    _toPos: number,
-    duration: number = 500
+    fromPos: number,
+    toPos: number,
+    duration: number = 600
   ): Promise<void> {
     const pawnEl = this.pawnElements.get(playerIndex);
     if (!pawnEl) return;
 
-    // Animation de saut
-    pawnEl.classList.add('pawn-moving');
+    // Calculer le nombre de cases à parcourir
+    const steps = Math.abs(toPos - fromPos);
+    const direction = toPos > fromPos ? 1 : -1;
 
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        pawnEl.classList.remove('pawn-moving');
-        resolve();
-      }, duration);
-    });
+    // Durée par case (plus lent pour être naturel)
+    const durationPerStep = duration;
+
+    console.log(`🚶 Animation: ${steps} cases de ${fromPos} à ${toPos}`);
+
+    // Animer case par case
+    for (let i = 0; i < steps; i++) {
+      const currentPos = fromPos + (direction * (i + 1));
+
+      console.log(`  → Étape ${i + 1}/${steps}: case ${currentPos}`);
+
+      // Obtenir la position de la case actuelle
+      const pos = this.tilePositions[currentPos];
+      if (!pos) continue;
+
+      // Calculer la position du pion (centré dans la case)
+      const pawnSize = 30;
+      const halfTileSize = this.config.tileSize / 2;
+      const centerOffset = (halfTileSize - pawnSize) / 2;
+
+      // Déplacer visuellement le pion vers cette case
+      pawnEl.style.left = `${pos.x + centerOffset}px`;
+      pawnEl.style.top = `${pos.y + centerOffset}px`;
+
+      // Ajouter animation de saut
+      pawnEl.classList.add('pawn-moving');
+
+      // Centrer la caméra sur la case actuelle
+      this.camera.centerOn(
+        pos.x + this.config.tileSize / 2,
+        pos.y + this.config.tileSize / 2,
+        true
+      );
+
+      // Attendre que l'animation de cette case soit terminée
+      await new Promise<void>((resolve) => {
+        setTimeout(() => {
+          pawnEl.classList.remove('pawn-moving');
+          resolve();
+        }, durationPerStep);
+      });
+
+      // Petite pause entre chaque case pour rendre le mouvement plus naturel
+      if (i < steps - 1) {
+        await new Promise<void>((resolve) => setTimeout(resolve, 150));
+      }
+    }
+
+    console.log(`✅ Animation terminée à la case ${toPos}`);
   }
 
   /**

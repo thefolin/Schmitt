@@ -28,6 +28,7 @@ class SchmittOdysseeCamera {
   private selectedLayout: BoardLayoutConfig | null = null;
   private importedLayout: BoardLayoutConfig | null = null;
   private consecutiveForwardMoves = 0; // Compteur pour éviter les boucles infinies
+  private diceResults: { normal: number | null; godPower: number | null } = { normal: null, godPower: null };
 
   constructor() {
     this.gameLogic = new GameLogic();
@@ -38,13 +39,33 @@ class SchmittOdysseeCamera {
     this.init();
   }
 
-  private init(): void {
+  private async init(): Promise<void> {
     assetManager.loadDefaultAssets();
     this.loadSavedLayouts();
+
+    // Charger test.json par défaut
+    await this.loadTestLayout();
+
     this.populateMapSelect();
     this.setupEventListeners();
     this.generatePlayerInputs(4);
     this.gameRenderer.showSetupScreen();
+  }
+
+  /**
+   * Charge le layout schmitt.json par défaut
+   */
+  private async loadTestLayout(): Promise<void> {
+    try {
+      const response = await fetch('/assets/schmitt.json');
+      if (response.ok) {
+        const testLayout = await response.json();
+        this.selectedLayout = testLayout;
+        console.log('Layout schmitt.json chargé par défaut');
+      }
+    } catch (error) {
+      console.warn('Impossible de charger schmitt.json, utilisation du layout par défaut', error);
+    }
   }
 
   /**
@@ -249,10 +270,26 @@ class SchmittOdysseeCamera {
     this.gameRenderer.hideSetupScreen();
     this.updateUI();
 
-    // Afficher le dé normal et connecter le clic
+    // Afficher le dé et le positionner au centre de la table
     this.diceManager.showNormalDice();
-    this.diceManager.setNormalDiceOnClick(() => {
-      this.rollDice();
+
+    // Configurer les limites de la table pour la détection de chute
+    const tableBounds = this.boardRenderer.getTableBounds();
+    const tableConfig = this.boardRenderer.getTableConfig();
+    if (tableBounds && tableConfig) {
+      this.diceManager.setTableBounds(tableBounds, tableConfig.borders);
+      // Positionner le dé au centre de la table
+      this.diceManager.positionDiceInTable(tableBounds);
+    }
+
+    // Gérer la chute du dé
+    this.diceManager.setOnDiceFall((event) => {
+      this.handleDiceFall(event.diceType);
+    });
+
+    // Gérer la fin du lancer de dé (quand il s'arrête)
+    this.diceManager.setOnDiceRollEnd((result, diceType) => {
+      this.handleDiceRollEnd(result, diceType);
     });
   }
 
@@ -270,52 +307,135 @@ class SchmittOdysseeCamera {
 
     this.gameRenderer.setDiceButtonEnabled(false);
 
+    // Réinitialiser l'état de chute avant le nouveau lancer
+    this.diceManager.resetDiceFall();
+
+    // Réinitialiser les résultats des dés
+    this.diceResults = { normal: null, godPower: null };
+
     // Réinitialiser le compteur de déplacements consécutifs au début du tour
     this.consecutiveForwardMoves = 0;
 
     // Centrer la caméra sur le joueur actuel au lancer de dé
     this.boardRenderer.centerOnPlayer(currentPlayer.index, this.gameLogic.getPlayers());
 
-    try {
-      let totalRoll: number;
-
-      // Si le joueur a le pouvoir Schmitt, lancer les deux dés
-      if (currentPlayer.hasSchmittPower) {
-        const result = await this.diceManager.rollBothDice();
-        totalRoll = result.total;
-        this.gameRenderer.showNotification(
-          `🎲 Dé normal: ${result.normalDice} + Pouvoir des dieux: ${result.godPowerDice} = Total: ${result.total}`
-        );
-      } else {
-        // Lancer uniquement le dé normal
-        totalRoll = await this.diceManager.rollNormalDice();
-        this.gameRenderer.showDiceResult(totalRoll);
-      }
-
-      // Attendre un peu avant de déplacer le joueur
-      setTimeout(() => {
-        this.moveCurrentPlayer(totalRoll);
-      }, 500);
-    } catch (error) {
-      console.error('Erreur lors du lancer de dés:', error);
-      this.gameRenderer.setDiceButtonEnabled(true);
+    // Si le joueur a le pouvoir Schmitt, afficher les deux dés
+    if (currentPlayer.hasSchmittPower) {
+      this.diceManager.showBothDice();
+      this.gameRenderer.showNotification(
+        `✨ Pouvoir Schmitt activé ! Glissez les deux dés pour les lancer.`
+      );
+    } else {
+      this.diceManager.showNormalDice();
     }
+
+    // Note: Le drag-and-drop gère maintenant le lancer automatiquement
+    // Le callback onDiceRollEnd s'occupera de faire avancer le joueur
+  }
+
+  /**
+   * Gère la fin du lancer de dé (quand il s'arrête)
+   */
+  private handleDiceRollEnd(result: number, diceType: 'normal' | 'godPower'): void {
+    const currentPlayer = this.gameLogic.getCurrentPlayer();
+    if (!currentPlayer) return;
+
+    console.log(`🎲 Le dé ${diceType} s'est arrêté sur ${result}`);
+
+    // Enregistrer le résultat
+    if (diceType === 'normal') {
+      this.diceResults.normal = result;
+    } else {
+      this.diceResults.godPower = result;
+    }
+
+    // Si le joueur a le pouvoir Schmitt, attendre que les deux dés soient lancés
+    if (currentPlayer.hasSchmittPower) {
+      if (this.diceResults.normal !== null && this.diceResults.godPower !== null) {
+        // Les deux dés se sont arrêtés
+        const total = this.diceResults.normal + this.diceResults.godPower;
+        this.gameRenderer.showNotification(
+          `🎲 Dé normal: ${this.diceResults.normal} + Pouvoir des dieux: ${this.diceResults.godPower} = Total: ${total}`
+        );
+
+        // Déplacer le joueur et repositionner les dés pour le prochain tour
+        setTimeout(() => {
+          this.moveCurrentPlayer(total);
+          // Repositionner les dés au centre après le déplacement
+          const tableBounds = this.boardRenderer.getTableBounds();
+          if (tableBounds) {
+            this.diceManager.positionDiceInTable(tableBounds);
+          }
+        }, 1000);
+      }
+    } else {
+      // Un seul dé, déplacer directement
+      this.gameRenderer.showDiceResult(result);
+
+      setTimeout(() => {
+        this.moveCurrentPlayer(result);
+        // Repositionner le dé au centre après le déplacement
+        const tableBounds = this.boardRenderer.getTableBounds();
+        if (tableBounds) {
+          this.diceManager.positionDiceInTable(tableBounds);
+        }
+      }, 1000);
+    }
+  }
+
+  /**
+   * Gère la chute du dé hors de la table
+   */
+  private handleDiceFall(diceType: 'normal' | 'godPower'): void {
+    const currentPlayer = this.gameLogic.getCurrentPlayer();
+    if (!currentPlayer) return;
+
+    const tableConfig = this.boardRenderer.getTableConfig();
+    const penalty = tableConfig?.fallPenalty || 0;
+
+    // Afficher la notification de chute
+    let message = `❌ Le dé est tombé de la table !`;
+    if (penalty > 0) {
+      this.gameLogic.addDrinks(currentPlayer.index, penalty);
+      message += ` Pénalité : ${penalty} gorgée${penalty > 1 ? 's' : ''} pour ${currentPlayer.name}.`;
+    }
+    message += ` Glissez le dé pour le relancer...`;
+
+    this.gameRenderer.showNotification(message);
+
+    // Repositionner le dé au centre après 2 secondes
+    setTimeout(() => {
+      const tableBounds = this.boardRenderer.getTableBounds();
+      if (tableBounds) {
+        this.diceManager.positionDiceInTable(tableBounds);
+        this.diceManager.resetDiceFall();
+      }
+      this.updateUI();
+    }, 2000);
   }
 
   private async moveCurrentPlayer(steps: number): Promise<void> {
     const currentPlayer = this.gameLogic.getCurrentPlayer();
     if (!currentPlayer) return;
 
+    console.log(`📹 Centrage caméra sur ${currentPlayer.name} avant déplacement`);
+
+    // Centrer la caméra sur le joueur actuel avant de le déplacer
+    this.boardRenderer.centerOnPlayer(currentPlayer.index, this.gameLogic.getPlayers());
+
     const oldPosition = currentPlayer.position;
     const newPosition = this.gameLogic.movePlayer(currentPlayer.index, steps);
+
+    console.log(`🚶 ${currentPlayer.name} se déplace de ${oldPosition} à ${newPosition}`);
 
     // Animation avec suivi caméra
     await this.boardRenderer.animatePawnMove(currentPlayer.index, oldPosition, newPosition);
     this.updateBoard();
 
+    // Attendre un peu puis appliquer l'effet de la case
     setTimeout(() => {
       this.applyTileEffect(newPosition);
-    }, 300);
+    }, 500);
   }
 
   private applyTileEffect(position: number): void {
@@ -384,12 +504,48 @@ class SchmittOdysseeCamera {
       return;
     }
 
+    // Attendre que l'utilisateur ferme le modal de l'effet avant de passer au suivant
     setTimeout(() => {
-      this.gameLogic.nextPlayer();
-      this.updateUI();
+      this.prepareNextPlayerTurn();
+    }, 3000);
+  }
+
+  /**
+   * Prépare le tour du joueur suivant
+   */
+  private prepareNextPlayerTurn(): void {
+    console.log('🔄 Passage au joueur suivant');
+
+    // Passer au joueur suivant
+    this.gameLogic.nextPlayer();
+    this.updateUI();
+
+    const nextPlayer = this.gameLogic.getCurrentPlayer();
+    if (!nextPlayer) return;
+
+    console.log(`👉 C'est au tour de ${nextPlayer.name}`);
+
+    // Fermer le modal de l'effet précédent
+    this.gameRenderer.closeEffectModal();
+
+    // Afficher une notification pour le prochain joueur
+    this.gameRenderer.showNotification(
+      `🎲 C'est au tour de ${nextPlayer.name} ! Glissez le dé pour le lancer.`
+    );
+
+    // Centrer la caméra sur le prochain joueur
+    setTimeout(() => {
+      this.boardRenderer.centerOnPlayer(nextPlayer.index, this.gameLogic.getPlayers());
+
+      // Repositionner les dés au centre de la table
+      const tableBounds = this.boardRenderer.getTableBounds();
+      if (tableBounds) {
+        this.diceManager.positionDiceInTable(tableBounds);
+      }
+
+      // Réactiver le bouton de dé
       this.gameRenderer.setDiceButtonEnabled(true);
-      // La caméra reste libre - le centrage se fait uniquement au prochain lancer de dé
-    }, 2000);
+    }, 500);
   }
 
   private handleVictory(): void {

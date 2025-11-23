@@ -52,15 +52,15 @@ export interface DiceVisualConfig {
  * Configuration par défaut pour un dé normal
  */
 export const DEFAULT_DICE_CONFIG: DicePhysicsConfig = {
-  size: 60,
+  size: 40, // Taille réduite pour éviter troncature
   gravity: 980, // pixels/s²
-  friction: 0.88,
-  bounce: 0.6,
-  rotationSpeedMin: 1440, // degrés/s (4 tours/sec min)
-  rotationSpeedMax: 2880, // degrés/s (8 tours/sec max)
+  friction: 0.90, // Légèrement plus de friction pour stabiliser plus vite
+  bounce: 0.7, // Plus de rebond pour une meilleure sensation
+  rotationSpeedMin: 2880, // degrés/s (8 tours/sec min) - augmenté pour rotation visible
+  rotationSpeedMax: 4320, // degrés/s (12 tours/sec max) - augmenté pour rotation visible
   velocityMin: 300, // pixels/s
   velocityMax: 600,
-  animationDuration: 2500, // ms
+  animationDuration: 3000, // Augmenté à 3s pour plus de temps de rebond
   stopThreshold: 3 // pixels/s
 };
 

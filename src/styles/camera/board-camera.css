@@ -322,6 +322,18 @@
   transform: scale(0.95);
 }
 
+/* Bouton focus dé avec style spécial */
+.camera-btn[data-action="focus-dice"] {
+  background: linear-gradient(145deg, #fff 0%, #f0f0f0 100%);
+  border: 2px solid #3498db;
+}
+
+.camera-btn[data-action="focus-dice"]:hover {
+  background: linear-gradient(145deg, #3498db 0%, #2980b9 100%);
+  color: white;
+  border-color: #2980b9;
+}
+
 /* ================================
    RESPONSIVE
    ================================ */
@@ -414,6 +426,7 @@
   transition: filter 0.2s ease;
   filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.3));
   pointer-events: auto; /* S'assurer que les événements fonctionnent */
+  overflow: visible; /* Ne pas clipper le contenu 3D */
 }
 
 /* Cube interne (pour les transformations 3D) */
