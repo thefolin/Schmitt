@@ -878,7 +878,7 @@ class SchmittOdysseeCamera {
    */
   private checkAphroditeComplete(choices: any, confirmBtn: HTMLElement): void {
     if (choices.player0.dice > 0 && choices.player0.direction &&
-        choices.player1.dice > 0 && choices.player1.direction) {
+      choices.player1.dice > 0 && choices.player1.direction) {
       confirmBtn.style.display = 'block';
     }
   }

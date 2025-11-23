@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="fr">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -17,14 +18,16 @@
             text-decoration: none;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             font-weight: bold;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
             transition: all 0.3s ease;
         }
+
         .editor-link:hover {
             background: rgba(41, 128, 185, 0.95);
             transform: translateY(-2px);
-            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
         }
+
         .editor-link::before {
             content: '✏️ ';
             margin-right: 5px;
@@ -138,14 +141,17 @@
 
             <div class="form-group">
                 <label>Plateau de jeu</label>
-                <select id="mapSelect" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ddd; font-size: 14px;">
+                <select id="mapSelect"
+                    style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ddd; font-size: 14px;">
                     <option value="default">Plateau par défaut</option>
                 </select>
                 <div style="margin-top: 8px; display: flex; gap: 8px;">
-                    <button type="button" class="btn" id="importMapBtn" style="flex: 1; padding: 8px; font-size: 12px; background: #6c757d;">
+                    <button type="button" class="btn" id="importMapBtn"
+                        style="flex: 1; padding: 8px; font-size: 12px; background: #6c757d;">
                         Importer JSON
                     </button>
-                    <a href="/index-editor.html" class="btn" style="flex: 1; padding: 8px; font-size: 12px; background: #17a2b8; text-align: center; text-decoration: none; color: white; border-radius: 8px;">
+                    <a href="/index-editor.html" class="btn"
+                        style="flex: 1; padding: 8px; font-size: 12px; background: #17a2b8; text-align: center; text-decoration: none; color: white; border-radius: 8px;">
                         Éditeur
                     </a>
                 </div>
@@ -184,11 +190,12 @@
             <div class="winner-name" id="winnerName"></div>
             <div class="stats-grid" id="statsGrid"></div>
             <button class="btn btn-primary" onclick="location.reload()"
-                    style="margin-top: 20px; font-size: 1.2em;">Nouvelle partie</button>
+                style="margin-top: 20px; font-size: 1.2em;">Nouvelle partie</button>
         </div>
     </div>
 
     <!-- Script TypeScript (Vite le transformera automatiquement) -->
     <script type="module" src="/src/camera/main-camera.ts"></script>
 </body>
+
 </html>
