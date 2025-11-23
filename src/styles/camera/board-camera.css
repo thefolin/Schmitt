@@ -1,0 +1,991 @@
+/* ================================
+   PLATEAU AVEC CAMÉRA
+   Vue 3/4 avec navigation
+   ================================ */
+
+:root {
+  --tile-size: 120px;
+  --tile-gap: 15px;
+  --pawn-size: 30px;
+  --slot-size: 60px;
+  --camera-bg: #2c3e50;
+}
+
+/* ================================
+   CONTENEUR PRINCIPAL
+   ================================ */
+.board-camera-container {
+  position: relative;
+  width: 100%;
+  height: 60vh;
+  background: linear-gradient(135deg, #1a2a3a 0%, #2c3e50 100%);
+  overflow: hidden;
+  border-radius: 12px;
+  box-shadow: inset 0 0 50px rgba(0, 0, 0, 0.5);
+}
+
+/* ================================
+   VIEWPORT (zone visible)
+   ================================ */
+.board-camera-viewport {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  cursor: grab;
+
+  /* Vue 3/4 - légère inclinaison */
+  perspective: 1000px;
+  transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
+}
+
+.board-camera-viewport:active {
+  cursor: grabbing;
+}
+
+/* ================================
+   MONDE (contenu transformé)
+   ================================ */
+.board-camera-world {
+  position: absolute;
+  transform-origin: 0 0;
+  will-change: transform;
+
+  /* Vue 3/4 */
+  transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
+}
+
+/* ================================
+   CASES DU PLATEAU
+   ================================ */
+.board-tile {
+  position: absolute;
+  border-radius: 12px;
+  background: linear-gradient(145deg, #f8f9fa 0%, #e9ecef 100%);
+  border: 3px solid #dee2e6;
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  cursor: pointer;
+
+  /* Vue 3/4 */
+  transform: rotateX(30deg);
+  transform-style: preserve-3d;
+}
+
+.board-tile:hover {
+  transform: rotateX(30deg) translateY(-5px) scale(1.05);
+  box-shadow:
+    0 8px 20px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+/* Image de la case */
+.tile-image {
+  width: 90%;
+  height: 90%;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+}
+
+/* Icône emoji */
+.tile-icon {
+  font-size: 32px;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+/* Numéro de case */
+.tile-number {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  font-size: 10px;
+  font-weight: bold;
+  color: #6c757d;
+  background: rgba(255, 255, 255, 0.8);
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+/* Modal d'information de case */
+.tile-info-modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 10000;
+  justify-content: center;
+  align-items: center;
+  animation: fadeIn 0.2s ease;
+}
+
+.tile-info-content {
+  background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
+  padding: 30px;
+  border-radius: 20px;
+  max-width: 500px;
+  width: 90%;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  position: relative;
+  text-align: center;
+  animation: slideUp 0.3s ease;
+}
+
+.close-tile-info {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  font-size: 30px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #6c757d;
+  transition: color 0.2s;
+}
+
+.close-tile-info:hover {
+  color: #dc3545;
+}
+
+.tile-info-icon {
+  font-size: 80px;
+  margin-bottom: 20px;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+}
+
+.tile-info-title {
+  font-size: 28px;
+  font-weight: bold;
+  color: #2c3e50;
+  margin-bottom: 15px;
+  text-transform: uppercase;
+}
+
+.tile-info-description {
+  font-size: 16px;
+  color: #495057;
+  line-height: 1.6;
+  margin-bottom: 20px;
+}
+
+.tile-info-number {
+  font-size: 14px;
+  color: #6c757d;
+  font-weight: bold;
+  background: #e9ecef;
+  padding: 5px 15px;
+  border-radius: 15px;
+  display: inline-block;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Tailles de cases configurables */
+.board-tile[data-size="quarter"] {
+  border-radius: 8px;
+}
+
+.board-tile[data-size="quarter"] .tile-icon {
+  font-size: 20px;
+}
+
+.board-tile[data-size="quarter"] .tile-number {
+  font-size: 8px;
+  padding: 1px 2px;
+}
+
+.board-tile[data-size="quarter"] .tile-image {
+  width: 85%;
+  height: 85%;
+}
+
+.board-tile[data-size="half"] {
+  border-radius: 10px;
+}
+
+.board-tile[data-size="half"] .tile-icon {
+  font-size: 26px;
+}
+
+.board-tile[data-size="half"] .tile-number {
+  font-size: 9px;
+}
+
+.board-tile[data-size="half"] .tile-image {
+  width: 88%;
+  height: 88%;
+}
+
+/* Couleurs selon le type */
+.board-tile[data-type="start"] {
+  background: linear-gradient(145deg, #d4edda 0%, #c3e6cb 100%);
+  border-color: #28a745;
+}
+
+.board-tile[data-type="finish"] {
+  background: linear-gradient(145deg, #fff3cd 0%, #ffeeba 100%);
+  border-color: #ffc107;
+  animation: finishPulse 2s ease-in-out infinite;
+}
+
+@keyframes finishPulse {
+  0%, 100% { box-shadow: 0 4px 12px rgba(255, 193, 7, 0.4); }
+  50% { box-shadow: 0 8px 24px rgba(255, 193, 7, 0.8); }
+}
+
+.board-tile[data-type*="drink"] {
+  background: linear-gradient(145deg, #f8d7da 0%, #f5c6cb 100%);
+  border-color: #dc3545;
+}
+
+.board-tile[data-type*="give"] {
+  background: linear-gradient(145deg, #d1ecf1 0%, #bee5eb 100%);
+  border-color: #17a2b8;
+}
+
+.board-tile[data-type="power"] {
+  background: linear-gradient(145deg, #e2d5f1 0%, #d4c5e8 100%);
+  border-color: #6f42c1;
+}
+
+/* ================================
+   PIONS DES JOUEURS
+   ================================ */
+.board-pawn {
+  position: absolute;
+  width: var(--pawn-size);
+  height: var(--pawn-size);
+  z-index: 100;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* Vue 3/4 */
+  transform: rotateX(30deg);
+}
+
+.pawn-body {
+  width: 100%;
+  height: 100%;
+  background: var(--player-color, #3498db);
+  border-radius: 50%;
+  border: 3px solid white;
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.4),
+    inset -3px -3px 8px rgba(0, 0, 0, 0.2),
+    inset 3px 3px 8px rgba(255, 255, 255, 0.4);
+}
+
+.pawn-power {
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 16px;
+  animation: powerBounce 1s ease-in-out infinite;
+}
+
+@keyframes powerBounce {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(-5px); }
+}
+
+/* Animation de déplacement */
+.pawn-moving {
+  animation: pawnJump 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes pawnJump {
+  0%, 100% { transform: rotateX(30deg) translateY(0) scale(1); }
+  50% { transform: rotateX(30deg) translateY(-30px) scale(1.2); }
+}
+
+/* ================================
+   ZONE POUVOIRS DES DIEUX
+   ================================ */
+.god-powers-zone {
+  position: absolute;
+  pointer-events: none;
+}
+
+.god-powers-title {
+  position: absolute;
+  top: -30px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 14px;
+  font-weight: bold;
+  color: #ffd700;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  white-space: nowrap;
+  letter-spacing: 2px;
+}
+
+.god-power {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(145deg, #2c3e50 0%, #1a252f 100%);
+  border: 2px solid #ffd700;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(255, 215, 0, 0.3);
+
+  /* Vue 3/4 */
+  transform: rotateX(30deg);
+}
+
+.god-power-icon {
+  font-size: 24px;
+  filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.6));
+}
+
+.god-power-name {
+  font-size: 8px;
+  color: #ffd700;
+  margin-top: 2px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* ================================
+   CONTRÔLES DE NAVIGATION
+   ================================ */
+/* Anciens contrôles supprimés - maintenant intégrés dans action-buttons-zone */
+
+/* ================================
+   RESPONSIVE
+   ================================ */
+@media (max-width: 768px) {
+  .board-camera-container {
+    height: 50vh;
+  }
+
+  .board-tile {
+    font-size: 24px;
+  }
+
+  .tile-number {
+    font-size: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .board-camera-container {
+    height: 45vh;
+    border-radius: 8px;
+  }
+}
+
+/* ================================
+   OPTIMISATIONS GPU
+   ================================ */
+.board-camera-world,
+.board-tile,
+.board-pawn,
+.god-power {
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  will-change: transform;
+}
+
+/* ================================
+   INTERFACE IMMERSIVE
+   ================================ */
+
+/* Zone de jeu plein écran */
+.game-area-fullscreen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.game-area-fullscreen .board-camera-container {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+}
+
+/* ================================
+   DÉS 3D SUR LE PLATEAU
+   ================================ */
+
+/* Perspective pour le container de la caméra */
+.board-camera-container {
+  perspective: 1200px;
+  perspective-origin: 50% 50%;
+  transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
+}
+
+/* Dé 3D - base commune (wrapper) */
+.dice-3d {
+  z-index: 1000; /* Au-dessus de tout pour éviter les conflits avec la caméra */
+  transition: filter 0.2s ease;
+  filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.3));
+  pointer-events: auto; /* S'assurer que les événements fonctionnent */
+  overflow: visible; /* Ne pas clipper le contenu 3D */
+}
+
+/* Cube interne (pour les transformations 3D) */
+.dice-cube {
+  transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
+  /* Force hardware acceleration */
+  transform: translateZ(0);
+  backface-visibility: visible;
+  -webkit-backface-visibility: visible;
+}
+
+/* Les dés normaux */
+.dice-3d.dice-normal {
+  z-index: 1000;
+}
+
+.dice-3d.dice-normal:hover {
+  filter:
+    brightness(1.1)
+    drop-shadow(0 15px 25px rgba(0, 0, 0, 0.4))
+    drop-shadow(0 0 15px rgba(255, 255, 255, 0.3));
+}
+
+.dice-3d.dice-normal:active {
+  filter: brightness(0.95) drop-shadow(0 5px 10px rgba(0, 0, 0, 0.3));
+}
+
+/* Les dés des pouvoirs des dieux (dorés) */
+.dice-3d.dice-godPower {
+  z-index: 1001;
+}
+
+.dice-3d.dice-godPower:hover {
+  filter:
+    brightness(1.2)
+    drop-shadow(0 15px 25px rgba(0, 0, 0, 0.4))
+    drop-shadow(0 0 20px rgba(255, 215, 0, 0.6));
+}
+
+.dice-3d.dice-godPower:active {
+  filter: brightness(0.95) drop-shadow(0 5px 10px rgba(0, 0, 0, 0.3));
+}
+
+/* Faces du dé */
+.dice-face {
+  transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  box-sizing: border-box;
+  /* Assurer que les faces sont rendues correctement */
+  transform-origin: center center;
+}
+
+/* Amélioration visuelle des points du dé */
+.dice-face div div {
+  transition: transform 0.1s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* ================================
+   BOUTONS JOUEURS STYLE TIKTOK
+   ================================ */
+.player-buttons {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 250;
+}
+
+.player-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 3px solid white;
+  cursor: pointer;
+  position: relative;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: bold;
+  color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.player-btn:hover {
+  transform: scale(1.1);
+}
+
+.player-btn:active {
+  transform: scale(0.95);
+}
+
+.player-btn.current {
+  animation: currentPlayerPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes currentPlayerPulse {
+  0%, 100% { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); }
+  50% { box-shadow: 0 0 20px rgba(255, 255, 255, 0.8), 0 4px 12px rgba(0, 0, 0, 0.3); }
+}
+
+.player-btn-drinks {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  background: #e74c3c;
+  color: white;
+  font-size: 10px;
+  padding: 2px 5px;
+  border-radius: 8px;
+  font-weight: bold;
+  min-width: 16px;
+  text-align: center;
+}
+
+.player-btn-power {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  font-size: 14px;
+}
+
+/* ================================
+   BOUTON MENU
+   ================================ */
+.menu-btn {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  font-size: 20px;
+  cursor: pointer;
+  z-index: 250;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s ease;
+}
+
+.menu-btn:hover {
+  background: rgba(0, 0, 0, 0.8);
+  transform: scale(1.05);
+}
+
+/* ================================
+   ZONE BOUTONS D'ACTION (BAS À DROITE)
+   ================================ */
+.action-buttons-zone {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 250;
+}
+
+.action-btn {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: none;
+  background: linear-gradient(145deg, #ffffff 0%, #f0f0f0 100%);
+  color: #333;
+  font-size: 28px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.action-btn:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+  background: linear-gradient(145deg, #f8f8f8 0%, #e8e8e8 100%);
+}
+
+.action-btn:active {
+  transform: scale(0.95);
+}
+
+/* Boutons contrôles caméra */
+.camera-control-btn {
+  background: rgba(255, 255, 255, 0.95) !important;
+  color: #333 !important;
+  font-weight: bold;
+  font-size: 22px !important;
+}
+
+.camera-control-btn:hover {
+  background: rgba(255, 255, 255, 1) !important;
+}
+
+.camera-control-btn[data-action="focus-dice"] {
+  border: 2px solid #3498db;
+}
+
+/* Bouton lancer le dé */
+#rollDiceBtn {
+  background: linear-gradient(145deg, #4CAF50 0%, #45a049 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+}
+
+#rollDiceBtn:hover {
+  background: linear-gradient(145deg, #45a049 0%, #3d8b40 100%);
+  box-shadow: 0 6px 20px rgba(76, 175, 80, 0.6);
+}
+
+/* Bouton déplacement manuel */
+#manualMoveBtn {
+  background: linear-gradient(145deg, #2196F3 0%, #1976D2 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(33, 150, 243, 0.4);
+}
+
+#manualMoveBtn:hover {
+  background: linear-gradient(145deg, #1976D2 0%, #1565C0 100%);
+  box-shadow: 0 6px 20px rgba(33, 150, 243, 0.6);
+}
+
+@media (max-width: 768px) {
+  .action-buttons-zone {
+    bottom: 15px;
+    right: 15px;
+    gap: 10px;
+  }
+
+  .action-btn {
+    width: 50px;
+    height: 50px;
+    font-size: 24px;
+  }
+}
+
+/* ================================
+   INDICATEUR JOUEUR ACTUEL
+   ================================ */
+.current-player-indicator {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.7);
+  padding: 8px 20px;
+  border-radius: 20px;
+  text-align: center;
+  z-index: 250;
+  backdrop-filter: blur(10px);
+}
+
+.current-player-indicator .player-name {
+  display: block;
+  font-weight: bold;
+  font-size: 16px;
+  color: white;
+}
+
+.current-player-indicator .player-turn {
+  display: block;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-top: 2px;
+}
+
+/* ================================
+   MODAL INFO JOUEUR (SLIDE UP)
+   ================================ */
+.player-modal {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1000;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.player-modal.active {
+  pointer-events: auto;
+  opacity: 1;
+}
+
+.player-modal::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.player-modal.active::before {
+  opacity: 1;
+}
+
+.player-modal-content {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background: linear-gradient(180deg, #2c3e50 0%, #1a252f 100%);
+  border-radius: 20px 20px 0 0;
+  padding: 20px;
+  transform: translateY(100%);
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.player-modal.active .player-modal-content {
+  transform: translateY(0);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 20px;
+  color: white;
+}
+
+.close-modal-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.close-modal-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.player-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 15px;
+}
+
+.stat-item {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 15px;
+  border-radius: 12px;
+  text-align: center;
+}
+
+.stat-icon {
+  display: block;
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+.stat-label {
+  display: block;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+
+.stat-value {
+  display: block;
+  font-size: 18px;
+  font-weight: bold;
+  color: white;
+}
+
+/* ================================
+   MODAL MENU
+   ================================ */
+.menu-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1000;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.menu-modal.active {
+  pointer-events: auto;
+  opacity: 1;
+}
+
+.menu-modal::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.menu-modal-content {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.9);
+  background: linear-gradient(180deg, #2c3e50 0%, #1a252f 100%);
+  border-radius: 16px;
+  padding: 20px;
+  min-width: 280px;
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.menu-modal.active .menu-modal-content {
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.menu-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.menu-item {
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  padding: 15px 20px;
+  border-radius: 10px;
+  color: white;
+  font-size: 16px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.menu-item:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* ================================
+   RESPONSIVE MOBILE
+   ================================ */
+@media (max-width: 768px) {
+  .dice-container {
+    bottom: 80px;
+  }
+
+  .dice-3d {
+    width: 50px;
+    height: 50px;
+  }
+
+  .dice-face {
+    width: 50px;
+    height: 50px;
+    font-size: 24px;
+  }
+
+  .face-1 { transform: rotateY(0deg) translateZ(25px); }
+  .face-2 { transform: rotateY(180deg) translateZ(25px); }
+  .face-3 { transform: rotateY(-90deg) translateZ(25px); }
+  .face-4 { transform: rotateY(90deg) translateZ(25px); }
+  .face-5 { transform: rotateX(90deg) translateZ(25px); }
+  .face-6 { transform: rotateX(-90deg) translateZ(25px); }
+
+  .player-buttons {
+    right: 8px;
+    gap: 10px;
+  }
+
+  .player-btn {
+    width: 42px;
+    height: 42px;
+    font-size: 16px;
+  }
+
+  .current-player-indicator {
+    padding: 6px 16px;
+  }
+
+  .current-player-indicator .player-name {
+    font-size: 14px;
+  }
+
+  .player-stats {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .player-btn {
+    width: 38px;
+    height: 38px;
+    font-size: 14px;
+  }
+
+  .menu-btn {
+    width: 38px;
+    height: 38px;
+    font-size: 18px;
+  }
+}

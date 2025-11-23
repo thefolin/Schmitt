@@ -1,0 +1,384 @@
+/* ================================
+   PLATEAU 3D ISOMÉTRIQUE
+   Style Monopoly GO avec CSS 3D
+   ================================ */
+
+.board-3d-scene {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  perspective: 1000px;
+  perspective-origin: 50% 50%;
+  transform-style: preserve-3d;
+  overflow: visible;
+}
+
+/* ================================
+   CASES 3D
+   ================================ */
+.tile-3d {
+  position: absolute;
+  width: 60px;
+  height: 60px;
+  transform-style: preserve-3d;
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  cursor: pointer;
+
+  /* Point d'origine pour la rotation */
+  transform-origin: center center;
+
+  /* Optimisation GPU */
+  will-change: transform;
+}
+
+.tile-3d-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+}
+
+/* Faces des cases 3D */
+.tile-face {
+  position: absolute;
+  width: 60px;
+  height: 60px;
+  backface-visibility: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Face supérieure (visible) */
+.tile-top {
+  background: linear-gradient(135deg,
+    var(--color-marble) 0%,
+    rgba(212, 175, 55, 0.2) 100%);
+  transform: rotateX(90deg) translateZ(30px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.3),
+    inset 0 2px 10px rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+}
+
+/* Icône de la case */
+.tile-icon {
+  font-size: 24px;
+  filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.3));
+  animation: tileIconFloat 3s ease-in-out infinite;
+}
+
+@keyframes tileIconFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+/* Numéro de case */
+.tile-number {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  font-size: 10px;
+  font-weight: bold;
+  color: var(--color-deep-sea);
+  background: rgba(255, 255, 255, 0.8);
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+/* Faces latérales (profondeur 3D) */
+.tile-front {
+  background: linear-gradient(180deg, #D4AF37 0%, #CD7F32 100%);
+  transform: rotateX(0deg) translateZ(30px);
+  height: 30px;
+}
+
+.tile-back {
+  background: linear-gradient(180deg, #CD7F32 0%, #A0690F 100%);
+  transform: rotateX(0deg) translateZ(-30px);
+  height: 30px;
+}
+
+.tile-left {
+  background: linear-gradient(90deg, #D4AF37 0%, #CD7F32 100%);
+  transform: rotateY(-90deg) translateZ(30px);
+  width: 30px;
+}
+
+.tile-right {
+  background: linear-gradient(90deg, #CD7F32 0%, #A0690F 100%);
+  transform: rotateY(90deg) translateZ(30px);
+  width: 30px;
+}
+
+.tile-bottom {
+  background: #8B7355;
+  transform: rotateX(-90deg) translateZ(-30px);
+}
+
+/* Couleurs spéciales selon le type de case */
+.tile-3d[data-tile-type="start"] .tile-top {
+  background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+}
+
+.tile-3d[data-tile-type*="drink"] .tile-top {
+  background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+}
+
+.tile-3d[data-tile-type*="give"] .tile-top {
+  background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+}
+
+.tile-3d[data-tile-type="power"] .tile-top {
+  background: linear-gradient(135deg, #f1c40f 0%, #f39c12 100%);
+  box-shadow:
+    0 10px 40px rgba(241, 196, 15, 0.6),
+    inset 0 2px 15px rgba(255, 255, 255, 0.3);
+}
+
+.tile-3d[data-tile-type="temple"] .tile-top {
+  background: linear-gradient(135deg, #d4af37 0%, #cd7f32 100%);
+  box-shadow:
+    0 10px 40px rgba(212, 175, 55, 0.5),
+    inset 0 2px 15px rgba(255, 255, 255, 0.3);
+}
+
+.tile-3d[data-tile-type="finish"] .tile-top {
+  background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+  box-shadow:
+    0 15px 50px rgba(243, 156, 18, 0.7),
+    inset 0 2px 20px rgba(255, 255, 255, 0.4);
+  animation: finishGlow 2s ease-in-out infinite;
+}
+
+@keyframes finishGlow {
+  0%, 100% {
+    box-shadow:
+      0 15px 50px rgba(243, 156, 18, 0.7),
+      inset 0 2px 20px rgba(255, 255, 255, 0.4);
+  }
+  50% {
+    box-shadow:
+      0 20px 60px rgba(243, 156, 18, 1),
+      inset 0 2px 25px rgba(255, 255, 255, 0.6);
+  }
+}
+
+/* Hover effect */
+.tile-3d:hover {
+  transform: scale(1.1) translateZ(10px) !important;
+}
+
+/* ================================
+   PIONS 3D
+   ================================ */
+.pawn-3d {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  transform-style: preserve-3d;
+  transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 100;
+
+  /* Optimisation GPU */
+  will-change: transform;
+}
+
+.pawn-3d-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+}
+
+/* Corps du pion (sphère 3D simulée) */
+.pawn-body {
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) translateZ(0);
+  background: var(--player-color);
+  border-radius: 50%;
+  box-shadow:
+    0 5px 15px rgba(0, 0, 0, 0.4),
+    inset -5px -5px 10px rgba(0, 0, 0, 0.3),
+    inset 5px 5px 10px rgba(255, 255, 255, 0.3);
+  border: 3px solid rgba(255, 255, 255, 0.6);
+
+  /* Effet brillant */
+  background-image: radial-gradient(
+    circle at 30% 30%,
+    rgba(255, 255, 255, 0.4),
+    transparent
+  );
+}
+
+/* Ombre du pion */
+.pawn-shadow {
+  position: absolute;
+  width: 35px;
+  height: 15px;
+  bottom: -40px;
+  left: 50%;
+  transform: translateX(-50%) rotateX(90deg);
+  background: radial-gradient(
+    ellipse,
+    rgba(0, 0, 0, 0.4),
+    transparent
+  );
+  border-radius: 50%;
+  filter: blur(4px);
+}
+
+/* Indicateur de pouvoir */
+.pawn-power {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  font-size: 20px;
+  filter: drop-shadow(0 0 8px #f1c40f);
+  animation: powerPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes powerPulse {
+  0%, 100% {
+    transform: scale(1) rotate(0deg);
+    filter: drop-shadow(0 0 8px #f1c40f);
+  }
+  50% {
+    transform: scale(1.2) rotate(10deg);
+    filter: drop-shadow(0 0 15px #f39c12);
+  }
+}
+
+/* Animation de saut (mouvement du pion) */
+.pawn-jumping .pawn-body {
+  animation: pawnJump 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes pawnJump {
+  0%, 100% {
+    transform: translate(-50%, -50%) translateZ(0);
+  }
+  50% {
+    transform: translate(-50%, -50%) translateZ(80px);
+  }
+}
+
+.pawn-jumping .pawn-shadow {
+  animation: shadowPulse 0.8s ease-in-out;
+}
+
+@keyframes shadowPulse {
+  0%, 100% {
+    opacity: 0.4;
+    transform: translateX(-50%) rotateX(90deg) scale(1);
+  }
+  50% {
+    opacity: 0.1;
+    transform: translateX(-50%) rotateX(90deg) scale(0.5);
+  }
+}
+
+/* ================================
+   PARTICULES (EFFETS SPÉCIAUX)
+   ================================ */
+.particles {
+  position: absolute;
+  width: 100px;
+  height: 100px;
+  pointer-events: none;
+  transform-style: preserve-3d;
+}
+
+.particle {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: radial-gradient(circle, #f1c40f, #f39c12);
+  border-radius: 50%;
+  top: 50%;
+  left: 50%;
+  animation: particleExplode 1.5s ease-out forwards;
+  animation-delay: var(--delay);
+  box-shadow: 0 0 10px rgba(241, 196, 15, 0.8);
+}
+
+@keyframes particleExplode {
+  0% {
+    transform: translate(-50%, -50%) translateZ(0) scale(0);
+    opacity: 1;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform:
+      translate(-50%, -50%)
+      translateZ(50px)
+      translateX(calc(cos(var(--angle)) * 100px))
+      translateY(calc(sin(var(--angle)) * 100px))
+      scale(1);
+    opacity: 0;
+  }
+}
+
+/* Particules dorées (temple, victoire) */
+.particles-gold .particle {
+  background: radial-gradient(circle, #f1c40f, #f39c12);
+  box-shadow: 0 0 15px rgba(241, 196, 15, 0.9);
+}
+
+/* Particules de pouvoir (éclair) */
+.particles-power .particle {
+  background: radial-gradient(circle, #3498db, #2980b9);
+  box-shadow: 0 0 15px rgba(52, 152, 219, 0.9);
+}
+
+/* Particules de boisson */
+.particles-drink .particle {
+  background: radial-gradient(circle, #e74c3c, #c0392b);
+  box-shadow: 0 0 15px rgba(231, 76, 60, 0.9);
+}
+
+/* ================================
+   RESPONSIVE & OPTIMISATIONS
+   ================================ */
+@media (max-width: 768px) {
+  .tile-3d {
+    width: 50px;
+    height: 50px;
+  }
+
+  .tile-face {
+    width: 50px;
+    height: 50px;
+  }
+
+  .tile-icon {
+    font-size: 20px;
+  }
+
+  .pawn-3d {
+    width: 35px;
+    height: 35px;
+  }
+
+  .pawn-body {
+    width: 25px;
+    height: 25px;
+  }
+}
+
+/* Optimisations GPU */
+.tile-3d,
+.pawn-3d,
+.particles {
+  -webkit-backface-visibility: hidden;
+  -webkit-transform: translateZ(0);
+  -webkit-perspective: 1000;
+}

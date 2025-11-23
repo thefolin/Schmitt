@@ -3,23 +3,50 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Schmitt Odyssée</title>
+    <title>Schmitt Odyssée 3D - Style Monopoly GO</title>
+    <style>
+        /* Styles spécifiques pour la scène 3D */
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        .board-container {
+            position: relative;
+            width: 100%;
+            height: 60vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(circle at center,
+                rgba(0, 119, 190, 0.1) 0%,
+                rgba(0, 61, 91, 0.2) 100%);
+        }
+
+        #board3d {
+            width: 90%;
+            height: 90%;
+            max-width: 600px;
+            max-height: 600px;
+        }
+    </style>
 </head>
 
 <body>
     <div class="container">
-        <button class="sound-toggle" id="soundToggle">🔊</button>
-
         <div class="header">
-            <h1>🏛️ Schmitt Odyssée 🏛️</h1>
-            <p>La victoire n'est qu'ivresse du jeu !</p>
+            <h1>🏛️ Schmitt Odyssée 3D 🏛️</h1>
+            <p>Version 3D isométrique - Style Monopoly GO</p>
         </div>
 
         <div class="game-area">
+            <!-- Plateau 3D -->
             <div class="board-container">
-                <canvas id="gameCanvas"></canvas>
+                <div id="board3d"></div>
             </div>
 
+            <!-- Panneau de contrôle (bottom sheet) -->
             <div class="sidebar">
                 <div class="panel">
                     <h2>Joueurs</h2>
@@ -37,7 +64,7 @@
 
                 <div class="panel">
                     <h2>Historique</h2>
-                    <div class="history-panel" id="historyPanel"></div>
+                    <div class="history-panel" id="historyList"></div>
                 </div>
             </div>
         </div>
@@ -46,7 +73,10 @@
     <!-- Modal de configuration -->
     <div class="setup-screen" id="setupScreen">
         <div class="setup-panel">
-            <h2>Configuration de la partie</h2>
+            <h2>🎮 Configuration de la partie</h2>
+            <p style="text-align: center; color: var(--color-gold); margin-bottom: 20px;">
+                ✨ Version 3D Isométrique ✨
+            </p>
             <div class="form-group">
                 <label>Nombre de joueurs (2-10)</label>
                 <input type="number" id="playerCount" min="2" max="10" value="4">
@@ -59,31 +89,24 @@
     <!-- Modal d'effets -->
     <div class="modal" id="effectModal">
         <div class="modal-content">
-            <div class="tile-effect-icon" id="effectIcon"></div>
-            <h2 id="effectTitle"></h2>
-            <p id="effectDescription"></p>
-            <div id="effectInteraction"></div>
-            <div class="modal-actions">
-                <button class="btn btn-primary" id="effectOkBtn">OK</button>
-            </div>
+            <button class="close-modal">✕</button>
+            <div class="tile-effect-icon" id="modalIcon">🎲</div>
+            <h2 id="modalTitle">Titre</h2>
+            <p id="modalDescription">Description</p>
         </div>
     </div>
-
-    <!-- Notification -->
-    <div class="notification" id="notification"></div>
 
     <!-- Écran de victoire -->
     <div class="victory-screen" id="victoryScreen">
         <div class="victory-content">
             <h1>🎉 VICTOIRE ! 🎉</h1>
             <div class="winner-name" id="winnerName"></div>
-            <div class="stats-grid" id="statsGrid"></div>
             <button class="btn btn-primary" onclick="location.reload()"
                     style="margin-top: 20px; font-size: 1.2em;">Nouvelle partie</button>
         </div>
     </div>
 
-    <!-- Script TypeScript (Vite le transformera automatiquement) -->
-    <script type="module" src="/src/2d/main.ts"></script>
+    <!-- VERSION 3D ISOMÉTRIQUE -->
+    <script type="module" src="/src/3d/main-3d.ts"></script>
 </body>
 </html>

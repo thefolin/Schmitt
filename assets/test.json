@@ -1,0 +1,86 @@
+{
+  "gridRows": 7,
+  "gridCols": 6,
+  "tileSize": 120,
+  "tileGap": 15,
+  "placements": [
+    {
+      "tileId": 0,
+      "gridRow": 2,
+      "gridCol": 1,
+      "size": "full"
+    },
+    {
+      "tileId": 1,
+      "gridRow": 2,
+      "gridCol": 2,
+      "size": "full"
+    },
+    {
+      "tileId": 2,
+      "gridRow": 2,
+      "gridCol": 2,
+      "size": "full"
+    },
+    {
+      "tileId": 4,
+      "gridRow": 2,
+      "gridCol": 3,
+      "size": "full"
+    },
+    {
+      "tileId": 6,
+      "gridRow": 2,
+      "gridCol": 4,
+      "size": "full"
+    },
+    {
+      "tileId": 5,
+      "gridRow": 3,
+      "gridCol": 4,
+      "size": "full"
+    },
+    {
+      "tileId": 6,
+      "gridRow": 3,
+      "gridCol": 4,
+      "size": "full"
+    },
+    {
+      "tileId": 7,
+      "gridRow": 4,
+      "gridCol": 4,
+      "size": "full"
+    },
+    {
+      "tileId": 8,
+      "gridRow": 5,
+      "gridCol": 5,
+      "size": "full"
+    },
+    {
+      "tileId": 9,
+      "gridRow": 6,
+      "gridCol": 5,
+      "size": "full"
+    },
+    {
+      "tileId": 18,
+      "gridRow": 6,
+      "gridCol": 4,
+      "size": "full"
+    },
+    {
+      "tileId": 20,
+      "gridRow": 6,
+      "gridCol": 3,
+      "size": "full"
+    },
+    {
+      "tileId": 22,
+      "gridRow": 5,
+      "gridCol": 3,
+      "size": "full"
+    }
+  ]
+}

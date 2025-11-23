@@ -1,0 +1,761 @@
+/**
+ * SCHMITT ODYSSÉE - Mobile First + Thème Grec
+ * Optimisé pour iPhone 5.2" et tous mobiles
+ */
+
+/* ================================
+   VARIABLES CSS - THÈME ODYSSÉE GRECQUE
+   ================================ */
+:root {
+  /* Couleurs Odyssée Grecque */
+  --color-aegean-blue: #0077BE;
+  --color-deep-sea: #003D5B;
+  --color-gold: #D4AF37;
+  --color-bronze: #CD7F32;
+  --color-marble: #F5F5F0;
+  --color-night: #1a1a2e;
+  --color-olympus: #667eea;
+
+  /* Dégradés */
+  --gradient-sea: linear-gradient(135deg, #0077BE 0%, #003D5B 100%);
+  --gradient-gold: linear-gradient(135deg, #D4AF37 0%, #CD7F32 100%);
+  --gradient-marble: linear-gradient(135deg, #F5F5F0 0%, #E8E8E0 100%);
+
+  /* Espacements mobile */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 24px;
+
+  /* Tailles */
+  --header-height: 60px;
+  --footer-height: 70px;
+  --canvas-size-mobile: min(85vw, 85vh);
+}
+
+/* ================================
+   RESET & BASE
+   ================================ */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: 'Georgia', 'Times New Roman', serif;
+  background: var(--gradient-sea);
+  min-height: 100vh;
+  overflow: hidden;
+  position: fixed;
+  width: 100%;
+  height: 100%;
+
+  /* Empêcher le zoom sur double-tap */
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ================================
+   CONTENEUR PRINCIPAL - MOBILE FIRST
+   ================================ */
+.container {
+  width: 100%;
+  height: 100vh;
+  height: 100dvh; /* Dynamic viewport height pour mobile */
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  position: relative;
+}
+
+/* ================================
+   HEADER - COMPACT MOBILE
+   ================================ */
+.header {
+  height: var(--header-height);
+  background: linear-gradient(180deg, rgba(0, 61, 91, 0.95) 0%, rgba(0, 61, 91, 0.7) 100%);
+  backdrop-filter: blur(10px);
+  color: var(--color-gold);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: var(--spacing-sm);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  z-index: 100;
+}
+
+.header h1 {
+  font-size: 1.3em;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  letter-spacing: 2px;
+  font-weight: 700;
+  background: var(--gradient-gold);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.header p {
+  font-size: 0.7em;
+  opacity: 0.9;
+  font-style: italic;
+  color: var(--color-marble);
+  margin-top: var(--spacing-xs);
+}
+
+/* ================================
+   ZONE DE JEU - OPTIMISÉE MOBILE
+   ================================ */
+.game-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: visible; /* Changé de hidden à visible */
+  position: relative;
+  padding-bottom: 0; /* Supprimé le padding qui cachait le bouton */
+}
+
+/* ================================
+   PLATEAU - CENTRÉ ET REMONTÉ
+   ================================ */
+.board-container {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start; /* Aligné en haut au lieu de center */
+  padding: var(--spacing-sm) var(--spacing-md);
+  padding-top: var(--spacing-lg); /* Espace en haut */
+  position: relative;
+  background: radial-gradient(circle, rgba(255,255,255,0.05) 0%, rgba(0,0,0,0.1) 100%);
+  transform: none; /* Supprimé le translateY qui causait des problèmes */
+}
+
+#gameCanvas {
+  width: var(--canvas-size-mobile) !important;
+  height: var(--canvas-size-mobile) !important;
+  border-radius: 20px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    inset 0 2px 10px rgba(255, 255, 255, 0.1);
+  background: radial-gradient(circle, rgba(245, 245, 240, 0.1) 0%, rgba(0, 0, 0, 0.05) 100%);
+
+  /* Animation pulse subtile */
+  animation: canvasPulse 3s ease-in-out infinite;
+}
+
+@keyframes canvasPulse {
+  0%, 100% {
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.4),
+      inset 0 2px 10px rgba(255, 255, 255, 0.1);
+  }
+  50% {
+    box-shadow:
+      0 12px 40px rgba(212, 175, 55, 0.3),
+      inset 0 2px 15px rgba(255, 255, 255, 0.15);
+  }
+}
+
+/* ================================
+   CONTRÔLES - BOTTOM SHEET MOBILE (COMPACT)
+   ================================ */
+.sidebar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: auto;
+  max-height: 35vh; /* Augmenté de 30vh à 35vh pour plus de visibilité */
+  background: linear-gradient(180deg, rgba(245, 245, 240, 0.98) 0%, rgba(232, 232, 224, 0.95) 100%);
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: var(--spacing-md); /* Padding augmenté pour meilleur espacement */
+  padding-bottom: max(var(--spacing-md), env(safe-area-inset-bottom)); /* Safe area iOS */
+  z-index: 200;
+
+  /* Handle pour swipe */
+  &::before {
+    content: '';
+    position: absolute;
+    top: 6px; /* Réduit de 8px à 6px */
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40px;
+    height: 4px;
+    background: var(--color-bronze);
+    border-radius: 2px;
+    opacity: 0.4;
+  }
+}
+
+/* ================================
+   PANELS - ULTRA COMPACT MOBILE
+   ================================ */
+.panel {
+  background: transparent;
+  border-radius: 0;
+  padding: var(--spacing-xs) var(--spacing-sm); /* Encore plus compact */
+  box-shadow: none;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.panel:last-child {
+  border-bottom: none;
+}
+
+.panel h2 {
+  margin-bottom: var(--spacing-xs); /* Réduit l'espace sous les titres */
+  color: var(--color-deep-sea);
+  font-size: 0.9em; /* Légèrement plus petit */
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.panel h2::before {
+  content: '⚱️';
+  font-size: 1.1em; /* Légèrement plus petit */
+}
+
+/* ================================
+   LISTE DES JOUEURS - HORIZONTAL SCROLL
+   ================================ */
+.player-list {
+  display: flex;
+  gap: var(--spacing-sm);
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-height: none;
+  padding: var(--spacing-sm) 0;
+
+  /* Smooth scroll */
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+
+  /* Hide scrollbar */
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.player-item {
+  min-width: 120px;
+  padding: var(--spacing-sm);
+  margin-bottom: 0;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  background: rgba(255, 255, 255, 0.5);
+  border: 2px solid transparent;
+  flex-shrink: 0;
+}
+
+.player-item.active {
+  background: var(--gradient-gold);
+  color: white;
+  transform: scale(1.05) translateY(-4px);
+  box-shadow: 0 8px 20px rgba(212, 175, 55, 0.5);
+  border-color: var(--color-gold);
+}
+
+.player-item:not(.active) {
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.player-name {
+  font-weight: 700;
+  font-size: 0.9em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.player-info {
+  font-size: 0.75em;
+  opacity: 0.8;
+  white-space: nowrap;
+}
+
+/* ================================
+   CONTRÔLES - BOUTONS TACTILES
+   ================================ */
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.dice-result {
+  text-align: center;
+  font-size: 2em; /* Réduit de 2.5em à 2em */
+  color: var(--color-gold);
+  font-weight: bold;
+  min-height: 40px; /* Réduit de 50px à 40px */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--gradient-marble);
+  border-radius: 10px; /* Réduit de 12px à 10px */
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: var(--spacing-xs); /* Réduit l'espace */
+}
+
+.btn {
+  padding: 10px 16px; /* Réduit de 14px/20px à 10px/16px */
+  border: none;
+  border-radius: 10px; /* Réduit de 12px à 10px */
+  font-size: 0.9em; /* Légèrement plus petit */
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  text-transform: uppercase;
+  letter-spacing: 0.5px; /* Réduit de 1px à 0.5px */
+  font-family: 'Georgia', serif;
+
+  /* Touch optimization */
+  min-height: 44px; /* Réduit de 48px à 44px (toujours tactile) */
+  position: relative;
+  overflow: hidden;
+}
+
+.btn::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.btn:active::before {
+  width: 300px;
+  height: 300px;
+}
+
+.btn-primary {
+  background: var(--gradient-gold);
+  color: white;
+  box-shadow: 0 4px 15px rgba(212, 175, 55, 0.4);
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.btn-primary:active {
+  transform: scale(0.95);
+  box-shadow: 0 2px 8px rgba(212, 175, 55, 0.3);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: linear-gradient(135deg, #999 0%, #666 100%);
+}
+
+/* ================================
+   HISTORIQUE - ULTRA COMPACT (CACHÉ PAR DÉFAUT)
+   ================================ */
+.history-panel {
+  max-height: 0; /* Caché par défaut pour gagner de l'espace */
+  overflow: hidden;
+  font-size: 0.7em;
+  -webkit-overflow-scrolling: touch;
+  transition: max-height 0.3s ease;
+}
+
+/* Afficher l'historique au clic (optionnel pour plus tard) */
+.panel:has(.history-panel):hover .history-panel {
+  max-height: 60px; /* Réduit de 80px à 60px */
+}
+
+.history-item {
+  padding: 4px var(--spacing-xs); /* Plus compact verticalement */
+  margin-bottom: 2px;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 4px;
+  border-left: 2px solid var(--color-gold);
+  font-size: 0.85em;
+  line-height: 1.2;
+}
+
+/* ================================
+   MODALES - MOBILE OPTIMIZED
+   ================================ */
+.setup-screen,
+.modal,
+.victory-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 61, 91, 0.95);
+  backdrop-filter: blur(10px);
+  display: none; /* Caché par défaut */
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease;
+  padding: var(--spacing-lg);
+}
+
+/* Afficher uniquement quand la classe 'show' est présente */
+.setup-screen {
+  display: flex; /* L'écran de setup est visible au démarrage */
+}
+
+.modal.show,
+.victory-screen.show {
+  display: flex;
+}
+
+.setup-panel,
+.modal-content {
+  background: var(--gradient-marble);
+  padding: var(--spacing-xl);
+  border-radius: 20px;
+  max-width: 100%;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  animation: slideUp 0.3s ease;
+  border: 3px solid var(--color-gold);
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.setup-panel h2,
+.modal-content h2 {
+  color: var(--color-deep-sea);
+  margin-bottom: var(--spacing-lg);
+  text-align: center;
+  font-size: 1.5em;
+  background: var(--gradient-gold);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ================================
+   INPUTS - MOBILE FRIENDLY
+   ================================ */
+.form-group input,
+.form-group select,
+.input-group input,
+.input-group textarea {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid var(--color-bronze);
+  border-radius: 10px;
+  font-size: 16px; /* Évite le zoom sur iOS */
+  transition: border-color 0.3s ease;
+  background: white;
+  font-family: 'Georgia', serif;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.input-group input:focus,
+.input-group textarea:focus {
+  outline: none;
+  border-color: var(--color-gold);
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.2);
+}
+
+.player-input-item {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+  align-items: center;
+}
+
+.color-picker {
+  width: 50px;
+  height: 48px;
+  border: 2px solid var(--color-bronze);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+/* ================================
+   NOTIFICATION - TOAST MOBILE AMÉLIORÉ
+   ================================ */
+.notification {
+  position: fixed;
+  top: 50%; /* Centre vertical */
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  background: linear-gradient(135deg,
+    rgba(212, 175, 55, 0.98) 0%,
+    rgba(205, 127, 50, 0.98) 100%);
+  backdrop-filter: blur(10px);
+  padding: var(--spacing-lg) var(--spacing-xl);
+  border-radius: 20px;
+  box-shadow:
+    0 10px 40px rgba(0, 0, 0, 0.5),
+    0 0 0 3px rgba(255, 255, 255, 0.3);
+  z-index: 3500; /* Au-dessus de tout (y compris modales) */
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); /* Bounce effect */
+  text-align: center;
+  font-size: 1.1em;
+  color: white;
+  font-weight: bold;
+  max-width: 85%;
+  min-width: 200px;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+
+  /* Animation pulse pendant l'affichage */
+  animation: notificationPulse 2s ease-in-out;
+}
+
+.notification.show {
+  transform: translate(-50%, -50%) scale(1);
+}
+
+@keyframes notificationPulse {
+  0%, 100% {
+    box-shadow:
+      0 10px 40px rgba(0, 0, 0, 0.5),
+      0 0 0 3px rgba(255, 255, 255, 0.3);
+  }
+  50% {
+    box-shadow:
+      0 15px 50px rgba(212, 175, 55, 0.6),
+      0 0 0 5px rgba(255, 255, 255, 0.5);
+  }
+}
+
+/* ================================
+   BOUTON SON - COIN SUPÉRIEUR
+   ================================ */
+.sound-toggle {
+  position: fixed;
+  top: 70px;
+  right: var(--spacing-lg);
+  background: var(--gradient-gold);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  font-size: 1.3em;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  z-index: 300;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+
+  /* DÉSACTIVÉ TEMPORAIREMENT - Code gardé pour plus tard */
+  display: none;
+}
+
+.sound-toggle:active {
+  transform: scale(0.9);
+}
+
+/* ================================
+   PARTICULES - PERFORMANCE OPTIMISÉE
+   ================================ */
+.particle {
+  position: absolute;
+  pointer-events: none;
+  animation: particleFall 2s ease-out forwards;
+  will-change: transform, opacity;
+}
+
+@keyframes particleFall {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(100px) scale(0.5) rotate(360deg);
+  }
+}
+
+/* ================================
+   ÉCRAN DE VICTOIRE - MOBILE
+   ================================ */
+.victory-content {
+  background: var(--gradient-gold);
+  padding: var(--spacing-xl);
+  border-radius: 20px;
+  text-align: center;
+  color: white;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  animation: slideUp 0.5s ease;
+  max-width: 100%;
+}
+
+.victory-content h1 {
+  font-size: 2.5em;
+  margin-bottom: var(--spacing-lg);
+  animation: pulse 2s infinite;
+  text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.5);
+}
+
+.victory-content .winner-name {
+  font-size: 1.8em;
+  margin-bottom: var(--spacing-lg);
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--spacing-md);
+  margin: var(--spacing-lg) 0;
+}
+
+.stat-card {
+  background: rgba(255, 255, 255, 0.2);
+  padding: var(--spacing-md);
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+}
+
+/* ================================
+   RESPONSIVE - TABLETTES & DESKTOP
+   ================================ */
+
+/* Tablette portrait (> 600px) */
+@media (min-width: 600px) {
+  :root {
+    --header-height: 80px;
+    --canvas-size-mobile: min(70vw, 70vh);
+  }
+
+  .header h1 {
+    font-size: 2em;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .sidebar {
+    max-height: 35vh;
+  }
+}
+
+/* Tablette paysage & Desktop (> 1024px) */
+@media (min-width: 1024px) {
+  .game-area {
+    flex-direction: row;
+  }
+
+  .sidebar {
+    position: relative;
+    max-height: none;
+    width: 320px;
+    border-radius: 15px;
+    margin: var(--spacing-lg);
+    flex-direction: column;
+    gap: var(--spacing-md);
+
+    &::before {
+      display: none;
+    }
+  }
+
+  .panel {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 15px;
+    padding: var(--spacing-lg);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    border-bottom: none;
+  }
+
+  .player-list {
+    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+    max-height: 200px;
+  }
+
+  .player-item {
+    min-width: auto;
+    flex-direction: row;
+    justify-content: space-between;
+  }
+}
+
+/* ================================
+   ANIMATIONS FLUIDES (60 FPS)
+   ================================ */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+/* ================================
+   SCROLLBARS CUSTOM
+   ================================ */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-gold) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--color-gold);
+  border-radius: 4px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--color-bronze);
+}
+
+/* ================================
+   SAFE AREA - iOS NOTCH
+   ================================ */
+@supports (padding: max(0px)) {
+  .header {
+    padding-top: max(var(--spacing-sm), env(safe-area-inset-top));
+  }
+
+  .sidebar {
+    padding-bottom: max(var(--spacing-md), env(safe-area-inset-bottom));
+  }
+
+  .sound-toggle {
+    top: max(70px, calc(70px + env(safe-area-inset-top)));
+    right: max(var(--spacing-lg), env(safe-area-inset-right));
+  }
+}

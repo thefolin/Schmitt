@@ -1,0 +1,420 @@
+/* ================================
+   PLATEAU 3D CIRCULAIRE ISOMÉTRIQUE
+   Style Monopoly GO - Vue claire
+   ================================ */
+
+:root {
+  /* Palette pastel saturée */
+  --color-sky: #87CEEB;
+  --color-turquoise: #40E0D0;
+  --color-mint: #98FF98;
+  --color-coral: #FF6B6B;
+  --color-yellow: #FFD93D;
+  --color-purple: #C77DFF;
+  --color-pink: #FFB4D6;
+}
+
+/* ================================
+   CONTENEUR PRINCIPAL
+   ================================ */
+.board-container {
+  position: relative;
+  width: 100%;
+  height: 60vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg,
+    #87CEEB 0%,
+    #B0E0E6 50%,
+    #E0F6FF 100%);
+  overflow: visible;
+}
+
+/* ================================
+   SCÈNE 3D
+   ================================ */
+#board3d {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  max-width: 500px;
+  max-height: 500px;
+  transform-style: preserve-3d;
+  transform: rotateX(45deg) rotateZ(0deg);
+  pointer-events: none;
+}
+
+/* Cercle du plateau (base 3D) */
+#board3d::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 90%;
+  height: 90%;
+  background: linear-gradient(135deg, #A0D8B3 0%, #7BC4A4 100%);
+  border-radius: 50%;
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.3),
+    inset 0 -10px 30px rgba(0, 0, 0, 0.2);
+  border: 8px solid rgba(255, 255, 255, 0.4);
+  z-index: -1;
+}
+
+/* ================================
+   CASES 3D - CUBES COLORÉS
+   ================================ */
+.tile-3d {
+  position: absolute;
+  width: 50px;
+  height: 50px;
+  transform-style: preserve-3d;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  pointer-events: auto;
+  z-index: 10;
+}
+
+.tile-3d-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+}
+
+/* Cube 3D - Face supérieure */
+.tile-face.tile-top {
+  position: absolute;
+  width: 50px;
+  height: 50px;
+  background: linear-gradient(135deg, #FFE5B4 0%, #FFDAB9 100%);
+  border-radius: 8px;
+  border: 3px solid white;
+  box-shadow:
+    0 4px 15px rgba(0, 0, 0, 0.2),
+    inset 0 2px 8px rgba(255, 255, 255, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: translateZ(25px);
+}
+
+/* Icône de la case */
+.tile-icon {
+  font-size: 28px;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  animation: tileIdle 3s ease-in-out infinite;
+}
+
+@keyframes tileIdle {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+/* Face avant du cube */
+.tile-face.tile-front {
+  position: absolute;
+  width: 50px;
+  height: 25px;
+  bottom: 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.2) 0%, rgba(0, 0, 0, 0.1) 100%);
+  transform-origin: bottom;
+  transform: rotateX(-90deg);
+}
+
+/* Couleurs selon le type de case */
+.tile-3d[data-tile-type="start"] .tile-top {
+  background: linear-gradient(135deg, #98FF98 0%, #7FFF7F 100%);
+  box-shadow:
+    0 4px 20px rgba(152, 255, 152, 0.6),
+    inset 0 2px 10px rgba(255, 255, 255, 0.4);
+}
+
+.tile-3d[data-tile-type*="drink"] .tile-top {
+  background: linear-gradient(135deg, #FF6B6B 0%, #FF5252 100%);
+  box-shadow:
+    0 4px 20px rgba(255, 107, 107, 0.6),
+    inset 0 2px 10px rgba(255, 255, 255, 0.4);
+}
+
+.tile-3d[data-tile-type*="give"] .tile-top {
+  background: linear-gradient(135deg, #40E0D0 0%, #20C9B9 100%);
+  box-shadow:
+    0 4px 20px rgba(64, 224, 208, 0.6),
+    inset 0 2px 10px rgba(255, 255, 255, 0.4);
+}
+
+.tile-3d[data-tile-type="power"] .tile-top {
+  background: linear-gradient(135deg, #FFD93D 0%, #FFC107 100%);
+  box-shadow:
+    0 6px 30px rgba(255, 217, 61, 0.8),
+    inset 0 2px 12px rgba(255, 255, 255, 0.5);
+  animation: powerPulse 2s ease-in-out infinite;
+}
+
+@keyframes powerPulse {
+  0%, 100% {
+    transform: translateZ(25px) scale(1);
+    box-shadow:
+      0 6px 30px rgba(255, 217, 61, 0.8),
+      inset 0 2px 12px rgba(255, 255, 255, 0.5);
+  }
+  50% {
+    transform: translateZ(30px) scale(1.1);
+    box-shadow:
+      0 10px 40px rgba(255, 217, 61, 1),
+      inset 0 2px 15px rgba(255, 255, 255, 0.6);
+  }
+}
+
+.tile-3d[data-tile-type="temple"] .tile-top {
+  background: linear-gradient(135deg, #C77DFF 0%, #9D4EDD 100%);
+  box-shadow:
+    0 4px 20px rgba(199, 125, 255, 0.7),
+    inset 0 2px 10px rgba(255, 255, 255, 0.4);
+}
+
+.tile-3d[data-tile-type="finish"] .tile-top {
+  background: linear-gradient(135deg, #FFB4D6 0%, #FF8FAB 100%);
+  box-shadow:
+    0 6px 30px rgba(255, 180, 214, 0.9),
+    inset 0 2px 12px rgba(255, 255, 255, 0.5);
+  animation: finishShine 1.5s ease-in-out infinite;
+}
+
+@keyframes finishShine {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}
+
+/* Hover effect */
+.tile-3d:hover {
+  transform: translateY(-8px) scale(1.15);
+  filter: drop-shadow(0 10px 25px rgba(0, 0, 0, 0.3));
+}
+
+/* ================================
+   PIONS 3D - CAPSULES COLORÉES
+   ================================ */
+.pawn-3d {
+  position: absolute;
+  width: 40px;
+  height: 60px;
+  transform-style: preserve-3d;
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 100;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.pawn-3d-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+}
+
+/* Corps du pion (capsule 3D) */
+.pawn-body {
+  position: absolute;
+  width: 32px;
+  height: 48px;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%) translateZ(30px);
+  background: var(--player-color);
+  border-radius: 16px 16px 8px 8px;
+  border: 4px solid white;
+  box-shadow:
+    0 8px 20px rgba(0, 0, 0, 0.3),
+    inset -4px -4px 10px rgba(0, 0, 0, 0.2),
+    inset 4px 4px 10px rgba(255, 255, 255, 0.6);
+
+  /* Brillance cartoon */
+  background-image:
+    radial-gradient(
+      circle at 25% 20%,
+      rgba(255, 255, 255, 0.8),
+      transparent 40%
+    );
+}
+
+/* Visage emoji */
+.pawn-body::before {
+  content: '😊';
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 16px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
+}
+
+/* Ombre portée */
+.pawn-shadow {
+  position: absolute;
+  width: 40px;
+  height: 15px;
+  bottom: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: radial-gradient(
+    ellipse,
+    rgba(0, 0, 0, 0.4),
+    transparent
+  );
+  border-radius: 50%;
+  filter: blur(6px);
+}
+
+/* Indicateur de pouvoir */
+.pawn-power {
+  position: absolute;
+  top: -15px;
+  left: 50%;
+  transform: translateX(-50%) translateZ(50px);
+  font-size: 24px;
+  animation: powerSpin 2s linear infinite;
+  filter: drop-shadow(0 0 10px #FFD93D);
+}
+
+@keyframes powerSpin {
+  from { transform: translateX(-50%) translateZ(50px) rotate(0deg); }
+  to { transform: translateX(-50%) translateZ(50px) rotate(360deg); }
+}
+
+/* Animation de saut */
+.pawn-jumping .pawn-body {
+  animation: pawnJump 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes pawnJump {
+  0%, 100% {
+    transform: translateX(-50%) translateZ(30px);
+  }
+  50% {
+    transform: translateX(-50%) translateZ(80px) scale(1.15);
+  }
+}
+
+.pawn-jumping .pawn-shadow {
+  animation: shadowShrink 0.6s ease-in-out;
+}
+
+@keyframes shadowShrink {
+  0%, 100% {
+    opacity: 0.4;
+    transform: translateX(-50%) scale(1);
+  }
+  50% {
+    opacity: 0.1;
+    transform: translateX(-50%) scale(0.5);
+  }
+}
+
+/* ================================
+   PARTICULES
+   ================================ */
+.particles {
+  position: absolute;
+  width: 120px;
+  height: 120px;
+  pointer-events: none;
+  transform-style: preserve-3d;
+  z-index: 150;
+}
+
+.particle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  top: 50%;
+  left: 50%;
+  animation: particleExplode 1s ease-out forwards;
+  animation-delay: var(--delay);
+}
+
+@keyframes particleExplode {
+  0% {
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 1;
+  }
+  100% {
+    transform:
+      translate(
+        calc(-50% + cos(var(--angle)) * 100px),
+        calc(-50% + sin(var(--angle)) * 100px)
+      )
+      translateZ(60px)
+      scale(1.2);
+    opacity: 0;
+  }
+}
+
+.particles-gold .particle {
+  background: radial-gradient(circle, #FFD93D, #FFC107);
+  box-shadow: 0 0 15px rgba(255, 217, 61, 0.9);
+}
+
+.particles-power .particle {
+  background: radial-gradient(circle, #40E0D0, #20C9B9);
+  box-shadow: 0 0 15px rgba(64, 224, 208, 0.9);
+}
+
+.particles-drink .particle {
+  background: radial-gradient(circle, #FF6B6B, #FF5252);
+  box-shadow: 0 0 15px rgba(255, 107, 107, 0.9);
+}
+
+/* ================================
+   RESPONSIVE
+   ================================ */
+@media (max-width: 768px) {
+  #board3d {
+    max-width: 350px;
+    max-height: 350px;
+  }
+
+  .tile-3d {
+    width: 42px;
+    height: 42px;
+  }
+
+  .tile-face.tile-top {
+    width: 42px;
+    height: 42px;
+  }
+
+  .tile-icon {
+    font-size: 24px;
+  }
+
+  .pawn-3d {
+    width: 35px;
+    height: 50px;
+  }
+
+  .pawn-body {
+    width: 28px;
+    height: 40px;
+  }
+
+  .pawn-body::before {
+    font-size: 14px;
+    top: 10px;
+  }
+}
+
+/* Optimisations GPU */
+.tile-3d,
+.pawn-3d,
+.tile-3d-inner,
+.pawn-3d-inner,
+.particles {
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  will-change: transform;
+}

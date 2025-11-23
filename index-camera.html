@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Schmitt Odyssée - Vue Caméra</title>
+</head>
+
+<body>
+    <div class="container">
+        <button class="sound-toggle" id="soundToggle">🔊</button>
+
+        <div class="game-area-fullscreen">
+            <!-- Zone du plateau avec caméra (plein écran) -->
+            <div id="boardCamera" class="board-camera-container">
+                <!-- Les dés seront créés ici dynamiquement -->
+            </div>
+
+            <!-- Boutons joueurs style TikTok (côté droit) -->
+            <div class="player-buttons" id="playerButtons">
+                <!-- Générés dynamiquement -->
+            </div>
+
+            <!-- Bouton menu/settings -->
+            <button class="menu-btn" id="menuBtn">☰</button>
+
+            <!-- Zone de boutons d'action (bas à droite) -->
+            <div class="action-buttons-zone">
+                <!-- Contrôles de caméra -->
+                <button class="action-btn camera-control-btn" data-action="zoom-in" title="Zoom +">
+                    +
+                </button>
+                <button class="action-btn camera-control-btn" data-action="zoom-out" title="Zoom -">
+                    −
+                </button>
+                <button class="action-btn camera-control-btn" data-action="focus-dice" title="Focus dés">
+                    🎲
+                </button>
+                <button class="action-btn camera-control-btn" data-action="reset" title="Recentrer">
+                    ⌂
+                </button>
+
+                <!-- Séparateur visuel -->
+                <div style="height: 8px;"></div>
+
+                <!-- Actions de jeu -->
+                <button class="action-btn" id="rollDiceBtn" title="Lancer le dé">
+                    🎲
+                </button>
+                <button class="action-btn" id="manualMoveBtn" title="Déplacement manuel">
+                    🎯
+                </button>
+            </div>
+
+            <!-- Indicateur joueur actuel -->
+            <div class="current-player-indicator" id="currentPlayerIndicator">
+                <span class="player-name" id="currentPlayerName">Joueur 1</span>
+                <span class="player-turn">À vous de jouer !</span>
+            </div>
+        </div>
+
+        <!-- Modal info joueur (slide up) -->
+        <div class="player-modal" id="playerModal">
+            <div class="player-modal-content">
+                <div class="modal-header">
+                    <h3 id="modalPlayerName">Joueur</h3>
+                    <button class="close-modal-btn" id="closePlayerModal">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="player-stats">
+                        <div class="stat-item">
+                            <span class="stat-icon">📍</span>
+                            <span class="stat-label">Position</span>
+                            <span class="stat-value" id="modalPlayerPosition">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-icon">🍺</span>
+                            <span class="stat-label">Gorgées</span>
+                            <span class="stat-value" id="modalPlayerDrinks">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-icon">⚡</span>
+                            <span class="stat-label">Pouvoir</span>
+                            <span class="stat-value" id="modalPlayerPower">Non</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal menu -->
+        <div class="menu-modal" id="menuModal">
+            <div class="menu-modal-content">
+                <div class="modal-header">
+                    <h3>Menu</h3>
+                    <button class="close-modal-btn" id="closeMenuModal">×</button>
+                </div>
+                <div class="menu-actions">
+                    <button class="menu-item" id="showHistoryBtn">📜 Historique</button>
+                    <button class="menu-item" id="resetBtn">🔄 Nouvelle partie</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de configuration -->
+    <div class="setup-screen" id="setupScreen">
+        <div class="setup-panel">
+            <h2>Configuration de la partie</h2>
+
+            <div class="form-group">
+                <label>Plateau de jeu</label>
+                <select id="mapSelect" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ddd; font-size: 14px;">
+                    <option value="default">Plateau par défaut</option>
+                </select>
+                <div style="margin-top: 8px; display: flex; gap: 8px;">
+                    <button type="button" class="btn" id="importMapBtn" style="flex: 1; padding: 8px; font-size: 12px; background: #6c757d;">
+                        Importer JSON
+                    </button>
+                    <a href="/index-editor.html" class="btn" style="flex: 1; padding: 8px; font-size: 12px; background: #17a2b8; text-align: center; text-decoration: none; color: white; border-radius: 8px;">
+                        Éditeur
+                    </a>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Nombre de joueurs (2-10)</label>
+                <input type="number" id="playerCount" min="2" max="10" value="4">
+            </div>
+            <div class="player-inputs" id="playerInputs"></div>
+            <button class="btn btn-primary" id="startGameBtn" style="width: 100%;">Commencer la partie</button>
+        </div>
+    </div>
+
+    <!-- Modal d'effets -->
+    <div class="modal" id="effectModal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <div class="tile-effect-icon" id="effectIcon"></div>
+            <h2 id="effectTitle"></h2>
+            <p id="effectDescription"></p>
+            <div id="effectInteraction"></div>
+            <div class="modal-actions">
+                <button class="btn btn-primary" id="effectOkBtn">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification -->
+    <div class="notification" id="notification"></div>
+
+    <!-- Écran de victoire -->
+    <div class="victory-screen" id="victoryScreen">
+        <div class="victory-content">
+            <h1>🎉 VICTOIRE ! 🎉</h1>
+            <div class="winner-name" id="winnerName"></div>
+            <div class="stats-grid" id="statsGrid"></div>
+            <button class="btn btn-primary" onclick="location.reload()"
+                    style="margin-top: 20px; font-size: 1.2em;">Nouvelle partie</button>
+        </div>
+    </div>
+
+    <!-- Script TypeScript (Vite le transformera automatiquement) -->
+    <script type="module" src="/src/camera/main-camera.ts"></script>
+</body>
+</html>
