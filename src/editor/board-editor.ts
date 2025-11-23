@@ -239,7 +239,7 @@ class BoardEditor {
 
       tileItem.innerHTML = `
         ${tile.image
-          ? `<img src="/${tile.image}" alt="${tile.name}" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+          ? `<img src="${tile.image}" alt="${tile.name}" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
              <span style="display:none; font-size: 24px;">${tile.icon}</span>`
           : `<span style="font-size: 24px;">${tile.icon}</span>`
         }
@@ -277,7 +277,7 @@ class BoardEditor {
 
       tileItem.innerHTML = `
         ${power.image
-          ? `<img src="/${power.image}" alt="${power.name}" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+          ? `<img src="${power.image}" alt="${power.name}" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
              <span style="display:none; font-size: 24px;">${power.icon}</span>`
           : `<span style="font-size: 24px;">${power.icon}</span>`
         }
@@ -497,7 +497,7 @@ class BoardEditor {
           <button class="tile-control-btn" data-action="rotate-right" title="Rotation droite">↻</button>
         </div>
         ${displayImage
-          ? `<img src="/${displayImage}" alt="${displayName}" onerror="this.style.display='none'">`
+          ? `<img src="${displayImage}" alt="${displayName}" onerror="this.style.display='none'">`
           : `<span style="font-size: ${Math.min(tile.width, tile.height) * 0.4}px">${displayIcon}</span>`
         }
         <span class="tile-number">${displayId}</span>
