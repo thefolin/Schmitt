@@ -99,6 +99,23 @@ export class GameLogic {
   }
 
   /**
+   * Revient au joueur précédent (pour Apollon)
+   */
+  public previousPlayer(): void {
+    this.currentPlayerIndex = (this.currentPlayerIndex - 1 + this.players.length) % this.players.length;
+  }
+
+  /**
+   * Définit la position d'un joueur (pour Hermès)
+   */
+  public setPlayerPosition(playerIndex: number, position: number): void {
+    const player = this.players[playerIndex];
+    if (player) {
+      player.position = Math.max(0, Math.min(position, 23));
+    }
+  }
+
+  /**
    * Vérifie si un joueur a gagné
    */
   public checkVictory(): Player | null {

@@ -492,7 +492,7 @@ export class BoardCameraRenderer {
       el.dataset.size = placement.size;
     }
 
-    // Image ou icône
+    // Afficher l'image ou l'icône selon ce qui est disponible
     if (tile.image) {
       el.innerHTML = `
         <img src="${tile.image}" alt="${tile.name}" class="tile-image" />
@@ -504,6 +504,11 @@ export class BoardCameraRenderer {
         <span class="tile-number">${index}</span>
       `;
     }
+
+    // Ajouter un événement de clic pour afficher les informations de la case
+    el.addEventListener('click', () => {
+      this.showTileInfo(tile, index);
+    });
 
     el.style.width = `${width}px`;
     el.style.height = `${height}px`;
@@ -599,24 +604,39 @@ export class BoardCameraRenderer {
     const playersOnSameTile = allPlayers.filter(p => p.position === player.position);
     const indexOnTile = playersOnSameTile.indexOf(player);
 
-    // Calculer les 4 slots (coins de la case)
-    const halfSize = this.config.tileSize / 2;
-    const slots = [
-      { x: pos.x, y: pos.y },                           // top-left
-      { x: pos.x + halfSize, y: pos.y },                // top-right
-      { x: pos.x, y: pos.y + halfSize },                // bottom-left
-      { x: pos.x + halfSize, y: pos.y + halfSize }      // bottom-right
-    ];
+    // Calculer les positions pour jusqu'à 10 joueurs sur une case
+    // Grille 3x3 pour 9 joueurs + 1 position centrale pour le 10ème
+    const tileSize = this.config.tileSize;
+    const pawnSize = 30;
+    const padding = 5;
 
-    const slotIndex = indexOnTile % 4;
+    // Positions en grille 3x3 dans la case
+    const gridSize = 3;
+    const cellSize = (tileSize - padding * 2) / gridSize;
+    const slots: { x: number; y: number }[] = [];
+
+    for (let row = 0; row < gridSize; row++) {
+      for (let col = 0; col < gridSize; col++) {
+        slots.push({
+          x: pos.x + padding + col * cellSize + (cellSize - pawnSize) / 2,
+          y: pos.y + padding + row * cellSize + (cellSize - pawnSize) / 2
+        });
+      }
+    }
+
+    // Si plus de 9 joueurs, empiler au centre
+    const slotIndex = indexOnTile < 9 ? indexOnTile : 4; // Position centrale (index 4)
     const slot = slots[slotIndex];
 
-    const pawnSize = 30;
-    const slotSize = this.config.tileSize / 2;
-    const centerInSlot = (slotSize - pawnSize) / 2;
+    pawnEl.style.left = `${slot.x}px`;
+    pawnEl.style.top = `${slot.y}px`;
 
-    pawnEl.style.left = `${slot.x + centerInSlot}px`;
-    pawnEl.style.top = `${slot.y + centerInSlot}px`;
+    // Si empilés au centre, ajouter un léger offset pour visibilité
+    if (indexOnTile >= 9) {
+      const stackOffset = (indexOnTile - 9) * 3;
+      pawnEl.style.left = `${slot.x + stackOffset}px`;
+      pawnEl.style.top = `${slot.y + stackOffset}px`;
+    }
 
     // Mettre à jour le pouvoir Schmitt
     const powerEl = pawnEl.querySelector('.pawn-power');
@@ -727,6 +747,56 @@ export class BoardCameraRenderer {
         true
       );
     }
+  }
+
+  /**
+   * Affiche une modal avec les informations d'une case
+   */
+  private showTileInfo(tile: TileConfig, index: number): void {
+    // Créer la modal si elle n'existe pas
+    let modal = document.getElementById('tileInfoModal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'tileInfoModal';
+      modal.className = 'tile-info-modal';
+      modal.innerHTML = `
+        <div class="tile-info-content">
+          <button class="close-tile-info">&times;</button>
+          <div class="tile-info-icon"></div>
+          <h2 class="tile-info-title"></h2>
+          <p class="tile-info-description"></p>
+          <div class="tile-info-number"></div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+
+      // Fermer au clic sur la croix
+      const closeBtn = modal.querySelector('.close-tile-info');
+      closeBtn?.addEventListener('click', () => {
+        modal!.style.display = 'none';
+      });
+
+      // Fermer au clic en dehors de la modal
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          modal!.style.display = 'none';
+        }
+      });
+    }
+
+    // Remplir les informations
+    const iconEl = modal.querySelector('.tile-info-icon') as HTMLElement;
+    const titleEl = modal.querySelector('.tile-info-title') as HTMLElement;
+    const descEl = modal.querySelector('.tile-info-description') as HTMLElement;
+    const numberEl = modal.querySelector('.tile-info-number') as HTMLElement;
+
+    if (iconEl) iconEl.textContent = tile.icon;
+    if (titleEl) titleEl.textContent = tile.name;
+    if (descEl) descEl.textContent = tile.description;
+    if (numberEl) numberEl.textContent = `Case ${index}`;
+
+    // Afficher la modal
+    modal.style.display = 'flex';
   }
 
   /**

@@ -1,0 +1,249 @@
+/* Modal de déplacement manuel */
+.manual-movement-modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 10002;
+  justify-content: center;
+  align-items: center;
+  animation: fadeIn 0.2s ease;
+}
+
+.manual-movement-content {
+  background: linear-gradient(145deg, #ffffff 0%, #f5f7fa 100%);
+  padding: 30px;
+  border-radius: 20px;
+  max-width: 700px;
+  width: 90%;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 15px 50px rgba(0, 0, 0, 0.5);
+  position: relative;
+  animation: slideUp 0.3s ease;
+}
+
+.close-manual-movement {
+  position: absolute;
+  top: 15px;
+  right: 20px;
+  font-size: 32px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #6c757d;
+  transition: all 0.2s;
+  line-height: 1;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+}
+
+.close-manual-movement:hover {
+  color: #dc3545;
+  transform: rotate(90deg);
+}
+
+.manual-movement-title {
+  font-size: 28px;
+  font-weight: bold;
+  color: #2c3e50;
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+.manual-movement-subtitle {
+  font-size: 16px;
+  color: #6c757d;
+  text-align: center;
+  margin-bottom: 25px;
+}
+
+/* Liste des joueurs à déplacer */
+.player-movement-list {
+  margin-bottom: 25px;
+}
+
+.player-movement-card {
+  background: white;
+  border: 3px solid #dee2e6;
+  border-radius: 12px;
+  padding: 15px 20px;
+  margin-bottom: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.player-movement-card:hover {
+  transform: translateX(5px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.player-movement-card.configured {
+  background: linear-gradient(145deg, #d4edda 0%, #c3e6cb 100%);
+  border-color: #28a745;
+}
+
+.player-movement-name {
+  font-size: 18px;
+  font-weight: bold;
+  color: #2c3e50;
+}
+
+.player-movement-status {
+  font-size: 14px;
+  color: #495057;
+  font-weight: 500;
+}
+
+/* Contrôles de déplacement */
+.movement-controls {
+  background: #f8f9fa;
+  border-radius: 15px;
+  padding: 25px;
+  margin-bottom: 20px;
+}
+
+.selected-player-name {
+  font-size: 22px;
+  font-weight: bold;
+  color: #495057;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+/* Sélecteur de direction */
+.direction-selector {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.direction-btn {
+  flex: 1;
+  padding: 15px;
+  font-size: 18px;
+  font-weight: bold;
+  background: white;
+  border: 3px solid #dee2e6;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.direction-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.direction-btn.selected {
+  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+  border-color: #0056b3;
+  color: white;
+  box-shadow: 0 4px 16px rgba(0, 123, 255, 0.4);
+}
+
+/* Input de nombre de cases */
+.position-input-group {
+  margin-bottom: 20px;
+}
+
+.position-input-group label {
+  display: block;
+  font-size: 16px;
+  font-weight: 600;
+  color: #495057;
+  margin-bottom: 10px;
+}
+
+.number-stepper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.stepper-btn {
+  width: 45px;
+  height: 45px;
+  font-size: 24px;
+  font-weight: bold;
+  background: white;
+  border: 2px solid #dee2e6;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.stepper-btn:hover {
+  background: #007bff;
+  border-color: #007bff;
+  color: white;
+  transform: scale(1.1);
+}
+
+#movementSteps {
+  flex: 1;
+  height: 45px;
+  font-size: 20px;
+  font-weight: bold;
+  text-align: center;
+  border: 2px solid #dee2e6;
+  border-radius: 10px;
+  padding: 0 10px;
+}
+
+/* Boutons d'action */
+.apply-movement {
+  width: 100%;
+  padding: 15px;
+  font-size: 18px;
+  font-weight: bold;
+  background: linear-gradient(135deg, #28a745 0%, #218838 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+}
+
+.apply-movement:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(40, 167, 69, 0.4);
+}
+
+.confirm-all-movements {
+  width: 100%;
+  padding: 18px;
+  font-size: 20px;
+  font-weight: bold;
+  background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3);
+}
+
+.confirm-all-movements:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 193, 7, 0.5);
+}
+
+@media (max-width: 600px) {
+  .manual-movement-content {
+    width: 95%;
+    padding: 20px;
+  }
+
+  .direction-selector {
+    flex-direction: column;
+  }
+}

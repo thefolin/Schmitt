@@ -5,9 +5,13 @@ import { TILE_CONFIGS } from '../features/tiles/tile.config';
 import { assetManager } from '../core/assets/AssetManager';
 import type { BoardLayoutConfig } from '../features/board/camera/board-layout.config';
 import { DiceManager } from '../features/dice';
+import { PlayerSelector } from '../features/game/player-selector';
+import { ManualMovement } from '../features/game/manual-movement';
 import '../styles/common/main.css';
 import '../styles/common/mobile-optimized.css';
 import '../styles/camera/board-camera.css';
+import '../styles/game/player-selector.css';
+import '../styles/game/manual-movement.css';
 
 interface SavedLayout {
   name: string;
@@ -24,17 +28,22 @@ class SchmittOdysseeCamera {
   private gameRenderer: GameRenderer;
   private boardRenderer: BoardCameraRenderer;
   private diceManager: DiceManager;
+  private playerSelector: PlayerSelector;
+  private manualMovement: ManualMovement;
   private savedLayouts: SavedLayout[] = [];
   private selectedLayout: BoardLayoutConfig | null = null;
   private importedLayout: BoardLayoutConfig | null = null;
   private consecutiveForwardMoves = 0; // Compteur pour éviter les boucles infinies
   private diceResults: { normal: number | null; godPower: number | null } = { normal: null, godPower: null };
+  private isRollingForGodPower = false; // Flag pour savoir si on lance pour une faveur des dieux
 
   constructor() {
     this.gameLogic = new GameLogic();
     this.gameRenderer = new GameRenderer();
     this.boardRenderer = new BoardCameraRenderer('boardCamera');
     this.diceManager = new DiceManager('boardCamera');
+    this.playerSelector = new PlayerSelector();
+    this.manualMovement = new ManualMovement();
 
     this.init();
   }
@@ -349,7 +358,41 @@ class SchmittOdysseeCamera {
       this.diceResults.godPower = result;
     }
 
-    // Si le joueur a le pouvoir Schmitt, attendre que les deux dés soient lancés
+    // Si on est en mode "faveur des dieux"
+    if (this.isRollingForGodPower) {
+      if (this.diceResults.normal !== null && this.diceResults.godPower !== null) {
+        // Les deux dés se sont arrêtés, calculer la somme
+        const sum = this.diceResults.normal + this.diceResults.godPower;
+        const isDouble = this.diceResults.normal === this.diceResults.godPower;
+
+        console.log(`⚡ Résultat faveur: ${this.diceResults.normal} + ${this.diceResults.godPower} = ${sum} (double: ${isDouble})`);
+
+        // Réinitialiser le flag
+        this.isRollingForGodPower = false;
+
+        // Cacher les dés
+        setTimeout(() => {
+          this.diceManager.hideAll();
+
+          if (isDouble) {
+            // COLÈRE DES DIEUX ! (double)
+            this.gameRenderer.showNotification(`❌ COLÈRE DES DIEUX ! ${currentPlayer.name} fait un double et reçoit 1 cul sec !`);
+            this.gameLogic.addDrinks(currentPlayer.index, 1);
+
+            // Passer au joueur suivant après 3 secondes
+            setTimeout(() => {
+              this.prepareNextPlayerTurn();
+            }, 3000);
+          } else {
+            // Afficher la faveur obtenue selon la somme
+            this.showGodFavorResult(sum);
+          }
+        }, 1000);
+      }
+      return;
+    }
+
+    // Si le joueur a le pouvoir Schmitt (déplacement normal avec 2 dés), attendre que les deux dés soient lancés
     if (currentPlayer.hasSchmittPower) {
       if (this.diceResults.normal !== null && this.diceResults.godPower !== null) {
         // Les deux dés se sont arrêtés
@@ -481,9 +524,9 @@ class SchmittOdysseeCamera {
         }
         break;
       case 'power':
-        this.gameLogic.setSchmittPower(currentPlayer.index, true);
-        this.gameRenderer.showNotification(`${currentPlayer.name} obtient le pouvoir Schmitt !`);
-        break;
+        // Faveur des dieux : le joueur doit lancer 2 dés immédiatement
+        this.handleGodPowerRoll(currentPlayer);
+        return; // Ne pas passer au joueur suivant, attendre le lancer de dés
       case 'replay':
         currentPlayer.canReplay = true;
         this.gameRenderer.showNotification(`${currentPlayer.name} rejoue !`);
@@ -508,6 +551,261 @@ class SchmittOdysseeCamera {
     setTimeout(() => {
       this.prepareNextPlayerTurn();
     }, 3000);
+  }
+
+  /**
+   * Affiche le résultat de la faveur des dieux selon la somme des 2 dés
+   */
+  private showGodFavorResult(sum: number): void {
+    const currentPlayer = this.gameLogic.getCurrentPlayer();
+    if (!currentPlayer) return;
+
+    // Mapping des faveurs selon la somme (2-12)
+    const godFavors: { [key: number]: { name: string; icon: string; description: string } } = {
+      2: {
+        name: 'COLÈRE DES DIEUX',
+        icon: '💀',
+        description: 'Le joueur reçoit 1 cul sec !'
+      },
+      3: {
+        name: 'JUGEMENT DERNIER',
+        icon: '🎲',
+        description: 'Conservez 1 des 2 dés et relancez l\'autre en fonction des faveurs souhaitées. Attention à la colère des Dieux !'
+      },
+      4: {
+        name: 'ATHÉNA',
+        icon: '🛡️',
+        description: 'Choisissez un objet bouclier. Ce bouclier renvoie 1 seule fois toutes les gorgées/cul-sec sur le joueur de votre choix. Tant que vous possédez le bouclier, vous ne pouvez pas gagner.'
+      },
+      5: {
+        name: 'APHRODITE',
+        icon: '💕',
+        description: 'Lancez 2 dés, choisissez 2 adversaires et associez 1 dé à chacun. Déplacez-les en avant ou arrière. Ils appliquent l\'effet de leur nouvel emplacement.'
+      },
+      6: {
+        name: 'HERMÈS',
+        icon: '👟',
+        description: 'Choisissez un adversaire et déplacez-vous sur sa case OU déplacez-le sur votre case. Appliquez l\'effet de la case du nouvel emplacement.'
+      },
+      7: {
+        name: 'APOLLON',
+        icon: '☀️',
+        description: 'Rejouez un tour en lançant 2 dés, conservez celui de votre choix. Distribuez 1 gorgée à chaque adversaire que vous dépassez.'
+      },
+      8: {
+        name: 'ARÈS',
+        icon: '⚔️',
+        description: 'Tous les joueurs choisissent pouce haut ou bas. Ceux qui font l\'inverse de vous reçoivent autant de gorgées que le nombre qui ont fait comme vous.'
+      },
+      9: {
+        name: 'DIONYSOS',
+        icon: '🍷',
+        description: 'Tous les joueurs trinquent et continuent de boire avec vous jusqu\'à ce que vous seul décidiez d\'arrêter.'
+      },
+      10: {
+        name: 'HÉPHAÏSTOS',
+        icon: '🔨',
+        description: 'Placez 2 shooters sur des cases différentes. Le premier joueur à tomber dessus doit boire immédiatement le shooter, puis appliquer la case.'
+      },
+      11: {
+        name: 'POSÉIDON',
+        icon: '🔱',
+        description: 'Ciblez un joueur et lancez 2 dés. Il reçoit autant de gorgées que le dé le plus élevé. Ses 2 voisins reçoivent chacun le score du dé le plus faible.'
+      },
+      12: {
+        name: 'ZEUS - FAVEUR SUPRÊME',
+        icon: '⚡',
+        description: 'Choisissez n\'importe quelle faveur parmi celles disponibles !'
+      }
+    };
+
+    const favor = godFavors[sum];
+    if (!favor) {
+      console.error(`Aucune faveur trouvée pour la somme ${sum}`);
+      this.prepareNextPlayerTurn();
+      return;
+    }
+
+    console.log(`✨ Faveur obtenue: ${favor.name} (somme: ${sum})`);
+
+    // Afficher le modal avec la faveur
+    this.gameRenderer.showEffectModal(favor.icon, favor.name, favor.description);
+
+    // Exécuter l'effet de la faveur
+    setTimeout(() => {
+      this.executeGodFavor(sum);
+    }, 3000);
+  }
+
+  /**
+   * Exécute l'effet d'une faveur des dieux
+   */
+  private executeGodFavor(sum: number): void {
+    const currentPlayer = this.gameLogic.getCurrentPlayer();
+    if (!currentPlayer) return;
+
+    this.gameRenderer.closeEffectModal();
+
+    switch (sum) {
+      case 2: // Colère des dieux
+        this.gameLogic.addDrinks(currentPlayer.index, 1);
+        this.gameRenderer.showNotification(`${currentPlayer.name} reçoit 1 cul sec !`);
+        setTimeout(() => this.prepareNextPlayerTurn(), 2000);
+        break;
+
+      case 3: // Jugement Dernier - relancer un dé
+        this.gameRenderer.showNotification(`${currentPlayer.name} peut relancer un dé !`);
+        // Pour simplifier, on relance automatiquement
+        setTimeout(() => {
+          const newSum = Math.floor(Math.random() * 6) + 1 + Math.floor(Math.random() * 6) + 1;
+          this.gameRenderer.showNotification(`Nouveau résultat : ${newSum}`);
+          setTimeout(() => this.showGodFavorResult(newSum), 1500);
+        }, 2000);
+        break;
+
+      case 4: // Athéna - bouclier
+        // TODO: Implémenter le système de bouclier
+        this.gameRenderer.showNotification(`${currentPlayer.name} obtient le bouclier d'Athéna !`);
+        setTimeout(() => this.prepareNextPlayerTurn(), 2000);
+        break;
+
+      case 5: // Aphrodite - déplacer 2 adversaires
+        this.gameRenderer.showNotification(`${currentPlayer.name} : Choisissez 2 adversaires à déplacer`);
+        this.playerSelector.show(
+          this.gameLogic.getPlayers(),
+          2,
+          currentPlayer.index,
+          false,
+          (selectedPlayers) => {
+            // Ouvrir le déplacement manuel pour ces 2 joueurs
+            this.manualMovement.show(selectedPlayers, (movements) => {
+              movements.forEach((movement) => {
+                this.gameLogic.setPlayerPosition(movement.player.index, movement.newPosition);
+              });
+
+              const names = movements.map((m) => m.player.name).join(' et ');
+              this.gameRenderer.showNotification(`${names} ont été déplacés ! 💕`);
+              this.updateUI();
+              setTimeout(() => this.prepareNextPlayerTurn(), 2000);
+            });
+          }
+        );
+        break;
+
+      case 6: // Hermès - échanger de position
+        this.gameRenderer.showNotification(`${currentPlayer.name} : Choisissez un adversaire pour échanger de position`);
+        this.playerSelector.show(
+          this.gameLogic.getPlayers(),
+          1,
+          currentPlayer.index,
+          false,
+          (selectedPlayers) => {
+            const target = selectedPlayers[0];
+            const tempPos = currentPlayer.position;
+            this.gameLogic.setPlayerPosition(currentPlayer.index, target.position);
+            this.gameLogic.setPlayerPosition(target.index, tempPos);
+            this.gameRenderer.showNotification(`${currentPlayer.name} et ${target.name} échangent de position ! 👟`);
+            this.updateUI();
+            setTimeout(() => this.prepareNextPlayerTurn(), 3000);
+          }
+        );
+        break;
+
+      case 7: // Apollon - rejouer
+        this.gameRenderer.showNotification(`${currentPlayer.name} rejoue !`);
+        setTimeout(() => {
+          // Repasser au joueur actuel
+          this.gameLogic.previousPlayer();
+          this.prepareNextPlayerTurn();
+        }, 2000);
+        break;
+
+      case 8: // Arès - pouce haut/bas
+        this.gameRenderer.showNotification(`Tous les joueurs : pouce haut ou bas ! (effet simulé)`);
+        setTimeout(() => this.prepareNextPlayerTurn(), 3000);
+        break;
+
+      case 9: // Dionysos - tous boivent
+        const allPlayersForDrink = this.gameLogic.getPlayers();
+        allPlayersForDrink.forEach((p) => {
+          this.gameLogic.addDrinks(p.index, 2);
+        });
+        this.gameRenderer.showNotification(`Tous boivent avec ${currentPlayer.name} ! 🍷`);
+        this.updateUI();
+        setTimeout(() => this.prepareNextPlayerTurn(), 3000);
+        break;
+
+      case 10: // Héphaïstos - placer shooters
+        this.gameRenderer.showNotification(`${currentPlayer.name} place 2 shooters virtuels ! 🔨`);
+        setTimeout(() => this.prepareNextPlayerTurn(), 2000);
+        break;
+
+      case 11: // Poséidon - cibler un joueur
+        this.gameRenderer.showNotification(`${currentPlayer.name} : Choisissez un joueur à cibler avec Poséidon`);
+        this.playerSelector.show(
+          this.gameLogic.getPlayers(),
+          1,
+          currentPlayer.index,
+          false,
+          (selectedPlayers) => {
+            const target = selectedPlayers[0];
+            const dice1 = Math.floor(Math.random() * 6) + 1;
+            const dice2 = Math.floor(Math.random() * 6) + 1;
+            const maxDice = Math.max(dice1, dice2);
+
+            this.gameLogic.addDrinks(target.index, maxDice);
+            this.gameRenderer.showNotification(`${target.name} boit ${maxDice} gorgées (dés: ${dice1}, ${dice2}) ! 🔱`);
+            this.updateUI();
+            setTimeout(() => this.prepareNextPlayerTurn(), 3000);
+          }
+        );
+        break;
+
+      case 12: // Zeus - choisir une faveur
+        this.gameRenderer.showNotification(`${currentPlayer.name} peut choisir n'importe quelle faveur ! (mode simplifié : faveur aléatoire)`);
+        // Mode simplifié : donner une faveur aléatoire entre 3 et 11
+        setTimeout(() => {
+          const randomFavor = Math.floor(Math.random() * 9) + 3; // 3 à 11
+          this.showGodFavorResult(randomFavor);
+        }, 2000);
+        break;
+
+      default:
+        this.prepareNextPlayerTurn();
+    }
+  }
+
+  /**
+   * Gère le lancer des 2 dés pour la faveur des dieux
+   */
+  private handleGodPowerRoll(player: Player): void {
+    console.log(`⚡ ${player.name} tombe sur la faveur des dieux !`);
+
+    // Activer le mode "lancer pour faveur des dieux"
+    this.isRollingForGodPower = true;
+
+    // Fermer le modal de l'effet de la case
+    this.gameRenderer.closeEffectModal();
+
+    // Afficher les deux dés pour le lancer
+    this.diceManager.showBothDice();
+
+    // Réinitialiser les résultats
+    this.diceResults = { normal: null, godPower: null };
+
+    // Message pour le joueur
+    this.gameRenderer.showNotification(
+      `⚡ ${player.name}, lancez les 2 dés pour connaître votre faveur des dieux !`
+    );
+
+    // Positionner les dés au centre
+    const tableBounds = this.boardRenderer.getTableBounds();
+    if (tableBounds) {
+      this.diceManager.positionDiceInTable(tableBounds);
+    }
+
+    // Note: Les callbacks handleDiceRollEnd vont gérer la suite automatiquement
+    // Quand les 2 dés s'arrêtent, on calculera la somme et affichera la faveur
   }
 
   /**
@@ -541,6 +839,13 @@ class SchmittOdysseeCamera {
       const tableBounds = this.boardRenderer.getTableBounds();
       if (tableBounds) {
         this.diceManager.positionDiceInTable(tableBounds);
+      }
+
+      // Afficher le(s) dé(s) approprié(s) pour le prochain joueur
+      if (nextPlayer.hasSchmittPower) {
+        this.diceManager.showBothDice();
+      } else {
+        this.diceManager.showNormalDice();
       }
 
       // Réactiver le bouton de dé
