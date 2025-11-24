@@ -1,0 +1,100 @@
+name: Build iOS IPA
+
+# Ce workflow est préparatoire - il sera activé quand iOS sera configuré
+on:
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Type de build'
+        required: true
+        default: 'debug'
+        type: choice
+        options:
+          - debug
+          - release
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web assets
+        run: |
+          export CAPACITOR_PLATFORM=true
+          npm run build
+
+      - name: Add iOS platform (if not exists)
+        run: |
+          if [ ! -d "ios" ]; then
+            npx cap add ios
+          fi
+
+      - name: Sync Capacitor
+        run: npx cap sync ios
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Install CocoaPods dependencies
+        run: |
+          cd ios/App
+          pod install
+
+      # NOTE: Pour release, il faut configurer :
+      # - Apple Developer certificates (secrets.P12_BASE64, secrets.P12_PASSWORD)
+      # - Provisioning profiles (secrets.PROVISIONING_PROFILE_BASE64)
+      # - App Store Connect API Key (pour upload automatique)
+
+      - name: Build Debug IPA
+        if: ${{ github.event.inputs.build_type == 'debug' }}
+        run: |
+          cd ios/App
+          xcodebuild -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Debug \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/App.xcarchive \
+            archive
+
+      - name: Build Release IPA (Placeholder)
+        if: ${{ github.event.inputs.build_type == 'release' }}
+        run: |
+          echo "⚠️  Release iOS build nécessite:"
+          echo "  1. Apple Developer account (99$/an)"
+          echo "  2. Certificats de signature configurés dans les secrets GitHub"
+          echo "  3. Provisioning profiles"
+          echo ""
+          echo "Voir la documentation pour plus d'informations."
+          exit 1
+
+      - name: Upload IPA
+        if: ${{ github.event.inputs.build_type == 'debug' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: schmitt-odyssee-ios-${{ github.event.inputs.build_type }}.xcarchive
+          path: ios/App/build/App.xcarchive
+          retention-days: 30
+
+      - name: Build Summary
+        if: ${{ github.event.inputs.build_type == 'debug' }}
+        run: |
+          echo "## 📱 Build iOS Complété !" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Type**: ${{ github.event.inputs.build_type }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Archive**: schmitt-odyssee-ios-${{ github.event.inputs.build_type }}.xcarchive" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Pour tester sur device, ouvrez le projet dans Xcode et déployez depuis votre Mac." >> $GITHUB_STEP_SUMMARY

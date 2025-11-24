@@ -1,0 +1,151 @@
+name: Build Android APK/AAB
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Type de build'
+        required: true
+        default: 'debug'
+        type: choice
+        options:
+          - debug
+          - release
+      output_format:
+        description: 'Format de sortie'
+        required: true
+        default: 'apk'
+        type: choice
+        options:
+          - apk
+          - aab
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web assets
+        run: |
+          export CAPACITOR_PLATFORM=true
+          npm run build
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Sync Capacitor
+        run: npx cap sync android
+
+      - name: Build Debug APK
+        if: ${{ github.event.inputs.build_type == 'debug' && github.event.inputs.output_format == 'apk' }}
+        run: |
+          cd android
+          ./gradlew assembleDebug
+
+      - name: Build Release APK
+        if: ${{ github.event.inputs.build_type == 'release' && github.event.inputs.output_format == 'apk' }}
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          cd android
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 --decode > release.keystore
+            ./gradlew assembleRelease \
+              -Pandroid.injected.signing.store.file=release.keystore \
+              -Pandroid.injected.signing.store.password="$KEYSTORE_PASSWORD" \
+              -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
+              -Pandroid.injected.signing.key.password="$KEY_PASSWORD"
+          else
+            echo "⚠️  Pas de keystore configuré, build en mode release non signé"
+            ./gradlew assembleRelease
+          fi
+
+      - name: Build Debug AAB
+        if: ${{ github.event.inputs.build_type == 'debug' && github.event.inputs.output_format == 'aab' }}
+        run: |
+          cd android
+          ./gradlew bundleDebug
+
+      - name: Build Release AAB
+        if: ${{ github.event.inputs.build_type == 'release' && github.event.inputs.output_format == 'aab' }}
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          cd android
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 --decode > release.keystore
+            ./gradlew bundleRelease \
+              -Pandroid.injected.signing.store.file=release.keystore \
+              -Pandroid.injected.signing.store.password="$KEYSTORE_PASSWORD" \
+              -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
+              -Pandroid.injected.signing.key.password="$KEY_PASSWORD"
+          else
+            echo "⚠️  Pas de keystore configuré, build en mode release non signé"
+            ./gradlew bundleRelease
+          fi
+
+      - name: Upload APK Debug
+        if: ${{ github.event.inputs.output_format == 'apk' && github.event.inputs.build_type == 'debug' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: schmitt-odyssee-debug.apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
+
+      - name: Upload APK Release
+        if: ${{ github.event.inputs.output_format == 'apk' && github.event.inputs.build_type == 'release' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: schmitt-odyssee-release.apk
+          path: android/app/build/outputs/apk/release/app-release.apk
+          retention-days: 90
+
+      - name: Upload AAB Debug
+        if: ${{ github.event.inputs.output_format == 'aab' && github.event.inputs.build_type == 'debug' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: schmitt-odyssee-debug.aab
+          path: android/app/build/outputs/bundle/debug/app-debug.aab
+          retention-days: 30
+
+      - name: Upload AAB Release
+        if: ${{ github.event.inputs.output_format == 'aab' && github.event.inputs.build_type == 'release' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: schmitt-odyssee-release.aab
+          path: android/app/build/outputs/bundle/release/app-release.aab
+          retention-days: 90
+
+      - name: Build Summary
+        run: |
+          echo "## 📱 Build Android Complété !" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Type**: ${{ github.event.inputs.build_type }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Format**: ${{ github.event.inputs.output_format }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Artifact**: schmitt-odyssee-${{ github.event.inputs.build_type }}.${{ github.event.inputs.output_format }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Téléchargez l'artifact depuis l'onglet 'Actions' → 'Artifacts'" >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,108 @@
+name: Distribute to Firebase App Distribution
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: 'Plateforme'
+        required: true
+        default: 'android'
+        type: choice
+        options:
+          - android
+          - ios
+      release_notes:
+        description: 'Notes de version'
+        required: false
+        default: 'Nouvelle version de test'
+        type: string
+
+jobs:
+  distribute-android:
+    if: ${{ github.event.inputs.platform == 'android' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web assets
+        run: |
+          export CAPACITOR_PLATFORM=true
+          npm run build
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Sync Capacitor
+        run: npx cap sync android
+
+      - name: Build Debug APK
+        run: |
+          cd android
+          ./gradlew assembleDebug
+
+      - name: Upload to Firebase App Distribution
+        uses: wzieba/Firebase-Distribution-Github-Action@v1
+        with:
+          appId: ${{ secrets.FIREBASE_APP_ID_ANDROID }}
+          serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          groups: testers
+          file: android/app/build/outputs/apk/debug/app-debug.apk
+          releaseNotes: ${{ github.event.inputs.release_notes }}
+
+      - name: Distribution Summary
+        run: |
+          echo "## 🚀 Distribution Firebase Complétée !" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Plateforme**: Android" >> $GITHUB_STEP_SUMMARY
+          echo "- **Notes**: ${{ github.event.inputs.release_notes }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Les testeurs recevront une notification pour télécharger la nouvelle version." >> $GITHUB_STEP_SUMMARY
+
+  distribute-ios:
+    if: ${{ github.event.inputs.platform == 'ios' }}
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web assets
+        run: |
+          export CAPACITOR_PLATFORM=true
+          npm run build
+
+      - name: iOS Distribution (Placeholder)
+        run: |
+          echo "⚠️  Distribution iOS via Firebase nécessite:"
+          echo "  1. Projet iOS configuré (npx cap add ios)"
+          echo "  2. Firebase App ID iOS"
+          echo "  3. Google Service Account configuré"
+          echo ""
+          echo "Utilisez TestFlight comme alternative pour iOS."
+          exit 1

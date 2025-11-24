@@ -22,3 +22,24 @@ Thumbs.db
 # Env
 .env
 .env.local
+
+# Capacitor
+.capacitor/
+android/app/build/
+android/app/release/
+android/.gradle/
+android/build/
+android/local.properties
+android/.idea/
+android/gradle/
+android/gradlew
+android/gradlew.bat
+ios/App/Pods/
+ios/App/build/
+ios/App/*.xcworkspace
+ios/App/.DS_Store
+
+# Keystores (NEVER commit production keystores!)
+*.keystore
+*.jks
+key.properties
