@@ -36,6 +36,7 @@ export default defineConfig({
         '3d': path.resolve(__dirname, 'index-3d.html'),
         new: path.resolve(__dirname, 'index-new.html'),
         editor: path.resolve(__dirname, 'index-editor.html'),
+        poc: path.resolve(__dirname, 'index-poc.html'),
       },
       output: {
         // Optimisation des chunks pour mobile

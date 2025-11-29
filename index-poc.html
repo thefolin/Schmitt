@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>POC - Moteur de Jeu Universel</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    h1 {
+      color: #2c3e50;
+      border-bottom: 3px solid #3498db;
+      padding-bottom: 10px;
+    }
+    #console {
+      background: #2c3e50;
+      color: #ecf0f1;
+      padding: 20px;
+      border-radius: 8px;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      height: 600px;
+      overflow-y: auto;
+    }
+    button {
+      background: #3498db;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      font-size: 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 20px 0;
+    }
+    button:hover {
+      background: #2980b9;
+    }
+    .success { color: #2ecc71; }
+    .info { color: #3498db; }
+    .warning { color: #f39c12; }
+  </style>
+</head>
+<body>
+  <h1>🎮 POC - Moteur de Jeu Universel</h1>
+  <p>Test du Domain Layer avec Schmitt Odyssée</p>
+
+  <button onclick="runPOC()">▶️ Lancer le POC</button>
+
+  <div id="console"></div>
+
+  <script type="module">
+    // Import dynamique du POC
+    import { testGameEngine } from '/src/domain/poc.ts';
+
+    window.runPOC = async function() {
+      const consoleEl = document.getElementById('console');
+      consoleEl.innerHTML = '';
+
+      // Capture console.log
+      const originalLog = console.log;
+      console.log = function(...args) {
+        const message = args.join(' ');
+        consoleEl.innerHTML += message + '\n';
+        consoleEl.scrollTop = consoleEl.scrollHeight;
+        originalLog.apply(console, args);
+      };
+
+      try {
+        await testGameEngine();
+      } catch (error) {
+        console.log('\n❌ ERREUR: ' + error.message);
+        console.error(error);
+      }
+
+      // Restore console.log
+      console.log = originalLog;
+    };
+  </script>
+</body>
+</html>
