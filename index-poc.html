@@ -56,15 +56,17 @@
   <div id="console"></div>
 
   <script type="module">
-    // Import dynamique du POC
-    import { testGameEngine } from '/src/domain/poc.ts';
+    // Import du POC version browser
+    import { testGameEngine } from '/src/domain/poc-browser.ts';
 
     window.runPOC = async function() {
       const consoleEl = document.getElementById('console');
-      consoleEl.innerHTML = '';
+      consoleEl.innerHTML = 'Démarrage du POC...\n\n';
 
       // Capture console.log
       const originalLog = console.log;
+      const originalError = console.error;
+
       console.log = function(...args) {
         const message = args.join(' ');
         consoleEl.innerHTML += message + '\n';
@@ -72,15 +74,23 @@
         originalLog.apply(console, args);
       };
 
+      console.error = function(...args) {
+        const message = args.join(' ');
+        consoleEl.innerHTML += '❌ ' + message + '\n';
+        consoleEl.scrollTop = consoleEl.scrollHeight;
+        originalError.apply(console, args);
+      };
+
       try {
         await testGameEngine();
       } catch (error) {
         console.log('\n❌ ERREUR: ' + error.message);
-        console.error(error);
+        console.error(error.stack);
       }
 
-      // Restore console.log
+      // Restore console
       console.log = originalLog;
+      console.error = originalError;
     };
   </script>
 </body>

@@ -45,6 +45,10 @@ export class Player {
     this._resources.set(resourceId, Math.max(0, amount));
   }
 
+  getAllResources(): Record<string, number> {
+    return Object.fromEntries(this._resources);
+  }
+
   // Serialization
   toJSON() {
     return {

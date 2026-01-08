@@ -1,22 +1,138 @@
 /**
- * POC (Proof of Concept) - Moteur de Jeu Universel
+ * POC (Proof of Concept) - Version Browser
  * Test du Domain Layer avec Schmitt Odyssée
  */
 
 import { Game } from './entities/Game';
 import { Player } from './entities/Player';
-import { Position } from './value-objects/Position';
 import { GameDefinition } from './definitions/GameDefinition';
 import { RuleEngine } from './rules/RuleEngine';
 import { GameContext } from './rules/GameContext';
 
-// Import de la configuration Schmitt
-import schmittConfig from '../games/schmitt-odyssee/game.json';
+// Configuration Schmitt en ligne (au lieu d'import JSON)
+const schmittConfig = {
+  "id": "schmitt-odyssee",
+  "name": "Schmitt Odyssée",
+  "version": "1.0.0",
+  "type": "linear-board",
+  "settings": {
+    "minPlayers": 2,
+    "maxPlayers": 8,
+    "boardSize": 23,
+    "hasDice": true,
+    "diceCount": 1,
+    "diceSides": 6
+  },
+  "resources": [
+    {
+      "id": "drinks",
+      "name": "Gorgées",
+      "icon": "🍺",
+      "initial": 0
+    }
+  ],
+  "board": {
+    "layout": "serpentine",
+    "tiles": [
+      { "id": 0, "type": "start", "name": "START", "icon": "🏁" },
+      { "id": 1, "type": "everyone_drinks", "name": "TOURNÉE GÉNÉRALE", "icon": "🍻" },
+      { "id": 2, "type": "forward_2", "name": "AVANCEZ DE 2", "icon": "⏩" },
+      { "id": 3, "type": "drink_2", "name": "BUVEZ 2 GORGÉES", "icon": "🍺" },
+      { "id": 4, "type": "power", "name": "FAVEUR DES DIEUX", "icon": "⚡" },
+      { "id": 5, "type": "chicken", "name": "PETIT POULET", "icon": "🐔" },
+      { "id": 22, "type": "finish", "name": "FINISH", "icon": "🏆" }
+    ]
+  },
+  "rules": [
+    {
+      "id": "drink_2",
+      "name": "Buvez 2 gorgées",
+      "priority": 100,
+      "conditions": [
+        {
+          "type": "OnPlayerLandsOn",
+          "params": { "position": 3 }
+        }
+      ],
+      "effects": [
+        {
+          "type": "AddResource",
+          "params": {
+            "resourceId": "drinks",
+            "amount": 2,
+            "target": "current_player"
+          }
+        },
+        {
+          "type": "Notification",
+          "params": {
+            "message": "boit 2 gorgées",
+            "icon": "🍺"
+          }
+        }
+      ]
+    },
+    {
+      "id": "everyone_drinks",
+      "name": "Tournée générale",
+      "priority": 100,
+      "conditions": [
+        {
+          "type": "OnPlayerLandsOn",
+          "params": { "position": 1 }
+        }
+      ],
+      "effects": [
+        {
+          "type": "AddResource",
+          "params": {
+            "resourceId": "drinks",
+            "amount": 1,
+            "target": "all_players"
+          }
+        },
+        {
+          "type": "Notification",
+          "params": {
+            "message": "Tout le monde boit !",
+            "icon": "🍻"
+          }
+        }
+      ]
+    },
+    {
+      "id": "forward_2",
+      "name": "Avancez de 2 cases",
+      "priority": 100,
+      "conditions": [
+        {
+          "type": "OnPlayerLandsOn",
+          "params": { "position": 2 }
+        }
+      ],
+      "effects": [
+        {
+          "type": "MovePlayer",
+          "params": {
+            "steps": 2
+          }
+        },
+        {
+          "type": "Notification",
+          "params": {
+            "message": "avance de 2 cases",
+            "icon": "⏩"
+          }
+        }
+      ]
+    }
+  ]
+};
 
 /**
  * Test du moteur avec Schmitt Odyssée
  */
-async function testGameEngine() {
+export async function testGameEngine() {
   console.log('🎮 POC - Moteur de Jeu Universel\n');
 
   // 1. Charger la définition du jeu
@@ -123,6 +239,3 @@ async function testGameEngine() {
   console.log(`   • Bob: position ${bob.position.index}, ${bob.getResource('drinks')} gorgée(s)`);
   console.log('\n✅ POC réussi ! Le moteur fonctionne. 🎉\n');
 }
-
-// Export pour utilisation dans le navigateur
-export { testGameEngine };

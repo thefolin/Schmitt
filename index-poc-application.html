@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>POC - Application Layer</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    .container {
+      background: white;
+      border-radius: 12px;
+      padding: 30px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    }
+    h1 {
+      color: #2c3e50;
+      border-bottom: 3px solid #667eea;
+      padding-bottom: 10px;
+      margin-top: 0;
+    }
+    h2 {
+      color: #667eea;
+      font-size: 18px;
+      margin-top: 30px;
+    }
+    #console {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 20px;
+      border-radius: 8px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      height: 500px;
+      overflow-y: auto;
+      margin: 20px 0;
+    }
+    button {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 14px 28px;
+      font-size: 16px;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      margin: 10px 10px 10px 0;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    button:active {
+      transform: translateY(0);
+    }
+    .info-box {
+      background: #f0f4ff;
+      border-left: 4px solid #667eea;
+      padding: 15px;
+      border-radius: 4px;
+      margin: 20px 0;
+    }
+    .info-box h3 {
+      margin-top: 0;
+      color: #667eea;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🏗️ POC - Application Layer</h1>
+
+    <div class="info-box">
+      <h3>📚 Qu'est-ce que l'Application Layer ?</h3>
+      <p>
+        La couche Application orchestre la logique métier du Domain Layer.
+        Elle contient les <strong>Use Cases</strong> (cas d'utilisation) et les <strong>Services</strong>
+        qui coordonnent les entités du domaine.
+      </p>
+      <ul>
+        <li><strong>Use Cases</strong>: StartGameUseCase, ExecuteActionUseCase</li>
+        <li><strong>Services</strong>: EventBus, TurnManager</li>
+        <li><strong>DTOs</strong>: Conversion entités ↔ objets simples</li>
+      </ul>
+    </div>
+
+    <h2>🎮 Tests</h2>
+    <button onclick="runPOC()">▶️ Lancer le POC Application Layer</button>
+
+    <div id="console"></div>
+  </div>
+
+  <script type="module">
+    import { testApplicationLayer } from '/src/application/poc-application.ts';
+
+    window.runPOC = async function() {
+      const consoleEl = document.getElementById('console');
+      consoleEl.innerHTML = '🚀 Démarrage du POC Application Layer...\n\n';
+
+      // Capture console.log
+      const originalLog = console.log;
+      const originalError = console.error;
+
+      console.log = function(...args) {
+        const message = args.join(' ');
+        consoleEl.innerHTML += message + '\n';
+        consoleEl.scrollTop = consoleEl.scrollHeight;
+        originalLog.apply(console, args);
+      };
+
+      console.error = function(...args) {
+        const message = args.join(' ');
+        consoleEl.innerHTML += '❌ ' + message + '\n';
+        consoleEl.scrollTop = consoleEl.scrollHeight;
+        originalError.apply(console, args);
+      };
+
+      try {
+        await testApplicationLayer();
+      } catch (error) {
+        console.log('\n❌ ERREUR: ' + error.message);
+        console.error(error.stack);
+      }
+
+      // Restore console
+      console.log = originalLog;
+      console.error = originalError;
+    };
+  </script>
+</body>
+</html>
