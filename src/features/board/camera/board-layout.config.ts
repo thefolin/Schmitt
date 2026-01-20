@@ -132,7 +132,12 @@ export function calculatePlacementBounds(
 ): { x: number; y: number; width: number; height: number } {
   const step = config.tileSize + config.tileGap;
   const baseX = placement.gridCol * step;
-  const baseY = placement.gridRow * step;
+
+  // Facteur de compression Y pour compenser la perspective rotateX(40deg)
+  // Avec 40deg, sin(40) ≈ 0.64, donc on compresse à ~65% pour compenser l'écart visuel
+  const perspectiveCompressionY = 0.65;
+  const stepY = step * perspectiveCompressionY;
+  const baseY = placement.gridRow * stepY;
   const halfSize = config.tileSize / 2;
 
   switch (placement.size) {
