@@ -149,7 +149,7 @@ export class GameLogic {
   // ============================================
 
   public getPlayers(): Player[] {
-    return [...this.players]; // Copie pour éviter mutation externe
+    return this.players.map(p => ({ ...p })); // Copie profonde pour éviter mutation externe
   }
 
   public getCurrentPlayer(): Player | null {

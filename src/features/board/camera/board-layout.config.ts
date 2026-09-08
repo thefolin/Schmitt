@@ -197,7 +197,7 @@ export function calculatePlacementBounds(
  * Charge un layout depuis un objet JSON
  */
 export function loadBoardLayout(json: unknown): BoardLayoutConfig {
-  const data = json as BoardLayoutConfig;
+  const data = (json ?? {}) as Partial<BoardLayoutConfig>;
 
   // Validation basique
   if (!data.gridRows || !data.gridCols || !data.placements) {
