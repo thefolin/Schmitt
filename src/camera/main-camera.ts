@@ -39,6 +39,8 @@ class SchmittOdysseeCamera {
   private consecutiveForwardMoves = 0; // Compteur pour éviter les boucles infinies
   private diceResults: { normal: number | null; godPower: number | null } = { normal: null, godPower: null };
   private isRollingForGodPower = false; // Flag pour savoir si on lance pour une faveur des dieux
+  // Callback en attente pour passer au joueur suivant (déclenché par timer OU par le bouton OK)
+  private pendingNextTurn: { timeoutId: number; callback: () => void } | null = null;
 
   constructor() {
     this.gameLogic = new GameLogic();
@@ -162,6 +164,18 @@ class SchmittOdysseeCamera {
     document.getElementById('effectModal')?.addEventListener('click', (e) => {
       if (e.target === e.currentTarget) {
         this.gameRenderer.closeEffectModal();
+      }
+    });
+
+    document.getElementById('effectOkBtn')?.addEventListener('click', () => {
+      this.gameRenderer.closeEffectModal();
+      // Si un passage au joueur suivant est programmé, le déclencher tout de suite
+      // au lieu de laisser le joueur attendre le délai automatique
+      if (this.pendingNextTurn) {
+        clearTimeout(this.pendingNextTurn.timeoutId);
+        const callback = this.pendingNextTurn.callback;
+        this.pendingNextTurn = null;
+        callback();
       }
     });
 
@@ -585,9 +599,24 @@ class SchmittOdysseeCamera {
     }
 
     // Attendre que l'utilisateur ferme le modal de l'effet avant de passer au suivant
-    setTimeout(() => {
-      this.prepareNextPlayerTurn();
-    }, 3000);
+    // (le bouton OK du modal peut déclencher ceci immédiatement, voir scheduleNextTurn)
+    this.scheduleNextTurn(3000);
+  }
+
+  /**
+   * Programme le passage au joueur suivant après un délai, tout en permettant
+   * au bouton OK du modal d'effet de déclencher ce passage immédiatement.
+   */
+  private scheduleNextTurn(delay: number): void {
+    if (this.pendingNextTurn) {
+      clearTimeout(this.pendingNextTurn.timeoutId);
+    }
+    const callback = () => this.prepareNextPlayerTurn();
+    const timeoutId = window.setTimeout(() => {
+      this.pendingNextTurn = null;
+      callback();
+    }, delay);
+    this.pendingNextTurn = { timeoutId, callback };
   }
 
   /**
