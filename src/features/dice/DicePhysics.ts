@@ -4,6 +4,7 @@
  */
 
 import type { DicePhysicsConfig } from './DiceConfig';
+import { randomBetween } from './random';
 
 export interface Vector2D {
   x: number;
@@ -55,7 +56,7 @@ export class DicePhysics {
    */
   public throw(targetValue?: number): void {
     const angle = Math.random() * Math.PI * 2;
-    const speed = this.randomBetween(this.config.velocityMin, this.config.velocityMax);
+    const speed = randomBetween(this.config.velocityMin, this.config.velocityMax);
 
     this.state.velocity = {
       x: Math.cos(angle) * speed,
@@ -63,8 +64,8 @@ export class DicePhysics {
     };
 
     this.state.angularVelocity = {
-      x: this.randomBetween(this.config.rotationSpeedMin, this.config.rotationSpeedMax) * (Math.random() > 0.5 ? 1 : -1),
-      y: this.randomBetween(this.config.rotationSpeedMin, this.config.rotationSpeedMax) * (Math.random() > 0.5 ? 1 : -1)
+      x: randomBetween(this.config.rotationSpeedMin, this.config.rotationSpeedMax) * (Math.random() > 0.5 ? 1 : -1),
+      y: randomBetween(this.config.rotationSpeedMin, this.config.rotationSpeedMax) * (Math.random() > 0.5 ? 1 : -1)
     };
 
     // Lancer le dé en l'air
@@ -224,9 +225,7 @@ export class DicePhysics {
     this.state.angularVelocity = { x: 0, y: 0 };
 
     // Aligner la rotation pour afficher la valeur correctement
-    console.log('🎲 Avant alignement - rotation:', this.state.rotation, 'valeur:', this.state.currentValue);
     this.alignToValue(this.state.currentValue);
-    console.log('🎲 Après alignement - rotation:', this.state.rotation);
   }
 
   /**
@@ -336,12 +335,5 @@ export class DicePhysics {
    */
   public resetFall(): void {
     this.state.hasFallen = false;
-  }
-
-  /**
-   * Utilitaire: nombre aléatoire entre min et max
-   */
-  private randomBetween(min: number, max: number): number {
-    return min + Math.random() * (max - min);
   }
 }

@@ -7,6 +7,7 @@ import { DicePhysics } from './DicePhysics';
 import type { Vector2D } from './DicePhysics';
 import type { DicePhysicsConfig, DiceVisualConfig } from './DiceConfig';
 import type { TableBounds, TableBorderConfig } from '../board/camera/table.config';
+import { randomBetween } from './random';
 
 export type DiceType = 'normal' | 'godPower';
 
@@ -23,7 +24,6 @@ export class Dice3D {
   private type: DiceType;
   private animationFrameId: number | null = null;
   private lastTimestamp: number = 0;
-  private onClickCallback: (() => void) | null = null;
   private onFallCallback: ((event: DiceFallEvent) => void) | null = null;
   private onRollEndCallback: ((result: number) => void) | null = null;
   private tableBounds: TableBounds | null = null;
@@ -274,15 +274,6 @@ export class Dice3D {
       this.physics.update(deltaTime);
       this.updatePosition();
 
-      // Log périodique pour debug (toutes les 10 frames environ)
-      if (Math.random() < 0.1) {
-        console.log('🎲 Animation frame:', {
-          height: state.height.toFixed(1),
-          velocity: { x: state.velocity.x.toFixed(1), y: state.velocity.y.toFixed(1) },
-          rotation: { x: state.rotation.x.toFixed(1), y: state.rotation.y.toFixed(1) }
-        });
-      }
-
       // Vérifier si le dé est tombé hors de la table
       // (seulement si un côté n'a pas de bordure)
       const hasFallen = this.physics.checkFall();
@@ -297,7 +288,6 @@ export class Dice3D {
       this.animationFrameId = requestAnimationFrame(this.animate);
     } else {
       // Le dé s'est arrêté, appeler le callback
-      console.log('🎲 Animation arrêtée, isRolling =', isRolling, 'state:', state);
       this.animationFrameId = null;
 
       // IMPORTANT : Mettre à jour la position visuelle une dernière fois
@@ -442,12 +432,9 @@ export class Dice3D {
       this.dragVelocity.x ** 2 + this.dragVelocity.y ** 2
     );
 
-    console.log('🎲 Drag end - Distance:', dragDistance.toFixed(1), 'Speed:', speed.toFixed(1), 'Velocity:', this.dragVelocity);
-
     // Si le drag était très faible (< 15px) ET vitesse très faible, c'est une "pose"
     // Le joueur a juste levé et reposé le dé sans bouger
     if (dragDistance < 15 && speed < 50) {
-      console.log('🎲 Dé posé (pas de lancer)');
       // Reposer le dé à sa position actuelle
       const state = this.physics.getState();
       this.element.style.left = `${state.position.x - this.config.size / 2}px`;
@@ -461,7 +448,6 @@ export class Dice3D {
     }
 
     // Sinon, c'est un vrai lancer !
-    console.log('🎲 Lancer du dé !');
     // Lancer le dé avec la vélocité calculée
     this.rollWithVelocity(this.dragVelocity);
 
@@ -510,16 +496,9 @@ export class Dice3D {
     // Rotation minimum de 1.0, jusqu'à 2.0 pour les lancers rapides
     const rotationFactor = Math.max(1.0, Math.min(2.0, 1.0 + dragSpeed / 1000));
     const angularVelocity = {
-      x: this.randomBetween(this.config.rotationSpeedMin, this.config.rotationSpeedMax) * rotationFactor * (Math.random() > 0.5 ? 1 : -1),
-      y: this.randomBetween(this.config.rotationSpeedMin, this.config.rotationSpeedMax) * rotationFactor * (Math.random() > 0.5 ? 1 : -1)
+      x: randomBetween(this.config.rotationSpeedMin, this.config.rotationSpeedMax) * rotationFactor * (Math.random() > 0.5 ? 1 : -1),
+      y: randomBetween(this.config.rotationSpeedMin, this.config.rotationSpeedMax) * rotationFactor * (Math.random() > 0.5 ? 1 : -1)
     };
-
-    console.log('🎲 État initial du lancer:', {
-      velocity: finalVelocity,
-      verticalVelocity,
-      angularVelocity,
-      rotationFactor
-    });
 
     // Valeur aléatoire
     const targetValue = Math.floor(Math.random() * 6) + 1;
@@ -528,17 +507,6 @@ export class Dice3D {
     this.physics.throwWithVelocity(finalVelocity, verticalVelocity, angularVelocity, targetValue);
 
     this.startAnimation();
-  }
-
-  private randomBetween(min: number, max: number): number {
-    return min + Math.random() * (max - min);
-  }
-
-  /**
-   * Définit le callback appelé lors du clic sur le dé
-   */
-  public setOnClick(callback: () => void): void {
-    this.onClickCallback = callback;
   }
 
   /**

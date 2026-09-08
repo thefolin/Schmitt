@@ -81,8 +81,6 @@ export class DiceManager {
     const centerX = (tableBounds.minX + tableBounds.maxX) / 2;
     const centerY = (tableBounds.minY + tableBounds.maxY) / 2;
 
-    console.log('🎲 Positionnement du/des dé(s) au centre de la table:', { centerX, centerY });
-
     // Si les deux dés sont visibles, les positionner côte à côte
     if (this.godPowerDice && this.godPowerDice.isVisible()) {
       // Espacer les dés de 80px
@@ -200,20 +198,6 @@ export class DiceManager {
   }
 
   /**
-   * Définit le callback appelé lors du clic sur le dé normal
-   */
-  public setNormalDiceOnClick(callback: () => void): void {
-    this.normalDice?.setOnClick(callback);
-  }
-
-  /**
-   * Définit le callback appelé lors du clic sur le dé des pouvoirs
-   */
-  public setGodPowerDiceOnClick(callback: () => void): void {
-    this.godPowerDice?.setOnClick(callback);
-  }
-
-  /**
    * Définit le callback appelé quand un dé tombe hors de la table
    */
   public setOnDiceFall(callback: (event: DiceFallEvent) => void): void {
@@ -266,16 +250,6 @@ export class DiceManager {
       (this.normalDice?.isRolling() || false) ||
       (this.godPowerDice?.isRolling() || false)
     );
-  }
-
-  /**
-   * Obtient la position du dé normal dans le world
-   */
-  public getNormalDicePosition(): { x: number; y: number } | null {
-    if (!this.normalDice) return null;
-    const state = this.normalDice.getValue();
-    // On retourne une position approximative basée sur la config initiale
-    return { x: 200, y: 200 };
   }
 
   /**
