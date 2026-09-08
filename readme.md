@@ -1,25 +1,8 @@
 # Schmitt Odyssée - Jeu de Plateau Interactif
 
-Bienvenue dans **Schmitt Odyssée**, un jeu de plateau interactif développé avec **TypeScript** et **Vite**. Ce projet propose deux versions : une version 2D Canvas et une version 3D isométrique style Monopoly GO.
+Bienvenue dans **Schmitt Odyssée**, un jeu de plateau interactif développé en **TypeScript vanilla** (pas de framework front) avec **Vite**. Vue pseudo-3D en perspective CSS façon Monopoly GO.
 
 **Jouer en ligne** : [Schmitt Odyssée - web](https://thefolin.github.io/Schmitt)
-
----
-
-## Navigation
-
-### Guides
-- [Guide de démarrage](docs/guides/GUIDE-DEMARRAGE.md) - Installation et premier lancement
-- [Guide TypeScript](docs/guides/README-TYPESCRIPT.md) - Migration et utilisation TypeScript
-- [Guide 3D](docs/guides/GUIDE-3D.md) - Version 3D isométrique
-- [Guide Test Mobile](docs/guides/GUIDE-TEST-MOBILE.md) - Tester sur mobile
-
-### Architecture
-- [Architecture Features](docs/architecture/ARCHITECTURE-FEATURES.md) - Structure du code
-- [Comparaison Architectures](docs/architecture/COMPARAISON-ARCHITECTURES.md) - 2D vs 3D
-- [Versions](docs/architecture/VERSIONS.md) - Historique des versions
-- [Multiplateforme](docs/architecture/MULTIPLATEFORME.md) - iOS, Android, Web
-- [Résumé Migration](docs/architecture/RESUME-MIGRATION.md) - De JS à TypeScript
 
 ---
 
@@ -27,15 +10,10 @@ Bienvenue dans **Schmitt Odyssée**, un jeu de plateau interactif développé av
 
 | Version | Description | URL |
 |---------|-------------|-----|
-| **Vue Caméra** ⭐ | **VERSION PAR DÉFAUT** - Vue 3/4 avec pan/zoom, physique des dés 3D | `http://localhost:3000/` |
-| **Éditeur** | Éditeur visuel de plateau (drag & drop) | `http://localhost:3000/index-editor.html` |
-| **3D Isométrique** | Style Monopoly GO avec CSS 3D | `http://localhost:3000/index-3d.html` |
-| **2D Features** | Version 2D avec layouts personnalisables | `http://localhost:3000/index-new.html` |
-| **2D Legacy** | Version classique avec rendu Canvas | `http://localhost:3000/index-legacy.html` |
+| **Jeu** ⭐ | Vue caméra 3/4 avec pan/zoom, physique des dés 3D | `http://localhost:3000/` |
+| **Éditeur** | Éditeur visuel de plateau (drag & drop, export/import JSON) | `http://localhost:3000/index-editor.html` |
 
-**Navigation intégrée** :
-- Depuis le jeu → Bouton "✏️ Éditeur de plateau" en haut à droite
-- Depuis l'éditeur → Bouton "🎮 Retour au jeu" en haut à droite
+Navigation intégrée entre les deux (bouton "Éditeur de plateau" dans le jeu, bouton "Retour au jeu" dans l'éditeur).
 
 ---
 
@@ -43,19 +21,14 @@ Bienvenue dans **Schmitt Odyssée**, un jeu de plateau interactif développé av
 
 ### Prérequis
 - Node.js 18+
-- npm ou yarn
+- npm
 
 ### Étapes
 
 ```bash
-# Cloner le projet
-git clone https://github.com/votre-repo/schmitt-odyssee.git
-cd schmitt-odyssee
-
-# Installer les dépendances
+git clone https://github.com/thefolin/Schmitt.git
+cd Schmitt
 npm install
-
-# Lancer le serveur de développement
 npm run dev
 ```
 
@@ -67,48 +40,46 @@ Accédez au jeu : [http://localhost:3000](http://localhost:3000)
 
 ```
 schmitt-odyssee/
-├── public/                  # Fichiers HTML
-│   ├── index.html           # Version 2D
-│   └── index-3d.html        # Version 3D
+├── index.html               # Point d'entrée du jeu
+├── index-editor.html        # Point d'entrée de l'éditeur
+│
+├── public/
+│   └── assets/               # Images de tuiles + schmitt.json (layout par défaut)
 │
 ├── src/
-│   ├── 2d/                  # Points d'entrée 2D
-│   │   ├── main.ts          # Version legacy
-│   │   └── main-new.ts      # Version features
+│   ├── camera/main-camera.ts        # Point d'entrée du jeu (vue caméra)
+│   ├── editor/board-editor.ts       # Point d'entrée de l'éditeur
 │   │
-│   ├── 3d/                  # Points d'entrée 3D
-│   │   └── main-3d.ts       # Version isométrique
+│   ├── core/
+│   │   ├── models/           # Types (Player, Tile)
+│   │   └── assets/           # AssetManager
 │   │
-│   ├── core/                # Logique commune
-│   │   ├── models/          # Types et interfaces
-│   │   └── assets/          # Gestion des assets
-│   │
-│   ├── features/            # Features partagées
-│   │   ├── board/           # Renderers (2d/3d)
-│   │   ├── game/            # Logique et UI
-│   │   └── tiles/           # Configuration cases
+│   ├── features/
+│   │   ├── board/camera/     # Layout, rendu de plateau, caméra pan/zoom
+│   │   ├── dice/              # Physique des dés 3D
+│   │   ├── game/              # Logique de jeu, rendu, sélection joueurs, déplacement manuel
+│   │   └── tiles/             # Configuration des tuiles (effets, icônes)
 │   │
 │   └── styles/
-│       ├── common/          # Styles partagés
-│       └── 3d/              # Styles 3D spécifiques
+│       ├── common/
+│       ├── camera/
+│       └── game/
 │
-├── docs/                    # Documentation
-│   ├── guides/              # Guides utilisateur
-│   └── architecture/        # Documentation technique
-│
-└── legacy/                  # Anciens fichiers JS
+└── docs/                     # Guides (déploiement, mobile)
 ```
+
+Le layout du plateau ("le Schmitt") est un JSON de grille (`public/assets/schmitt.json`), éditable visuellement dans l'éditeur et exportable/importable en JSON — ce mécanisme permet de créer facilement de nouvelles variantes de plateau sans toucher au code.
 
 ---
 
 ## Fonctionnalités
 
-- **Lancer de dés** : Animation et logique de déplacement
-- **Plateau interactif** : Cases personnalisées avec effets
-- **Gestion des joueurs** : Noms et couleurs personnalisés (2-10 joueurs)
-- **Effets de cases** : Bonus, malus, pouvoir Schmitt
-- **Version 3D** : Vue isométrique avec particules et animations
-- **Mobile-first** : Optimisé pour iPhone et Android
+- **Lancer de dés** : physique 3D (gravité, friction, collisions)
+- **Plateau interactif** : cases personnalisées avec effets, layout JSON éditable
+- **Gestion des joueurs** : noms et couleurs personnalisés (2-10 joueurs)
+- **Effets de cases** : bonus, malus, pouvoir Schmitt
+- **Déplacement manuel** des pions
+- **Mobile** : Capacitor (Android/iOS)
 
 ---
 
@@ -116,20 +87,23 @@ schmitt-odyssee/
 
 ```bash
 npm run dev          # Serveur de développement
-npm run build        # Build production
+npm run build        # Build production (jeu + éditeur)
 npm run type-check   # Vérification TypeScript
 npm run preview      # Preview du build
+npm run android:dev  # Build + sync + run sur Android (Capacitor)
+npm run ios:dev      # Build + sync + run sur iOS (Capacitor)
 ```
+
+Voir `docs/` pour les guides de déploiement mobile détaillés.
 
 ---
 
 ## Technologies
 
-- **TypeScript** - Typage statique
-- **Vite** - Build tool rapide
-- **CSS 3D Transforms** - Rendu 3D performant
-- **Canvas API** - Rendu 2D
-- **Capacitor** (prévu) - Apps natives iOS/Android
+- **TypeScript** vanilla — pas de framework front
+- **Vite** — build tool
+- **CSS 3D Transforms** — rendu pseudo-3D façon Monopoly GO
+- **Capacitor** — apps natives iOS/Android
 
 ---
 
@@ -149,31 +123,15 @@ Règles complètes : [Schmitt Odyssée](https://unoff31.wixsite.com/schmittodyss
 
 ---
 
-## Historique
-
-- **Mars 2025** : Version initiale JavaScript/Phaser
-- **Novembre 2025** : Migration TypeScript + Vite
-- **Novembre 2025** : Version 3D isométrique style Monopoly GO
-- **Novembre 2025** : Réorganisation projet (docs, public, src)
-
----
-
 ## Contribuer
 
-1. Forkez le dépôt
-2. Créez une branche : `git checkout -b feature/ma-fonctionnalite`
-3. Committez : `git commit -m "feat: ma nouvelle fonctionnalité"`
-4. Push : `git push origin feature/ma-fonctionnalite`
-5. Ouvrez une Pull Request
+1. Créez une branche : `git checkout -b feature/ma-fonctionnalite`
+2. Committez : `git commit -m "feat: ma nouvelle fonctionnalité"`
+3. Push : `git push origin feature/ma-fonctionnalite`
+4. Ouvrez une Pull Request
 
 ---
 
 ## Licence
 
 MIT - Libre d'utilisation, modification et partage.
-
----
-
-## Remerciements
-
-Merci aux contributeurs et à la communauté TypeScript/Vite pour leurs ressources.

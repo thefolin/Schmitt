@@ -8,9 +8,6 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
-      '@models': path.resolve(__dirname, './src/models'),
-      '@managers': path.resolve(__dirname, './src/managers'),
-      '@utils': path.resolve(__dirname, './src/utils'),
     },
   },
   server: {
@@ -32,9 +29,6 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: path.resolve(__dirname, 'index.html'),
-        legacy: path.resolve(__dirname, 'index-legacy.html'),
-        '3d': path.resolve(__dirname, 'index-3d.html'),
-        new: path.resolve(__dirname, 'index-new.html'),
         editor: path.resolve(__dirname, 'index-editor.html'),
       },
       output: {

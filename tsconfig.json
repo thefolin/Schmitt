@@ -25,15 +25,6 @@
     "paths": {
       "@/*": [
         "./src/*"
-      ],
-      "@models/*": [
-        "./src/models/*"
-      ],
-      "@managers/*": [
-        "./src/managers/*"
-      ],
-      "@utils/*": [
-        "./src/utils/*"
       ]
     }
   },
