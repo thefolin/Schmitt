@@ -52,7 +52,7 @@ export interface DiceVisualConfig {
  * Configuration par défaut pour un dé normal
  */
 export const DEFAULT_DICE_CONFIG: DicePhysicsConfig = {
-  size: 40, // Taille réduite pour éviter troncature
+  size: 80, // Volume lisible face à des cases de 120px, et facile à saisir
   gravity: 2200, // px/s² : chute franche, le dé retombe vite au lieu de flotter
   // Friction appliquée PAR FRAME : 0.90 tuait 99,8% de la vitesse en 0,5s
   // (le dé ne roulait pas). 0.985 laisse le dé rouler puis s'arrêter naturellement.

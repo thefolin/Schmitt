@@ -83,6 +83,9 @@ export class Dice3D {
     wrapper.className = `dice-3d dice-${this.type}`;
     // z-index au-dessus des tuiles (sans z-index) et des pions (100) : le dé
     // est posé SUR le plateau, il doit rester attrapable en toutes circonstances
+    // Pas de `perspective` ici : elle créerait un contexte 3D isolé, coupant le
+    // dé de la profondeur du plateau — il serait rendu à plat, comme détaché
+    // de la scène. Le dé hérite de la perspective du viewport, comme les cases.
     wrapper.style.cssText = `
       position: absolute;
       width: ${wrapperSize}px;
@@ -90,7 +93,7 @@ export class Dice3D {
       cursor: grab;
       user-select: none;
       touch-action: none;
-      perspective: 1000px;
+      transform-style: preserve-3d;
       z-index: 200;
     `;
 
@@ -176,13 +179,17 @@ export class Dice3D {
       [true, false, true, true, false, true, true, false, true]       // 6
     ];
 
+    // Les points suivent la taille du dé plutôt qu'une valeur fixe : sur un
+    // grand dé, des points figés à 8px seraient perdus au milieu de la face.
+    const dotSize = Math.max(this.visualConfig.dotSize, Math.round(this.config.size * 0.17));
+
     const pattern = patterns[value - 1];
     pattern.forEach((hasDot) => {
       const cell = document.createElement('div');
       if (hasDot) {
         cell.style.cssText = `
-          width: ${this.visualConfig.dotSize}px;
-          height: ${this.visualConfig.dotSize}px;
+          width: ${dotSize}px;
+          height: ${dotSize}px;
           background: ${this.visualConfig.dotColor};
           border-radius: 50%;
           margin: auto;
@@ -289,12 +296,19 @@ export class Dice3D {
     this.element.style.left = `${state.position.x - wrapperSize / 2}px`;
     this.element.style.top = `${state.position.y - wrapperSize / 2 - state.height}px`;
 
-    // Inclinaison de la scène : même angle que le plateau (40°), pour que le
-    // dé paraisse posé sur la même table, vu depuis les yeux d'un joueur assis.
-    // Elle s'applique AVANT l'orientation du dé dans la chaîne CSS, donc APRÈS
-    // dans l'espace : sans cela, la face lue par la physique ne serait pas
-    // celle que le joueur voit sur le dessus.
-    const sceneTiltX = -40;
+    // Même redressement que les cases (rotateX(40deg) dans board-camera.css) :
+    // il compense la perspective du viewport. Avec le signe opposé, le dé
+    // subissait cette perspective au lieu de la compenser, et s'affichait
+    // écrasé. Appliqué AVANT l'orientation dans la chaîne CSS (donc APRÈS dans
+    // l'espace), sinon la face lue par la physique ne serait pas celle vue.
+    const sceneTiltX = 40;
+
+    // Léger décalage de POINT DE VUE (pas d'orientation) : vu pile de face, un
+    // cube se lit comme un carré plat. Ces quelques degrés révèlent deux faces
+    // latérales et donnent son volume au dé, sans toucher à la face du dessus
+    // ni donc à la valeur lue par la physique.
+    const viewYaw = 18;
+    const viewPitch = -12;
 
     // Échelle basée sur la hauteur (perspective)
     const scale = 1 + (state.height / 400); // Le dé grossit légèrement quand il monte
@@ -302,9 +316,10 @@ export class Dice3D {
     // L'orientation vient du quaternion de la physique : c'est la même donnée
     // qui sert à lire la valeur, donc l'affichage ne peut plus la contredire.
     this.cubeElement.style.transform = `
-      translateZ(0)
       scale(${scale})
       rotateX(${sceneTiltX}deg)
+      rotateY(${viewYaw}deg)
+      rotateX(${viewPitch}deg)
       ${toCssMatrix3d(state.orientation)}
     `;
 

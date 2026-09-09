@@ -28,6 +28,22 @@
 }
 
 /* ================================
+   CALQUE DU TAPIS
+   Volontairement hors du contexte 3D du monde : un élément aussi large y
+   écraserait le rendu en perspective des cases. Il reçoit la même
+   transformation de caméra, donc il reste solidaire du plateau.
+   ================================ */
+.board-camera-table-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  transform-style: flat;
+  pointer-events: none;
+  will-change: transform;
+}
+
+/* ================================
    TAPIS DE JEU
    Surface feutrée délimitant la zone où le dé peut rouler. Elle ancre la
    scène : sans elle, le plateau et le dé flottent dans le vide.
@@ -49,9 +65,6 @@
     /* Épaisseur et ombre portée sur la table en dessous */
     0 10px 30px rgba(0, 0, 0, 0.45);
 
-  /* Le tapis est posé à plat, sous les cases */
-  transform: rotateX(40deg);
-  transform-style: preserve-3d;
 }
 
 /* ================================

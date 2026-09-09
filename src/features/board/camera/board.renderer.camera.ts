@@ -33,6 +33,7 @@ export class BoardCameraRenderer {
   private container: HTMLElement;
   private viewport!: HTMLElement;
   private worldContainer!: HTMLElement;
+  private tableLayer!: HTMLElement;
   private camera: Camera;
 
   private tilePositions: TilePosition[] = [];
@@ -92,10 +93,17 @@ export class BoardCameraRenderer {
     this.viewport = document.createElement('div');
     this.viewport.className = 'board-camera-viewport';
 
+    // Calque du tapis, séparé du monde 3D. Un élément aussi large placé dans
+    // le contexte preserve-3d du monde écrase le rendu en perspective des
+    // cases ; isolé ici, il suit la caméra sans perturber la scène.
+    this.tableLayer = document.createElement('div');
+    this.tableLayer.className = 'board-camera-table-layer';
+
     // World container (contient le plateau, transformé par la caméra)
     this.worldContainer = document.createElement('div');
     this.worldContainer.className = 'board-camera-world';
 
+    this.viewport.appendChild(this.tableLayer);
     this.viewport.appendChild(this.worldContainer);
     this.container.appendChild(this.viewport);
 
@@ -253,7 +261,10 @@ export class BoardCameraRenderer {
   private startRenderLoop(): void {
     const loop = () => {
       this.camera.update();
-      this.worldContainer.style.transform = this.camera.getTransform();
+      const transform = this.camera.getTransform();
+      this.worldContainer.style.transform = transform;
+      // Le tapis suit la caméra à l'identique pour rester sous le plateau
+      this.tableLayer.style.transform = transform;
       requestAnimationFrame(loop);
     };
     loop();
@@ -424,7 +435,7 @@ export class BoardCameraRenderer {
       table.style.borderLeft = borderStyle;
     }
 
-    this.worldContainer.appendChild(table);
+    this.tableLayer.appendChild(table);
     this.tableElement = table;
   }
 

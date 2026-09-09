@@ -51,9 +51,10 @@ export const DEFAULT_TABLE_CONFIG: Partial<TableConfig> = {
     bottom: true,
     left: true
   },
-  // Le tapis borde le plateau sans l'écraser. Une marge plus large laisserait
-  // le dé s'immobiliser hors du champ visible, pénible à récupérer.
-  marginPercent: 10,
+  // Marge en pourcentage d'UNE case (pas du plateau) : 60% de 120px ≈ 72px de
+  // tapis autour du jeu. Assez pour que le dé roule, pas au point qu'il finisse
+  // hors du champ visible.
+  marginPercent: 60,
   showBorders: true,
   // Liseré sombre en bord de tapis, dans le ton du feutre (cf. .game-table)
   borderColor: 'rgba(8, 40, 26, 0.9)',
@@ -94,27 +95,25 @@ export function calculateTableBounds(
     maxCol = Math.max(maxCol, placement.gridCol);
   });
 
-  // Calculer les positions en pixels.
-  // L'axe Y utilise le même facteur de compression que les cases (voir
-  // calculatePlacementBounds) : sans lui, la table est ~35% trop haute et
-  // déborde du plateau au lieu de l'épouser.
+  // Emprise réelle des cases, calculée comme dans calculatePlacementBounds :
+  // une case occupe `tileSize` à partir de sa position de grille. L'axe Y
+  // reprend la compression de perspective, sinon la table est ~35% trop haute.
   const cellSize = tileSize + tileGap;
   const cellSizeY = cellSize * PERSPECTIVE_COMPRESSION_Y;
   const minX = minCol * cellSize;
-  const maxX = (maxCol + 1) * cellSize;
+  const maxX = maxCol * cellSize + tileSize;
   const minY = minRow * cellSizeY;
   const maxY = maxRow * cellSizeY + tileSize;
 
-  // Calculer la marge
-  const width = maxX - minX;
-  const height = maxY - minY;
-  const marginX = (width * marginPercent) / 100;
-  const marginY = (height * marginPercent) / 100;
+  // Marge exprimée en fraction de case plutôt qu'en pourcentage du plateau :
+  // un grand plateau n'a pas besoin d'un liseré proportionnellement immense,
+  // et le dé resterait alors hors du champ visible.
+  const margin = tileSize * (marginPercent / 100);
 
   return {
-    minX: minX - marginX,
-    maxX: maxX + marginX,
-    minY: minY - marginY,
-    maxY: maxY + marginY
+    minX: minX - margin,
+    maxX: maxX + margin,
+    minY: minY - margin,
+    maxY: maxY + margin
   };
 }
