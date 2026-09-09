@@ -170,9 +170,11 @@ export class PlayerSelector {
    */
   private confirm(): void {
     if (this.currentCallback && this.selectedPlayers.length === this.requiredCount) {
+      // Capturer le callback avant hide(), qui remet currentCallback à null
+      const callback = this.currentCallback;
       const selected = [...this.selectedPlayers];
       this.hide();
-      this.currentCallback(selected);
+      callback(selected);
     }
   }
 

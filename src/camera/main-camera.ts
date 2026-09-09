@@ -39,8 +39,11 @@ class SchmittOdysseeCamera {
   private consecutiveForwardMoves = 0; // Compteur pour éviter les boucles infinies
   private diceResults: { normal: number | null; godPower: number | null } = { normal: null, godPower: null };
   private isRollingForGodPower = false; // Flag pour savoir si on lance pour une faveur des dieux
-  // Callback en attente pour passer au joueur suivant (déclenché par timer OU par le bouton OK)
-  private pendingNextTurn: { timeoutId: number; callback: () => void } | null = null;
+  // Callback en attente lié au modal d'effet affiché (déclenché par timer OU par le bouton OK)
+  private pendingModalAction: { timeoutId: number; callback: () => void } | null = null;
+  // Choix retenu pour toute la partie quand Aphrodite tombe avec un seul
+  // adversaire disponible (partie à 2 joueurs) : demandé une seule fois.
+  private aphroditeSoloMode: 'both-dice' | 'reroll' | null = null;
 
   constructor() {
     this.gameLogic = new GameLogic();
@@ -169,12 +172,12 @@ class SchmittOdysseeCamera {
 
     document.getElementById('effectOkBtn')?.addEventListener('click', () => {
       this.gameRenderer.closeEffectModal();
-      // Si un passage au joueur suivant est programmé, le déclencher tout de suite
+      // Si une action est programmée après ce modal, la déclencher tout de suite
       // au lieu de laisser le joueur attendre le délai automatique
-      if (this.pendingNextTurn) {
-        clearTimeout(this.pendingNextTurn.timeoutId);
-        const callback = this.pendingNextTurn.callback;
-        this.pendingNextTurn = null;
+      if (this.pendingModalAction) {
+        clearTimeout(this.pendingModalAction.timeoutId);
+        const callback = this.pendingModalAction.callback;
+        this.pendingModalAction = null;
         callback();
       }
     });
@@ -368,24 +371,31 @@ class SchmittOdysseeCamera {
     // Réinitialiser les résultats des dés
     this.diceResults = { normal: null, godPower: null };
 
-    // Réinitialiser le compteur de déplacements consécutifs au début du tour
-    this.consecutiveForwardMoves = 0;
-
     // Centrer la caméra sur le joueur actuel au lancer de dé
     this.boardRenderer.centerOnPlayer(currentPlayer.index, this.gameLogic.getPlayers());
 
-    // Si le joueur a le pouvoir Schmitt, afficher les deux dés
-    if (currentPlayer.hasSchmittPower) {
-      this.diceManager.showBothDice();
-      this.gameRenderer.showNotification(
-        `✨ Pouvoir Schmitt activé ! Glissez les deux dés pour les lancer.`
-      );
-    } else {
-      this.diceManager.showNormalDice();
+    // Si on est en train d'attendre le lancer pour une faveur des dieux,
+    // ce clic doit lancer les 2 dés de faveur (et non un tour normal)
+    if (this.isRollingForGodPower) {
+      void this.diceManager.rollBothDice();
+      return;
     }
 
-    // Note: Le drag-and-drop gère maintenant le lancer automatiquement
-    // Le callback onDiceRollEnd s'occupera de faire avancer le joueur
+    // Réinitialiser le compteur de déplacements consécutifs au début du tour
+    this.consecutiveForwardMoves = 0;
+
+    // Si le joueur a le pouvoir Schmitt, lancer les deux dés
+    if (currentPlayer.hasSchmittPower) {
+      this.gameRenderer.showNotification(`✨ Pouvoir Schmitt activé !`);
+      // rollBothDice() déclenche l'animation ; le résultat arrive via le
+      // callback onDiceRollEnd (déjà branché), qui gère la suite normalement.
+      void this.diceManager.rollBothDice();
+    } else {
+      void this.diceManager.rollNormalDice();
+    }
+
+    // Le dé peut aussi être glissé manuellement pendant l'animation ou après
+    // un arrêt anormal (chute) ; le callback onDiceRollEnd gère les deux cas.
   }
 
   /**
@@ -608,15 +618,24 @@ class SchmittOdysseeCamera {
    * au bouton OK du modal d'effet de déclencher ce passage immédiatement.
    */
   private scheduleNextTurn(delay: number): void {
-    if (this.pendingNextTurn) {
-      clearTimeout(this.pendingNextTurn.timeoutId);
+    this.scheduleModalAction(delay, () => this.prepareNextPlayerTurn());
+  }
+
+  /**
+   * Programme une action après un délai, tout en permettant au bouton OK du
+   * modal d'effet de déclencher cette action immédiatement (au lieu d'attendre
+   * le délai automatique). Un seul appel en attente à la fois : un nouvel appel
+   * annule le précédent.
+   */
+  private scheduleModalAction(delay: number, action: () => void): void {
+    if (this.pendingModalAction) {
+      clearTimeout(this.pendingModalAction.timeoutId);
     }
-    const callback = () => this.prepareNextPlayerTurn();
     const timeoutId = window.setTimeout(() => {
-      this.pendingNextTurn = null;
-      callback();
+      this.pendingModalAction = null;
+      action();
     }, delay);
-    this.pendingNextTurn = { timeoutId, callback };
+    this.pendingModalAction = { timeoutId, callback: action };
   }
 
   /**
@@ -633,10 +652,20 @@ class SchmittOdysseeCamera {
     // Filtrer les joueurs disponibles (tous sauf le joueur actuel)
     const availablePlayers = allPlayers.filter(p => p.index !== currentPlayer.index);
 
+    // On ne peut pas sélectionner plus de joueurs qu'il n'y en a de disponibles
+    // (ex: distribute_4 avec seulement 3 adversaires en partie à 4 joueurs) —
+    // sans ce plafond, le sélecteur ne peut jamais atteindre le nombre requis
+    // et le tour se bloque définitivement.
+    const requiredSelection = Math.min(gulpsCount, availablePlayers.length);
+
+    // Fermer le modal de l'effet ("DISTRIBUEZ X GORGÉES") avant d'afficher le
+    // sélecteur de joueurs, pour ne pas laisser les deux superposés
+    this.gameRenderer.closeEffectModal();
+
     // Afficher le sélecteur de joueurs pour choisir qui reçoit les gorgées
     this.playerSelector.show(
       availablePlayers,
-      gulpsCount,
+      requiredSelection,
       currentPlayer.index,
       false, // Ne pas permettre de se sélectionner soi-même
       (selectedPlayers) => {
@@ -658,9 +687,7 @@ class SchmittOdysseeCamera {
         }
 
         // Passer au joueur suivant après un délai
-        setTimeout(() => {
-          this.prepareNextPlayerTurn();
-        }, 2000);
+        this.scheduleNextTurn(2000);
       }
     );
   }
@@ -669,6 +696,29 @@ class SchmittOdysseeCamera {
    * Gère le pouvoir d'Aphrodite : lancer 2 dés et déplacer 2 adversaires
    */
   private async handleAphroditePower(currentPlayer: any): Promise<void> {
+    // Aphrodite demande de choisir 2 adversaires. En partie à 2 joueurs, il
+    // n'y a qu'1 adversaire possible : demander au joueur comment gérer ce
+    // cas (une seule fois pour toute la partie).
+    const availableCount = this.gameLogic.getPlayers().length - 1;
+    if (availableCount < 2) {
+      if (this.aphroditeSoloMode === null) {
+        const wantsBothDice = confirm(
+          `Aphrodite demande 2 adversaires, mais il n'y en a qu'un seul disponible.\n\n` +
+          `OK : l'adversaire reçoit les 2 dés.\n` +
+          `Annuler : une autre faveur est tirée à la place.\n\n` +
+          `Ce choix sera conservé pour le reste de la partie.`
+        );
+        this.aphroditeSoloMode = wantsBothDice ? 'both-dice' : 'reroll';
+      }
+
+      if (this.aphroditeSoloMode === 'reroll') {
+        this.gameRenderer.showNotification(`Pas assez d'adversaires pour Aphrodite, nouvelle faveur !`);
+        const randomFavor = Math.floor(Math.random() * 9) + 3; // 3 à 11
+        this.showGodFavorResult(randomFavor);
+        return;
+      }
+    }
+
     this.gameRenderer.showNotification(`${currentPlayer.name} lance 2 dés pour Aphrodite 💕`);
 
     // Afficher les deux dés
@@ -691,19 +741,24 @@ class SchmittOdysseeCamera {
     // Cacher le dé des pouvoirs après usage
     this.diceManager.showNormalDice();
 
-    // Afficher sélecteur pour choisir 2 adversaires
-    this.gameRenderer.showNotification(`Choisissez 2 adversaires à déplacer`);
-
     const allPlayers = this.gameLogic.getPlayers();
     const availablePlayers = allPlayers.filter(p => p.index !== currentPlayer.index);
+    const requiredSelection = Math.min(2, availablePlayers.length);
+
+    // Afficher sélecteur pour choisir les adversaires
+    this.gameRenderer.showNotification(
+      requiredSelection === 1
+        ? `Confirmez l'adversaire qui recevra les 2 dés`
+        : `Choisissez 2 adversaires à déplacer`
+    );
 
     this.playerSelector.show(
       availablePlayers,
-      2,
+      requiredSelection,
       currentPlayer.index,
       false,
       (selectedPlayers) => {
-        // Une fois les 2 joueurs sélectionnés, montrer l'interface d'association
+        // Une fois les joueurs sélectionnés, montrer l'interface d'association
         this.showAphroditeDiceAssignment(dice1, dice2, selectedPlayers);
       }
     );
@@ -713,6 +768,38 @@ class SchmittOdysseeCamera {
    * Affiche l'interface pour associer chaque dé à un joueur et choisir la direction
    */
   private showAphroditeDiceAssignment(dice1: number, dice2: number, players: any[]): void {
+    // Supporte 1 joueur (partie à 2, cf. aphroditeSoloMode) ou 2 joueurs (cas normal)
+    const cardsHtml = players.map((player, idx) => `
+          <div class="player-movement-card" style="border-color: ${player.color}; padding: 20px;">
+            <div class="player-movement-name" style="margin-bottom: 15px;">${player.name}</div>
+            <div style="font-size: 14px; color: #666; margin-bottom: 15px;">Position actuelle : ${player.position}</div>
+
+            <div style="margin-bottom: 15px;">
+              <label style="display: block; margin-bottom: 10px; font-weight: bold;">Choisissez le dé :</label>
+              <div style="display: flex; gap: 10px;">
+                <button class="direction-btn" data-player="${idx}" data-dice="1" style="flex: 1;">
+                  🎲 Dé ${dice1}
+                </button>
+                <button class="direction-btn" data-player="${idx}" data-dice="2" style="flex: 1;">
+                  🎲 Dé ${dice2}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label style="display: block; margin-bottom: 10px; font-weight: bold;">Direction :</label>
+              <div style="display: flex; gap: 10px;">
+                <button class="direction-btn" data-player="${idx}" data-dir="forward" style="flex: 1;">
+                  ⏩ Avant
+                </button>
+                <button class="direction-btn" data-player="${idx}" data-dir="backward" style="flex: 1;">
+                  ⏪ Arrière
+                </button>
+              </div>
+            </div>
+          </div>
+    `).join('');
+
     // Créer une modale personnalisée pour associer les dés
     const modal = document.createElement('div');
     modal.className = 'manual-movement-modal';
@@ -721,68 +808,12 @@ class SchmittOdysseeCamera {
       <div class="manual-movement-content" style="max-width: 800px;">
         <button class="close-manual-movement">&times;</button>
         <h2 class="manual-movement-title">💕 Pouvoir d'Aphrodite</h2>
-        <p class="manual-movement-subtitle">Associez chaque dé à un joueur et choisissez la direction</p>
+        <p class="manual-movement-subtitle">${players.length > 1
+        ? 'Associez chaque dé à un joueur et choisissez la direction'
+        : `Attribuez les 2 dés à ${players[0].name} et choisissez une direction par dé`}</p>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
-          <!-- Joueur 1 -->
-          <div class="player-movement-card" style="border-color: ${players[0].color}; padding: 20px;">
-            <div class="player-movement-name" style="margin-bottom: 15px;">${players[0].name}</div>
-            <div style="font-size: 14px; color: #666; margin-bottom: 15px;">Position actuelle : ${players[0].position}</div>
-
-            <div style="margin-bottom: 15px;">
-              <label style="display: block; margin-bottom: 10px; font-weight: bold;">Choisissez le dé :</label>
-              <div style="display: flex; gap: 10px;">
-                <button class="direction-btn" data-player="0" data-dice="1" style="flex: 1;">
-                  🎲 Dé ${dice1}
-                </button>
-                <button class="direction-btn" data-player="0" data-dice="2" style="flex: 1;">
-                  🎲 Dé ${dice2}
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label style="display: block; margin-bottom: 10px; font-weight: bold;">Direction :</label>
-              <div style="display: flex; gap: 10px;">
-                <button class="direction-btn" data-player="0" data-dir="forward" style="flex: 1;">
-                  ⏩ Avant
-                </button>
-                <button class="direction-btn" data-player="0" data-dir="backward" style="flex: 1;">
-                  ⏪ Arrière
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Joueur 2 -->
-          <div class="player-movement-card" style="border-color: ${players[1].color}; padding: 20px;">
-            <div class="player-movement-name" style="margin-bottom: 15px;">${players[1].name}</div>
-            <div style="font-size: 14px; color: #666; margin-bottom: 15px;">Position actuelle : ${players[1].position}</div>
-
-            <div style="margin-bottom: 15px;">
-              <label style="display: block; margin-bottom: 10px; font-weight: bold;">Choisissez le dé :</label>
-              <div style="display: flex; gap: 10px;">
-                <button class="direction-btn" data-player="1" data-dice="1" style="flex: 1;">
-                  🎲 Dé ${dice1}
-                </button>
-                <button class="direction-btn" data-player="1" data-dice="2" style="flex: 1;">
-                  🎲 Dé ${dice2}
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label style="display: block; margin-bottom: 10px; font-weight: bold;">Direction :</label>
-              <div style="display: flex; gap: 10px;">
-                <button class="direction-btn" data-player="1" data-dir="forward" style="flex: 1;">
-                  ⏩ Avant
-                </button>
-                <button class="direction-btn" data-player="1" data-dir="backward" style="flex: 1;">
-                  ⏪ Arrière
-                </button>
-              </div>
-            </div>
-          </div>
+        <div style="display: grid; grid-template-columns: repeat(${players.length}, 1fr); gap: 20px; margin-top: 20px;">
+          ${cardsHtml}
         </div>
 
         <button class="confirm-all-movements" id="confirmAphrodite" style="margin-top: 30px; display: none;">
@@ -793,13 +824,9 @@ class SchmittOdysseeCamera {
 
     document.body.appendChild(modal);
 
-    // État des choix
-    const choices = {
-      player0: { dice: 0, direction: '' },
-      player1: { dice: 0, direction: '' }
-    };
+    // État des choix, un par joueur affiché (1 ou 2)
+    const choices: { dice: number; direction: string }[] = players.map(() => ({ dice: 0, direction: '' }));
 
-    // Gestion des boutons
     const diceButtons = modal.querySelectorAll('[data-dice]');
     const dirButtons = modal.querySelectorAll('[data-dir]');
     const confirmBtn = modal.querySelector('#confirmAphrodite') as HTMLElement;
@@ -807,22 +834,15 @@ class SchmittOdysseeCamera {
     diceButtons.forEach(btn => {
       btn.addEventListener('click', (e) => {
         const target = e.target as HTMLElement;
-        const playerIdx = target.getAttribute('data-player');
+        const playerIdx = parseInt(target.getAttribute('data-player') || '0');
         const diceNum = parseInt(target.getAttribute('data-dice') || '0');
 
-        // Désélectionner les autres boutons de dé du même joueur
         modal.querySelectorAll(`[data-player="${playerIdx}"][data-dice]`).forEach(b => {
           b.classList.remove('selected');
         });
-
         target.classList.add('selected');
 
-        if (playerIdx === '0') {
-          choices.player0.dice = diceNum;
-        } else {
-          choices.player1.dice = diceNum;
-        }
-
+        choices[playerIdx].dice = diceNum;
         this.checkAphroditeComplete(choices, confirmBtn);
       });
     });
@@ -830,22 +850,15 @@ class SchmittOdysseeCamera {
     dirButtons.forEach(btn => {
       btn.addEventListener('click', (e) => {
         const target = e.target as HTMLElement;
-        const playerIdx = target.getAttribute('data-player');
+        const playerIdx = parseInt(target.getAttribute('data-player') || '0');
         const dir = target.getAttribute('data-dir') || '';
 
-        // Désélectionner les autres boutons de direction du même joueur
         modal.querySelectorAll(`[data-player="${playerIdx}"][data-dir]`).forEach(b => {
           b.classList.remove('selected');
         });
-
         target.classList.add('selected');
 
-        if (playerIdx === '0') {
-          choices.player0.direction = dir;
-        } else {
-          choices.player1.direction = dir;
-        }
-
+        choices[playerIdx].direction = dir;
         this.checkAphroditeComplete(choices, confirmBtn);
       });
     });
@@ -859,56 +872,51 @@ class SchmittOdysseeCamera {
 
     // Confirmer les choix
     confirmBtn.addEventListener('click', () => {
-      // Vérifier qu'on n'utilise pas le même dé 2 fois
-      if (choices.player0.dice === choices.player1.dice) {
+      // Vérifier qu'on n'utilise pas le même dé 2 fois (seulement pertinent à 2 joueurs)
+      if (players.length === 2 && choices[0].dice === choices[1].dice) {
         this.gameRenderer.showNotification('⚠️ Vous devez assigner un dé différent à chaque joueur !');
         return;
       }
 
-      // Calculer les nouvelles positions
       const diceValues = [0, dice1, dice2];
+      const newPositions = players.map((player, idx) => {
+        const movement = choices[idx].direction === 'forward'
+          ? diceValues[choices[idx].dice]
+          : -diceValues[choices[idx].dice];
+        return Math.max(0, Math.min(22, player.position + movement));
+      });
 
-      const movement1 = choices.player0.direction === 'forward'
-        ? diceValues[choices.player0.dice]
-        : -diceValues[choices.player0.dice];
-      const movement2 = choices.player1.direction === 'forward'
-        ? diceValues[choices.player1.dice]
-        : -diceValues[choices.player1.dice];
-
-      const newPos1 = Math.max(0, Math.min(22, players[0].position + movement1));
-      const newPos2 = Math.max(0, Math.min(22, players[1].position + movement2));
-
-      // Appliquer les déplacements
-      this.gameLogic.setPlayerPosition(players[0].index, newPos1);
-      this.gameLogic.setPlayerPosition(players[1].index, newPos2);
+      players.forEach((player, idx) => {
+        this.gameLogic.setPlayerPosition(player.index, newPositions[idx]);
+      });
 
       modal.remove();
 
       this.gameRenderer.showNotification(
-        `${players[0].name} → case ${newPos1} | ${players[1].name} → case ${newPos2}`
+        players.map((player, idx) => `${player.name} → case ${newPositions[idx]}`).join(' | ')
       );
 
       this.updateBoard();
 
-      // Appliquer les effets des cases
-      setTimeout(() => {
-        this.applyTileEffect(newPos1);
-        setTimeout(() => {
-          this.applyTileEffect(newPos2);
-          setTimeout(() => {
-            this.prepareNextPlayerTurn();
-          }, 2000);
-        }, 2000);
-      }, 2000);
+      // Appliquer les effets des cases, une par une avec un délai entre chaque
+      const applyEffectsSequentially = (index: number) => {
+        if (index >= newPositions.length) {
+          setTimeout(() => this.prepareNextPlayerTurn(), 2000);
+          return;
+        }
+        this.applyTileEffect(newPositions[index]);
+        setTimeout(() => applyEffectsSequentially(index + 1), 2000);
+      };
+      setTimeout(() => applyEffectsSequentially(0), 2000);
     });
   }
 
   /**
    * Vérifie si tous les choix sont faits pour Aphrodite
    */
-  private checkAphroditeComplete(choices: any, confirmBtn: HTMLElement): void {
-    if (choices.player0.dice > 0 && choices.player0.direction &&
-      choices.player1.dice > 0 && choices.player1.direction) {
+  private checkAphroditeComplete(choices: { dice: number; direction: string }[], confirmBtn: HTMLElement): void {
+    const allComplete = choices.every(c => c.dice > 0 && c.direction);
+    if (allComplete) {
       confirmBtn.style.display = 'block';
     }
   }
@@ -991,7 +999,7 @@ class SchmittOdysseeCamera {
         setTimeout(() => {
           this.gameRenderer.showNotification(message);
           this.updateUI();
-          setTimeout(() => this.prepareNextPlayerTurn(), 4000);
+          this.scheduleNextTurn(4000);
         }, 2000);
       }
     );
@@ -1078,10 +1086,8 @@ class SchmittOdysseeCamera {
     // Afficher le modal avec la faveur
     this.gameRenderer.showEffectModal(favor.icon, favor.name, favor.description);
 
-    // Exécuter l'effet de la faveur
-    setTimeout(() => {
-      this.executeGodFavor(sum);
-    }, 3000);
+    // Exécuter l'effet de la faveur (le bouton OK du modal peut avancer immédiatement)
+    this.scheduleModalAction(3000, () => this.executeGodFavor(sum));
   }
 
   /**
@@ -1097,7 +1103,7 @@ class SchmittOdysseeCamera {
       case 2: // Colère des dieux
         this.gameLogic.addDrinks(currentPlayer.index, 1);
         this.gameRenderer.showNotification(`${currentPlayer.name} reçoit 1 cul sec !`);
-        setTimeout(() => this.prepareNextPlayerTurn(), 2000);
+        this.scheduleNextTurn(2000);
         break;
 
       case 3: // Jugement Dernier - relancer un dé
@@ -1113,7 +1119,7 @@ class SchmittOdysseeCamera {
       case 4: // Athéna - bouclier
         // TODO: Implémenter le système de bouclier
         this.gameRenderer.showNotification(`${currentPlayer.name} obtient le bouclier d'Athéna !`);
-        setTimeout(() => this.prepareNextPlayerTurn(), 2000);
+        this.scheduleNextTurn(2000);
         break;
 
       case 5: // Aphrodite - lancer 2 dés et déplacer 2 adversaires
@@ -1134,7 +1140,7 @@ class SchmittOdysseeCamera {
             this.gameLogic.setPlayerPosition(target.index, tempPos);
             this.gameRenderer.showNotification(`${currentPlayer.name} et ${target.name} échangent de position ! 👟`);
             this.updateUI();
-            setTimeout(() => this.prepareNextPlayerTurn(), 3000);
+            this.scheduleNextTurn(3000);
           }
         );
         break;
@@ -1150,7 +1156,7 @@ class SchmittOdysseeCamera {
 
       case 8: // Arès - pouce haut/bas
         this.gameRenderer.showNotification(`Tous les joueurs : pouce haut ou bas ! (effet simulé)`);
-        setTimeout(() => this.prepareNextPlayerTurn(), 3000);
+        this.scheduleNextTurn(3000);
         break;
 
       case 9: // Dionysos - tous boivent
@@ -1160,12 +1166,12 @@ class SchmittOdysseeCamera {
         });
         this.gameRenderer.showNotification(`Tous boivent avec ${currentPlayer.name} ! 🍷`);
         this.updateUI();
-        setTimeout(() => this.prepareNextPlayerTurn(), 3000);
+        this.scheduleNextTurn(3000);
         break;
 
       case 10: // Héphaïstos - placer shooters
         this.gameRenderer.showNotification(`${currentPlayer.name} place 2 shooters virtuels ! 🔨`);
-        setTimeout(() => this.prepareNextPlayerTurn(), 2000);
+        this.scheduleNextTurn(2000);
         break;
 
       case 11: // Poséidon - cibler un joueur et ses voisins
@@ -1214,6 +1220,10 @@ class SchmittOdysseeCamera {
     if (tableBounds) {
       this.diceManager.positionDiceInTable(tableBounds);
     }
+
+    // Réactiver le bouton de dé : un clic dessus lancera les 2 dés de faveur
+    // (voir le branchement isRollingForGodPower dans rollDice())
+    this.gameRenderer.setDiceButtonEnabled(true);
 
     // Note: Les callbacks handleDiceRollEnd vont gérer la suite automatiquement
     // Quand les 2 dés s'arrêtent, on calculera la somme et affichera la faveur
