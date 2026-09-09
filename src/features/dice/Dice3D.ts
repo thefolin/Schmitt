@@ -8,6 +8,8 @@ import type { Vector2D } from './DicePhysics';
 import type { DicePhysicsConfig, DiceVisualConfig } from './DiceConfig';
 import type { TableBounds, TableBorderConfig } from '../board/camera/table.config';
 import { randomBetween } from './random';
+import { toCssMatrix3d } from './quaternion';
+import { DICE_FACES } from './dice-faces';
 
 export type DiceType = 'normal' | 'godPower';
 
@@ -106,12 +108,14 @@ export class Dice3D {
       -webkit-transform-style: preserve-3d;
     `;
 
-    // Créer les 6 faces
+    // Créer les 6 faces à partir de la géométrie définie dans dice-faces.ts :
+    // la même source décrit la position CSS de chaque face et sa normale, donc
+    // la face affichée ne peut plus diverger de la valeur calculée.
     const halfSize = this.config.size / 2;
 
-    for (let i = 1; i <= 6; i++) {
+    for (const { value, cssRotation } of DICE_FACES) {
       const face = document.createElement('div');
-      face.className = `dice-face face-${i}`;
+      face.className = `dice-face face-${value}`;
       face.style.cssText = `
         position: absolute;
         width: ${this.config.size}px;
@@ -133,30 +137,10 @@ export class Dice3D {
       `;
 
       // Ajouter les points
-      face.appendChild(this.createDots(i));
+      face.appendChild(this.createDots(value));
 
-      // Positionner chaque face dans l'espace 3D pour former un cube
-      // Chaque face doit être tournée puis déplacée vers l'extérieur
-      switch (i) {
-        case 1: // Face avant
-          face.style.transform = `rotateY(0deg) translateZ(${halfSize}px)`;
-          break;
-        case 2: // Face arrière
-          face.style.transform = `rotateY(180deg) translateZ(${halfSize}px)`;
-          break;
-        case 3: // Face gauche
-          face.style.transform = `rotateY(-90deg) translateZ(${halfSize}px)`;
-          break;
-        case 4: // Face droite
-          face.style.transform = `rotateY(90deg) translateZ(${halfSize}px)`;
-          break;
-        case 5: // Face haut
-          face.style.transform = `rotateX(90deg) translateZ(${halfSize}px)`;
-          break;
-        case 6: // Face bas
-          face.style.transform = `rotateX(-90deg) translateZ(${halfSize}px)`;
-          break;
-      }
+      // Tourner la face puis la pousser vers l'extérieur du cube
+      face.style.transform = `${cssRotation} translateZ(${halfSize}px)`;
 
       cube.appendChild(face);
     }
@@ -216,24 +200,14 @@ export class Dice3D {
   /**
    * Lance le dé
    */
-  public roll(targetValue?: number): Promise<number> {
+  public roll(startingFace?: number): Promise<number> {
     if (!this.cubeElement) {
       return Promise.resolve(1);
     }
 
-    // Donner une rotation initiale aléatoire pour plus de réalisme
-    const initialRotation = {
-      x: Math.random() * 360,
-      y: Math.random() * 360
-    };
-
-    // Appliquer la rotation initiale au cube interne
-    this.cubeElement.style.transform = `
-      rotateX(${initialRotation.x}deg)
-      rotateY(${initialRotation.y}deg)
-    `;
-
-    this.physics.throw(targetValue);
+    // L'orientation de départ est tirée par la physique (distribution uniforme
+    // sur la sphère) : inutile d'en imposer une ici, cela écraserait la sienne.
+    this.physics.throw(startingFace);
     this.startAnimation();
 
     return new Promise((resolve) => {
@@ -315,23 +289,23 @@ export class Dice3D {
     this.element.style.left = `${state.position.x - wrapperSize / 2}px`;
     this.element.style.top = `${state.position.y - wrapperSize / 2 - state.height}px`;
 
-    // Vue isométrique améliorée : rotation de base + rotation du lancer
-    // Rotation de base pour voir 3 faces simultanément (isométrique)
-    const baseRotationX = -35;  // Inclinaison vers l'avant (augmentée pour mieux voir les faces)
-    const baseRotationY = 45;   // Rotation à 45° pour vue en coin
-    const baseRotationZ = 0;    // Pas de rotation Z de base
+    // Inclinaison de la scène : même angle que le plateau (40°), pour que le
+    // dé paraisse posé sur la même table, vu depuis les yeux d'un joueur assis.
+    // Elle s'applique AVANT l'orientation du dé dans la chaîne CSS, donc APRÈS
+    // dans l'espace : sans cela, la face lue par la physique ne serait pas
+    // celle que le joueur voit sur le dessus.
+    const sceneTiltX = -40;
 
     // Échelle basée sur la hauteur (perspective)
     const scale = 1 + (state.height / 400); // Le dé grossit légèrement quand il monte
 
-    // Appliquer la rotation 3D au cube interne
-    // IMPORTANT: L'ordre des transformations est crucial pour le rendu 3D correct
+    // L'orientation vient du quaternion de la physique : c'est la même donnée
+    // qui sert à lire la valeur, donc l'affichage ne peut plus la contredire.
     this.cubeElement.style.transform = `
       translateZ(0)
       scale(${scale})
-      rotateX(${baseRotationX + state.rotation.x}deg)
-      rotateY(${baseRotationY + state.rotation.y}deg)
-      rotateZ(${baseRotationZ + (state.rotation.x * 0.2)}deg)
+      rotateX(${sceneTiltX}deg)
+      ${toCssMatrix3d(state.orientation)}
     `;
 
     // Ombre dynamique basée sur la hauteur appliquée au wrapper
@@ -501,11 +475,9 @@ export class Dice3D {
       y: randomBetween(this.config.rotationSpeedMin, this.config.rotationSpeedMax) * rotationFactor * (Math.random() > 0.5 ? 1 : -1)
     };
 
-    // Valeur aléatoire
-    const targetValue = Math.floor(Math.random() * 6) + 1;
-
-    // Utiliser la méthode throwWithVelocity qui modifie directement le state interne
-    this.physics.throwWithVelocity(finalVelocity, verticalVelocity, angularVelocity, targetValue);
+    // Le résultat n'est pas décidé ici : il sera lu sur la face du dessus
+    // quand le dé s'immobilisera.
+    this.physics.throwWithVelocity(finalVelocity, verticalVelocity, angularVelocity);
 
     this.startAnimation();
   }

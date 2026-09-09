@@ -96,7 +96,7 @@ export class DiceManager {
   /**
    * Lance le dé normal
    */
-  public async rollNormalDice(targetValue?: number): Promise<number> {
+  public async rollNormalDice(startingFace?: number): Promise<number> {
     if (!this.normalDice) return 1;
 
     // Cacher le dé des pouvoirs si visible
@@ -105,7 +105,7 @@ export class DiceManager {
     }
 
     this.normalDice.show();
-    return await this.normalDice.roll(targetValue);
+    return await this.normalDice.roll(startingFace);
   }
 
   /**

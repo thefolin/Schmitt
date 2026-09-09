@@ -3,6 +3,16 @@
  * Permet de définir la taille et position de chaque case jeu sur la grille
  */
 
+/**
+ * Compression de l'axe Y compensant la perspective du plateau (rotateX 40°).
+ * sin(40°) ≈ 0,64 : on écrase donc les écarts verticaux à ~65%.
+ *
+ * Partagé par le placement des cases ET le calcul de la table : les deux
+ * doivent employer la même valeur, sinon le tapis ne coïncide plus avec le
+ * plateau qu'il est censé porter.
+ */
+export const PERSPECTIVE_COMPRESSION_Y = 0.65;
+
 export interface TilePlacement {
   tileId: number;           // ID de la case jeu
   gridRow: number;          // Ligne sur la grille
@@ -132,11 +142,7 @@ export function calculatePlacementBounds(
 ): { x: number; y: number; width: number; height: number } {
   const step = config.tileSize + config.tileGap;
   const baseX = placement.gridCol * step;
-
-  // Facteur de compression Y pour compenser la perspective rotateX(40deg)
-  // Avec 40deg, sin(40) ≈ 0.64, donc on compresse à ~65% pour compenser l'écart visuel
-  const perspectiveCompressionY = 0.65;
-  const stepY = step * perspectiveCompressionY;
+  const stepY = step * PERSPECTIVE_COMPRESSION_Y;
   const baseY = placement.gridRow * stepY;
   const halfSize = config.tileSize / 2;
 

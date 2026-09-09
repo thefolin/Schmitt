@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { DicePhysics } from '@/features/dice/DicePhysics';
 import { DEFAULT_DICE_CONFIG } from '@/features/dice/DiceConfig';
+import { readTopFace, faceAlignment } from '@/features/dice/dice-faces';
 
 const bounds = { width: 800, height: 600 };
 const initialPosition = { x: 400, y: 300 };
@@ -66,15 +67,46 @@ describe('DicePhysics.update - gravité et rebond', () => {
     expect(physics.isRolling()).toBe(false);
   });
 
-  it('affiche la valeur cible une fois arrêté (getValue reste stable)', () => {
+  it('la valeur finale est celle réellement lue sur la face du dessus', () => {
+    // Le résultat n'est plus imposé au lancer : il découle de l'orientation
+    // atteinte par la physique. On vérifie donc la cohérence entre la valeur
+    // annoncée et le dé tel qu'il repose, pas une valeur décidée d'avance.
     const physics = new DicePhysics(DEFAULT_DICE_CONFIG, initialPosition, bounds);
-    physics.throw(6);
+    physics.throw();
 
     for (let i = 0; i < 500; i++) {
       physics.update(16);
     }
 
-    expect(physics.getValue()).toBe(6);
+    const state = physics.getState();
+    expect(physics.isRolling()).toBe(false);
+    expect(physics.getValue()).toBe(readTopFace(state.orientation));
+  });
+
+  it('repose bien à plat une fois arrêté (pas en équilibre sur une arête)', () => {
+    const physics = new DicePhysics(DEFAULT_DICE_CONFIG, initialPosition, bounds);
+    physics.throw();
+
+    for (let i = 0; i < 500; i++) {
+      physics.update(16);
+    }
+
+    expect(faceAlignment(physics.getState().orientation)).toBeCloseTo(1, 3);
+  });
+
+  it('produit les 6 valeurs sur de nombreux lancers (dé non biaisé)', () => {
+    const seen = new Set<number>();
+
+    for (let roll = 0; roll < 250; roll++) {
+      const physics = new DicePhysics(DEFAULT_DICE_CONFIG, initialPosition, bounds);
+      physics.throw();
+      for (let i = 0; i < 500 && physics.isRolling(); i++) {
+        physics.update(16);
+      }
+      seen.add(physics.getValue());
+    }
+
+    expect(seen.size).toBe(6);
   });
 
   it('update() est un no-op si le dé n\'est pas en train de rouler', () => {
@@ -167,29 +199,69 @@ describe('DicePhysics.throwWithVelocity (drag-and-drop)', () => {
   });
 });
 
-describe('DicePhysics - alignement final des faces (alignToValue via stop)', () => {
+describe('DicePhysics - orientation 3D du cube', () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it('chaque valeur de 1 à 6 produit une rotation finale stable et déterministe', () => {
-    const rotationsByValue = new Map<number, { x: number; y: number }>();
+  it('le cube tourne réellement pendant le vol (orientation qui évolue)', () => {
+    const physics = new DicePhysics(DEFAULT_DICE_CONFIG, initialPosition, bounds);
+    physics.throw();
 
-    for (let value = 1; value <= 6; value++) {
-      const physics = new DicePhysics(DEFAULT_DICE_CONFIG, initialPosition, bounds);
-      physics.throw(value);
-      for (let i = 0; i < 500; i++) {
-        physics.update(16);
-      }
-      rotationsByValue.set(value, { ...physics.getState().rotation });
+    const start = { ...physics.getState().orientation };
+    for (let i = 0; i < 10; i++) physics.update(16);
+    const after = physics.getState().orientation;
+
+    const changed =
+      Math.abs(after.w - start.w) > 1e-4 ||
+      Math.abs(after.x - start.x) > 1e-4 ||
+      Math.abs(after.y - start.y) > 1e-4 ||
+      Math.abs(after.z - start.z) > 1e-4;
+    expect(changed).toBe(true);
+  });
+
+  it('l\'orientation reste un quaternion unitaire tout au long du lancer', () => {
+    const physics = new DicePhysics(DEFAULT_DICE_CONFIG, initialPosition, bounds);
+    physics.throw();
+
+    for (let i = 0; i < 200; i++) {
+      physics.update(16);
+      const q = physics.getState().orientation;
+      expect(Math.hypot(q.w, q.x, q.y, q.z)).toBeCloseTo(1, 5);
     }
+  });
 
-    // Chaque valeur doit produire une rotation finale différente des autres
-    const seen = new Set<string>();
-    for (const [, rotation] of rotationsByValue) {
-      const key = `${rotation.x},${rotation.y}`;
-      expect(seen.has(key)).toBe(false);
-      seen.add(key);
+  it('un lancer vigoureux fait plus culbuter le dé qu\'un lancer mou', () => {
+    const spinAfterThrow = (speed: number): number => {
+      const physics = new DicePhysics(DEFAULT_DICE_CONFIG, initialPosition, bounds);
+      physics.throwWithVelocity({ x: speed, y: 0 }, 400, { x: 0, y: 0 });
+      const { spin } = physics.getState();
+      return Math.hypot(spin.x, spin.y, spin.z);
+    };
+
+    // Moyenne sur plusieurs tirages : le couple comporte une part aléatoire
+    const avg = (speed: number) => {
+      let total = 0;
+      for (let i = 0; i < 40; i++) total += spinAfterThrow(speed);
+      return total / 40;
+    };
+
+    expect(avg(700)).toBeGreaterThan(avg(80));
+  });
+
+  it('le dé finit toujours par se stabiliser sur une face', () => {
+    for (let attempt = 0; attempt < 30; attempt++) {
+      const physics = new DicePhysics(DEFAULT_DICE_CONFIG, initialPosition, bounds);
+      physics.throw();
+
+      let frames = 0;
+      while (physics.isRolling() && frames < 1000) {
+        physics.update(16);
+        frames++;
+      }
+
+      expect(physics.isRolling()).toBe(false);
+      expect(faceAlignment(physics.getState().orientation)).toBeCloseTo(1, 3);
     }
   });
 });

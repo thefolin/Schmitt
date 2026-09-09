@@ -2,6 +2,8 @@
  * Configuration de la table de jeu (zone où les dés peuvent tomber)
  */
 
+import { PERSPECTIVE_COMPRESSION_Y } from './board-layout.config';
+
 export interface TableBounds {
   minX: number;
   maxX: number;
@@ -49,12 +51,13 @@ export const DEFAULT_TABLE_CONFIG: Partial<TableConfig> = {
     bottom: true,
     left: true
   },
-  // Marge serrée : au-delà, le dé peut s'immobiliser très loin du plateau,
-  // hors du champ visible, et devient pénible à récupérer.
-  marginPercent: 6,
+  // Le tapis borde le plateau sans l'écraser. Une marge plus large laisserait
+  // le dé s'immobiliser hors du champ visible, pénible à récupérer.
+  marginPercent: 10,
   showBorders: true,
-  borderColor: '#8b4513',
-  borderWidth: 4,
+  // Liseré sombre en bord de tapis, dans le ton du feutre (cf. .game-table)
+  borderColor: 'rgba(8, 40, 26, 0.9)',
+  borderWidth: 6,
   fallPenalty: 0 // Pas de pénalité par défaut
 };
 
@@ -91,12 +94,16 @@ export function calculateTableBounds(
     maxCol = Math.max(maxCol, placement.gridCol);
   });
 
-  // Calculer les positions en pixels
+  // Calculer les positions en pixels.
+  // L'axe Y utilise le même facteur de compression que les cases (voir
+  // calculatePlacementBounds) : sans lui, la table est ~35% trop haute et
+  // déborde du plateau au lieu de l'épouser.
   const cellSize = tileSize + tileGap;
+  const cellSizeY = cellSize * PERSPECTIVE_COMPRESSION_Y;
   const minX = minCol * cellSize;
   const maxX = (maxCol + 1) * cellSize;
-  const minY = minRow * cellSize;
-  const maxY = (maxRow + 1) * cellSize;
+  const minY = minRow * cellSizeY;
+  const maxY = maxRow * cellSizeY + tileSize;
 
   // Calculer la marge
   const width = maxX - minX;

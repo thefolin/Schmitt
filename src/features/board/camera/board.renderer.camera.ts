@@ -392,7 +392,9 @@ export class BoardCameraRenderer {
 
     if (!this.tableConfig.showBorders) return;
 
-    // Créer l'élément de la table
+    // Créer l'élément de la table : un vrai tapis de jeu, pas un simple cadre.
+    // Il matérialise la zone où le dé peut rouler et ancre visuellement la
+    // scène, comme un tapis posé sur une table.
     const table = document.createElement('div');
     table.className = 'game-table';
     table.style.cssText = `

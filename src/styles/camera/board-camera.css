@@ -28,6 +28,33 @@
 }
 
 /* ================================
+   TAPIS DE JEU
+   Surface feutrée délimitant la zone où le dé peut rouler. Elle ancre la
+   scène : sans elle, le plateau et le dé flottent dans le vide.
+   ================================ */
+.game-table {
+  /* Feutrine : dégradé radial pour simuler l'éclairage d'une table de jeu */
+  background:
+    radial-gradient(ellipse at 35% 25%, rgba(255, 255, 255, 0.09) 0%, transparent 55%),
+    linear-gradient(160deg, #1f6b4a 0%, #17553a 45%, #103f2b 100%);
+  border-radius: 24px;
+
+  /* Grain du feutre, pour éviter un aplat de couleur trop numérique */
+  background-size: auto, auto, 3px 3px;
+
+  box-shadow:
+    /* Rebord intérieur : le tapis est légèrement en creux */
+    inset 0 0 60px rgba(0, 0, 0, 0.45),
+    inset 0 2px 3px rgba(255, 255, 255, 0.12),
+    /* Épaisseur et ombre portée sur la table en dessous */
+    0 10px 30px rgba(0, 0, 0, 0.45);
+
+  /* Le tapis est posé à plat, sous les cases */
+  transform: rotateX(40deg);
+  transform-style: preserve-3d;
+}
+
+/* ================================
    VIEWPORT (zone visible)
    ================================ */
 .board-camera-viewport {
