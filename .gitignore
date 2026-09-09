@@ -40,3 +40,6 @@ ios/App/.DS_Store
 *.keystore
 *.jks
 key.properties
+
+# Maquettes et références de design (dossier de travail local)
+proposition/

@@ -1,0 +1,447 @@
+/**
+ * Écran de configuration de la partie.
+ * Mobile d'abord : une colonne, plein écran, scroll interne.
+ * Au-delà de 720px la carte se centre et les joueurs passent sur deux colonnes.
+ *
+ * Dépend des tokens de design-system.css.
+ */
+
+.setup-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  /* Halo doré diffus au centre, comme une lampe au-dessus d'une table de jeu */
+  background:
+    radial-gradient(80% 60% at 50% 0%, rgba(227, 193, 105, 0.12) 0%, transparent 70%),
+    var(--marble-900);
+  padding: var(--sp-4);
+  /* Encoche et barre gestuelle iOS */
+  padding-top: max(var(--sp-4), env(safe-area-inset-top));
+  padding-bottom: max(var(--sp-4), env(safe-area-inset-bottom));
+  /* Le scroll a lieu dans la liste des joueurs, pas ici */
+  overflow: hidden;
+}
+
+/* --- Colonnes grecques, en pur CSS, aux deux bords de l'écran ---
+   Purement décoratif : masqué en portrait étroit, où la place manque. */
+.setup-screen::before,
+.setup-screen::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  width: 96px;
+  pointer-events: none;
+  opacity: 0.9;
+  /* Cannelures verticales, reflet doré rasant, puis volume du fût */
+  background:
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.07) 0 2px,
+      transparent 2px 14px
+    ),
+    linear-gradient(90deg, transparent 60%, rgba(227, 193, 105, 0.14) 100%),
+    linear-gradient(90deg, var(--marble-900) 0%, var(--marble-600) 50%, var(--marble-800) 100%);
+}
+
+.setup-screen::before {
+  left: 0;
+}
+
+/* Colonne de droite : le fût est symétrique, on retourne le dégradé */
+.setup-screen::after {
+  right: 0;
+  transform: scaleX(-1);
+}
+
+@media (max-width: 719px) {
+  .setup-screen::before,
+  .setup-screen::after {
+    display: none;
+  }
+}
+
+/* Le lien flottant « Éditeur de plateau » ferait doublon avec le bouton Éditeur
+   du panneau, et il chevauche la carte sur téléphone.
+   L'écran de setup est masqué en JS via style.display = 'none' quand la partie
+   démarre ; au chargement il n'a aucun attribut style, d'où la règle par défaut
+   (masqué) et l'exception qui rend le lien une fois le setup fermé. */
+.editor-link {
+  display: none;
+}
+
+body:has(.setup-screen[style*='none']) .editor-link {
+  display: inline-flex;
+}
+
+/* --- La carte --- */
+
+.setup-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 560px;
+  /* Le panneau ne dépasse jamais l'écran : c'est la liste des joueurs qui défile */
+  max-height: 100%;
+  margin: auto;
+  padding: var(--sp-5) var(--sp-4) var(--sp-5);
+  font-family: var(--font-body);
+
+  background:
+    radial-gradient(120% 80% at 12% 0%, rgba(227, 193, 105, 0.1) 0%, transparent 55%),
+    radial-gradient(100% 70% at 100% 100%, rgba(120, 160, 255, 0.08) 0%, transparent 60%),
+    var(--grad-marble);
+  border: 1px solid var(--marble-500);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-panel), var(--shadow-inset);
+}
+
+/* Fronton : un liseré doré qui court en haut de la carte */
+.setup-panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: var(--sp-5);
+  right: var(--sp-5);
+  height: 2px;
+  background: var(--grad-rule);
+}
+
+.setup-panel h2 {
+  font-family: var(--font-display);
+  /* Tient sur une ligne dès 360px de large, sans devenir minuscule en desktop */
+  font-size: clamp(var(--fs-lg), 5.2vw, var(--fs-xl));
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text-strong);
+  text-align: center;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
+  margin-bottom: var(--sp-2);
+}
+
+/* Couronne de laurier stylisée sous le titre */
+.setup-panel h2::after {
+  content: '⚜';
+  display: block;
+  margin-top: var(--sp-1);
+  font-size: var(--fs-lg);
+  line-height: 1;
+  color: var(--gold-500);
+  letter-spacing: 0;
+  opacity: 0.85;
+}
+
+.setup-panel .form-group {
+  flex: 0 0 auto;
+  margin-bottom: var(--sp-5);
+}
+
+.setup-panel h2,
+.setup-panel .btn-primary {
+  flex: 0 0 auto;
+}
+
+.setup-panel .form-group label {
+  display: block;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: var(--sp-2);
+}
+
+/* Champs : hérite de .ds-field, mais on couvre aussi les balises nues
+   pour ne pas dépendre d'une classe sur chaque input généré en JS. */
+.setup-panel input[type='text'],
+.setup-panel input[type='number'],
+.setup-panel select {
+  width: 100%;
+  min-height: var(--touch-min);
+  padding: 0 var(--sp-4);
+  font-family: var(--font-body);
+  font-size: var(--fs-md);
+  color: var(--text-base);
+  background: var(--marble-700);
+  border: 1px solid var(--marble-500);
+  border-radius: var(--radius-md);
+  transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+}
+
+.setup-panel input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
+.setup-panel input:focus,
+.setup-panel select:focus {
+  outline: none;
+  border-color: var(--gold-400);
+  box-shadow: 0 0 0 3px rgba(227, 193, 105, 0.2);
+}
+
+/* Les spinners natifs sont blancs et minuscules : hors thème et intapables au doigt */
+.setup-panel input[type='number'] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.setup-panel input[type='number']::-webkit-outer-spin-button,
+.setup-panel input[type='number']::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.setup-panel select {
+  appearance: none;
+  padding-right: var(--sp-6);
+  background-image: linear-gradient(45deg, transparent 50%, var(--gold-400) 50%),
+    linear-gradient(135deg, var(--gold-400) 50%, transparent 50%);
+  background-position: calc(100% - 20px) 50%, calc(100% - 14px) 50%;
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+  background-color: var(--marble-700);
+}
+
+/* --- Les deux actions secondaires (Importer / Éditeur) --- */
+
+.setup-actions {
+  display: flex;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+}
+
+.setup-actions > * {
+  flex: 1;
+}
+
+/* --- Liste des joueurs --- */
+
+.player-inputs {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--sp-2);
+  /* Seule zone élastique du panneau : elle rétrécit et défile pour que le titre
+     et le bouton « Commencer » restent toujours visibles, même à 10 joueurs. */
+  flex: 1 1 auto;
+  min-height: 96px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: var(--sp-5);
+  padding-right: var(--sp-1);
+  /* Le dernier joueur s'estompe au lieu d'être tranché net : signale qu'on peut
+     encore faire défiler. Le masque disparaît une fois arrivé en bas. */
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent 100%);
+}
+
+/* Barre de défilement discrète, accordée au thème */
+.player-inputs::-webkit-scrollbar {
+  width: 4px;
+}
+
+.player-inputs::-webkit-scrollbar-thumb {
+  background: var(--gold-700);
+  border-radius: var(--radius-pill);
+}
+
+.player-input-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--marble-500);
+  border-radius: var(--radius-md);
+}
+
+.player-input-item input[type='text'] {
+  flex: 1;
+  min-width: 0;
+  /* Le champ est déjà dans une carte : on allège son propre cadre */
+  background: transparent;
+  border-color: transparent;
+}
+
+.player-input-item input[type='text']:focus {
+  background: var(--marble-700);
+  border-color: var(--gold-400);
+}
+
+/* Pastille de couleur : ronde, taille tactile, cadre doré.
+   Sélecteur volontairement spécifique : `.player-input-item input { flex: 1 }`
+   (main.css) étirerait sinon la pastille en ovale. */
+.player-input-item input.color-picker,
+.color-picker {
+  flex: 0 0 auto;
+  width: var(--touch-min);
+  height: var(--touch-min);
+  padding: 0;
+  border: 2px solid var(--marble-500);
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Le carré de couleur natif remplit toute la pastille */
+.color-picker::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.color-picker::-webkit-color-swatch {
+  border: none;
+  border-radius: 50%;
+}
+
+.color-picker::-moz-color-swatch {
+  border: none;
+  border-radius: 50%;
+}
+
+.color-picker:focus-visible {
+  outline: none;
+  border-color: var(--gold-400);
+  box-shadow: 0 0 0 3px rgba(227, 193, 105, 0.25);
+}
+
+/* --- Action principale --- */
+
+.setup-panel .btn-primary {
+  width: 100%;
+  min-height: var(--touch-comfy);
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-on-gold);
+  background: var(--grad-gold);
+  border: 1px solid var(--gold-700);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-gold), var(--shadow-inset);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: transform var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+}
+
+.setup-panel .btn-primary:active {
+  transform: translateY(1px) scale(0.995);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .setup-panel .btn-primary:hover:not(:disabled) {
+    transform: translateY(-2px);
+    background: var(--grad-gold-hover);
+    box-shadow: 0 10px 26px rgba(201, 163, 73, 0.45);
+  }
+}
+
+/* --- Écrans larges : plus d'air, joueurs sur deux colonnes --- */
+
+@media (min-width: 720px) {
+  .setup-panel {
+    max-width: 640px;
+    padding: var(--sp-6) var(--sp-6) var(--sp-7);
+  }
+
+  .setup-panel h2 {
+    font-size: var(--fs-2xl);
+  }
+
+  .player-inputs {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* --- Paysage sur téléphone : la hauteur est le bien rare --- */
+
+@media (max-height: 520px) and (orientation: landscape) {
+  /* En paysage téléphone chaque pixel de largeur sert : pas de décor latéral */
+  .setup-screen::before,
+  .setup-screen::after {
+    display: none;
+  }
+
+  /* Empiler verticalement ne laisserait qu'un joueur visible : on passe en deux
+     colonnes — réglages à gauche, liste des joueurs à droite — et le bouton
+     principal reprend toute la largeur en bas. */
+  .setup-panel {
+    /* Pas de max-width fixe : l'écran fait souvent moins de 900px de large en
+       paysage, et le panneau déborderait sous les colonnes décoratives. */
+    max-width: 100%;
+    padding: var(--sp-4);
+    display: grid;
+    /* Colonne 1 : les réglages, empilés. Colonne 2 : la liste des joueurs,
+       qui s'étend sur toute la hauteur disponible entre le titre et le bouton. */
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      'title  title'
+      'form1  players'
+      'form2  players'
+      'action action';
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    column-gap: var(--sp-4);
+    align-content: start;
+  }
+
+  .setup-panel h2 {
+    grid-area: title;
+  }
+
+  .setup-panel .form-group:nth-of-type(1) {
+    grid-area: form1;
+  }
+
+  .setup-panel .form-group:nth-of-type(2) {
+    grid-area: form2;
+    align-self: start;
+  }
+
+  .player-inputs {
+    grid-area: players;
+    margin-bottom: 0;
+  }
+
+  .setup-panel .btn-primary {
+    grid-column: 1 / -1;
+    margin-top: var(--sp-3);
+  }
+
+  .setup-panel h2 {
+    font-size: var(--fs-lg);
+    margin-bottom: var(--sp-1);
+  }
+
+  .setup-panel h2::after {
+    display: none;
+  }
+
+  .setup-panel .form-group {
+    margin-bottom: var(--sp-3);
+  }
+
+  .player-inputs {
+    grid-template-columns: 1fr 1fr;
+    margin-bottom: var(--sp-3);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .setup-panel .btn-primary,
+  .setup-panel input,
+  .setup-panel select {
+    transition: none;
+  }
+
+  .setup-panel .btn-primary:active,
+  .setup-panel .btn-primary:hover:not(:disabled) {
+    transform: none;
+  }
+}

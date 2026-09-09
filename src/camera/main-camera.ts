@@ -10,8 +10,13 @@ import { DiceManager } from '../features/dice';
 import { PlayerSelector } from '../features/game/player-selector';
 import { ManualMovement } from '../features/game/manual-movement';
 import { GOD_FAVORS, findNeighbors as findPlayerNeighbors } from '../features/game/god-favors';
+// Les tokens du design system doivent précéder toute feuille qui les consomme
+import '../styles/common/design-system.css';
 import '../styles/common/main.css';
 import '../styles/common/mobile-optimized.css';
+// Chargé en dernier : le design system fait autorité sur l'écran de setup,
+// dont les anciennes règles sont dispersées dans main.css et mobile-optimized.css
+import '../styles/common/setup-screen.css';
 import '../styles/camera/board-camera.css';
 import '../styles/game/player-selector.css';
 import '../styles/game/manual-movement.css';
