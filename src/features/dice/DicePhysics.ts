@@ -110,7 +110,17 @@ export class DicePhysics {
     // Rebond sur le sol
     if (this.state.height <= 0) {
       this.state.height = 0;
+      const impactSpeed = Math.abs(this.state.verticalVelocity);
       this.state.verticalVelocity = -this.state.verticalVelocity * this.config.bounce;
+
+      // À chaque impact, le dé frotte sur la table : il perd de la vitesse
+      // horizontale et de la rotation. Sans ça il rebondit sans jamais ralentir.
+      if (impactSpeed > 50) {
+        this.state.velocity.x *= 0.85;
+        this.state.velocity.y *= 0.85;
+        this.state.angularVelocity.x *= 0.7;
+        this.state.angularVelocity.y *= 0.7;
+      }
 
       // Arrêter les petits rebonds
       if (Math.abs(this.state.verticalVelocity) < 50) {
@@ -148,7 +158,11 @@ export class DicePhysics {
       this.state.velocity.x ** 2 + this.state.velocity.y ** 2
     );
 
-    if (speed < this.config.stopThreshold && this.state.height === 0) {
+    // Le dé ne s'immobilise que posé ET sans rebond en cours : sans la
+    // vérification verticale, il pouvait se figer en plein bond (height === 0
+    // est vrai à l'instant précis du rebond).
+    const isResting = this.state.height === 0 && Math.abs(this.state.verticalVelocity) < 1;
+    if (speed < this.config.stopThreshold && isResting) {
       this.stop();
     }
 
@@ -163,57 +177,50 @@ export class DicePhysics {
   private handleBoundsCollision(): void {
     const halfSize = this.config.size / 2;
 
-    // Si on a une table configurée, utiliser ses limites
-    if (this.tableBounds && this.tableBorders) {
-      // Bord gauche
-      if (this.tableBorders.left && this.state.position.x - halfSize < this.tableBounds.minX) {
-        this.state.position.x = this.tableBounds.minX + halfSize;
-        this.state.velocity.x *= -this.config.bounce;
+    // Limites effectives : celles de la table si configurée, sinon le container.
+    // Un côté sans bordure ne renvoie pas le dé (il tombe : voir checkFall).
+    const limits = this.tableBounds && this.tableBorders
+      ? {
+        minX: this.tableBounds.minX, maxX: this.tableBounds.maxX,
+        minY: this.tableBounds.minY, maxY: this.tableBounds.maxY,
+        walls: this.tableBorders
       }
+      : {
+        minX: 0, maxX: this.bounds.width,
+        minY: 0, maxY: this.bounds.height,
+        walls: { top: true, right: true, bottom: true, left: true }
+      };
 
-      // Bord droit
-      if (this.tableBorders.right && this.state.position.x + halfSize > this.tableBounds.maxX) {
-        this.state.position.x = this.tableBounds.maxX - halfSize;
-        this.state.velocity.x *= -this.config.bounce;
-      }
-
-      // Bord haut
-      if (this.tableBorders.top && this.state.position.y - halfSize < this.tableBounds.minY) {
-        this.state.position.y = this.tableBounds.minY + halfSize;
-        this.state.velocity.y *= -this.config.bounce;
-      }
-
-      // Bord bas
-      if (this.tableBorders.bottom && this.state.position.y + halfSize > this.tableBounds.maxY) {
-        this.state.position.y = this.tableBounds.maxY - halfSize;
-        this.state.velocity.y *= -this.config.bounce;
-      }
-    } else {
-      // Fallback : utiliser les bounds du container
-      // Bord gauche
-      if (this.state.position.x - halfSize < 0) {
-        this.state.position.x = halfSize;
-        this.state.velocity.x *= -this.config.bounce;
-      }
-
-      // Bord droit
-      if (this.state.position.x + halfSize > this.bounds.width) {
-        this.state.position.x = this.bounds.width - halfSize;
-        this.state.velocity.x *= -this.config.bounce;
-      }
-
-      // Bord haut
-      if (this.state.position.y - halfSize < 0) {
-        this.state.position.y = halfSize;
-        this.state.velocity.y *= -this.config.bounce;
-      }
-
-      // Bord bas
-      if (this.state.position.y + halfSize > this.bounds.height) {
-        this.state.position.y = this.bounds.height - halfSize;
-        this.state.velocity.y *= -this.config.bounce;
-      }
+    if (limits.walls.left && this.state.position.x - halfSize < limits.minX) {
+      this.state.position.x = limits.minX + halfSize;
+      this.bounceOffWall('x');
     }
+    if (limits.walls.right && this.state.position.x + halfSize > limits.maxX) {
+      this.state.position.x = limits.maxX - halfSize;
+      this.bounceOffWall('x');
+    }
+    if (limits.walls.top && this.state.position.y - halfSize < limits.minY) {
+      this.state.position.y = limits.minY + halfSize;
+      this.bounceOffWall('y');
+    }
+    if (limits.walls.bottom && this.state.position.y + halfSize > limits.maxY) {
+      this.state.position.y = limits.maxY - halfSize;
+      this.bounceOffWall('y');
+    }
+  }
+
+  /**
+   * Rebond contre un mur : inverse la vitesse sur l'axe touché et communique
+   * une part de l'impact à la rotation, pour que le choc se voie à l'écran.
+   */
+  private bounceOffWall(axis: 'x' | 'y'): void {
+    const impactSpeed = Math.abs(this.state.velocity[axis]);
+    this.state.velocity[axis] *= -this.config.bounce;
+
+    // L'axe de rotation affecté est perpendiculaire au mur touché
+    const spinAxis = axis === 'x' ? 'y' : 'x';
+    this.state.angularVelocity[spinAxis] += impactSpeed * 1.5 * (Math.random() > 0.5 ? 1 : -1);
+    this.state.angularVelocity[axis] *= 0.8;
   }
 
   /**

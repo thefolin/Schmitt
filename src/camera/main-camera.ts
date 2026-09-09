@@ -211,7 +211,7 @@ class SchmittOdysseeCamera {
             this.boardRenderer.getCamera().zoomBy(0.8);
             break;
           case 'focus-dice':
-            this.boardRenderer.focusOnDice();
+            this.boardRenderer.focusOnDice(this.diceManager.getVisibleDicePosition());
             break;
           case 'reset':
             this.boardRenderer.getCamera().setZoom(1);
@@ -725,7 +725,7 @@ class SchmittOdysseeCamera {
     this.diceManager.showBothDice();
 
     // Centrer la caméra sur les dés
-    this.boardRenderer.focusOnDice();
+    this.boardRenderer.focusOnDice(this.diceManager.getVisibleDicePosition());
 
     await new Promise(resolve => setTimeout(resolve, 1000));
 
@@ -944,7 +944,7 @@ class SchmittOdysseeCamera {
         this.diceManager.showBothDice();
 
         // Centrer la caméra sur les dés
-        this.boardRenderer.focusOnDice();
+        this.boardRenderer.focusOnDice(this.diceManager.getVisibleDicePosition());
 
         await new Promise(resolve => setTimeout(resolve, 1000));
 

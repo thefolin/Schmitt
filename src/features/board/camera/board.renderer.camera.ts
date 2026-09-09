@@ -123,11 +123,17 @@ export class BoardCameraRenderer {
   /**
    * Centre la caméra sur le dé
    */
-  public focusOnDice(): void {
+  public focusOnDice(dicePosition?: { x: number; y: number } | null): void {
     // Arrêter toute animation en cours pour permettre le contrôle immédiat
     this.camera.stopAnimation();
 
-    // Centrer sur le centre de la table
+    // Viser le dé lui-même quand on connaît sa position ; à défaut, le centre
+    // de la table (le dé y est ramené entre deux tours)
+    if (dicePosition) {
+      this.camera.centerOn(dicePosition.x, dicePosition.y, true);
+      return;
+    }
+
     if (this.tableBounds) {
       const centerX = (this.tableBounds.minX + this.tableBounds.maxX) / 2;
       const centerY = (this.tableBounds.minY + this.tableBounds.maxY) / 2;
@@ -157,6 +163,9 @@ export class BoardCameraRenderer {
   }
 
   private onPointerDown(e: MouseEvent): void {
+    // Rendre la main au joueur : sans ça, un recentrage automatique en cours
+    // continue de tirer la caméra vers sa cible pendant qu'on essaie de paner
+    this.camera.stopAnimation();
     this.isDragging = true;
     this.lastTouchX = e.clientX;
     this.lastTouchY = e.clientY;
@@ -181,6 +190,8 @@ export class BoardCameraRenderer {
   }
 
   private onTouchStart(e: TouchEvent): void {
+    // Idem que onPointerDown : le toucher reprend la main sur tout recentrage
+    this.camera.stopAnimation();
     if (e.touches.length === 1) {
       this.isDragging = true;
       this.lastTouchX = e.touches[0].clientX;
@@ -220,6 +231,7 @@ export class BoardCameraRenderer {
 
   private onWheel(e: WheelEvent): void {
     e.preventDefault();
+    this.camera.stopAnimation();
     const delta = e.deltaY > 0 ? 0.9 : 1.1;
     this.camera.zoomBy(delta, e.clientX, e.clientY);
   }

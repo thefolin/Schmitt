@@ -53,15 +53,17 @@ export interface DiceVisualConfig {
  */
 export const DEFAULT_DICE_CONFIG: DicePhysicsConfig = {
   size: 40, // Taille réduite pour éviter troncature
-  gravity: 980, // pixels/s²
-  friction: 0.90, // Légèrement plus de friction pour stabiliser plus vite
-  bounce: 0.7, // Plus de rebond pour une meilleure sensation
-  rotationSpeedMin: 2880, // degrés/s (8 tours/sec min) - augmenté pour rotation visible
-  rotationSpeedMax: 4320, // degrés/s (12 tours/sec max) - augmenté pour rotation visible
-  velocityMin: 300, // pixels/s
-  velocityMax: 600,
-  animationDuration: 3000, // Augmenté à 3s pour plus de temps de rebond
-  stopThreshold: 3 // pixels/s
+  gravity: 2200, // px/s² : chute franche, le dé retombe vite au lieu de flotter
+  // Friction appliquée PAR FRAME : 0.90 tuait 99,8% de la vitesse en 0,5s
+  // (le dé ne roulait pas). 0.985 laisse le dé rouler puis s'arrêter naturellement.
+  friction: 0.985,
+  bounce: 0.45, // Rebonds courts et amortis, comme sur une vraie table
+  rotationSpeedMin: 540, // 1,5 tour/s : le dé roule, il ne fait plus la toupie
+  rotationSpeedMax: 1080, // 3 tours/s
+  velocityMin: 180, // px/s : lancer contenu, le dé ne traverse plus le plateau
+  velocityMax: 380,
+  animationDuration: 3000,
+  stopThreshold: 12 // px/s : s'immobilise franchement au lieu de dériver
 };
 
 /**

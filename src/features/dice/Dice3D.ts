@@ -26,8 +26,6 @@ export class Dice3D {
   private lastTimestamp: number = 0;
   private onFallCallback: ((event: DiceFallEvent) => void) | null = null;
   private onRollEndCallback: ((result: number) => void) | null = null;
-  private tableBounds: TableBounds | null = null;
-  private tableBorders: TableBorderConfig | null = null;
 
   // Drag-to-throw state
   private isDragging: boolean = false;
@@ -81,6 +79,8 @@ export class Dice3D {
     const wrapperSize = this.config.size * 2.5; // 2.5x la taille du dé pour avoir plus de marge
     const wrapper = document.createElement('div');
     wrapper.className = `dice-3d dice-${this.type}`;
+    // z-index au-dessus des tuiles (sans z-index) et des pions (100) : le dé
+    // est posé SUR le plateau, il doit rester attrapable en toutes circonstances
     wrapper.style.cssText = `
       position: absolute;
       width: ${wrapperSize}px;
@@ -89,6 +89,7 @@ export class Dice3D {
       user-select: none;
       touch-action: none;
       perspective: 1000px;
+      z-index: 200;
     `;
 
     // Cube interne (pour rotation 3D) - taille réelle du dé, centré dans le wrapper
@@ -527,9 +528,6 @@ export class Dice3D {
    * Configure les limites de la table pour les rebonds et la détection de chute
    */
   public setTableBounds(bounds: TableBounds, borders: TableBorderConfig): void {
-    this.tableBounds = bounds;
-    this.tableBorders = borders;
-    // Passer les bounds à la physique pour les rebonds
     this.physics.setTableBounds(bounds, borders);
   }
 
@@ -548,6 +546,14 @@ export class Dice3D {
     state.position.x = x;
     state.position.y = y;
     this.updatePosition();
+  }
+
+  /**
+   * Position actuelle du dé dans le repère du plateau
+   */
+  public getPosition(): Vector2D {
+    const { position } = this.physics.getState();
+    return { x: position.x, y: position.y };
   }
 
   /**

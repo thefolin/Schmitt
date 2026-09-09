@@ -253,6 +253,24 @@ export class DiceManager {
   }
 
   /**
+   * Position des dés actuellement visibles, pour que la caméra puisse aller
+   * les chercher. Renvoie le milieu quand les deux dés sont en jeu.
+   */
+  public getVisibleDicePosition(): { x: number; y: number } | null {
+    const visible = [this.normalDice, this.godPowerDice]
+      .filter((dice): dice is Dice3D => !!dice && dice.isVisible())
+      .map(dice => dice.getPosition());
+
+    if (visible.length === 0) return null;
+
+    const sum = visible.reduce(
+      (acc, p) => ({ x: acc.x + p.x, y: acc.y + p.y }),
+      { x: 0, y: 0 }
+    );
+    return { x: sum.x / visible.length, y: sum.y / visible.length };
+  }
+
+  /**
    * Nettoie les ressources
    */
   public destroy(): void {

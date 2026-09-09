@@ -49,7 +49,9 @@ export const DEFAULT_TABLE_CONFIG: Partial<TableConfig> = {
     bottom: true,
     left: true
   },
-  marginPercent: 20,
+  // Marge serrée : au-delà, le dé peut s'immobiliser très loin du plateau,
+  // hors du champ visible, et devient pénible à récupérer.
+  marginPercent: 6,
   showBorders: true,
   borderColor: '#8b4513',
   borderWidth: 4,
