@@ -1,0 +1,402 @@
+/**
+ * HUD de partie — barre d'action et tiroir.
+ *
+ * Principe : le lancer de dé est le cœur du jeu, il occupe une cible large,
+ * centrée en bas, atteignable au pouce sans regarder. Tout le reste (vue,
+ * déplacement manuel, historique, nouvelle partie) vit dans un tiroir, pour
+ * que l'écran reste dégagé sur le plateau.
+ *
+ * Dépend des tokens de design-system.css.
+ */
+
+/* ================================
+   Bandeau du joueur courant
+   ================================ */
+
+.turn-banner {
+  position: absolute;
+  top: max(var(--sp-3), env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 250;
+
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  max-width: calc(100% - var(--sp-6));
+  padding: var(--sp-2) var(--sp-4);
+
+  font-family: var(--font-body);
+  background: rgba(19, 26, 43, 0.82);
+  border: 1px solid var(--marble-500);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-raised);
+  backdrop-filter: blur(10px);
+  /* N'intercepte pas les gestes de caméra : c'est un affichage, pas un contrôle */
+  pointer-events: none;
+}
+
+/* Pastille à la couleur du joueur : on identifie le tour d'un coup d'œil */
+.turn-dot {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--gold-400);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.18);
+}
+
+.turn-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.turn-name {
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+  font-weight: 700;
+  color: var(--text-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.turn-hint {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+/* ================================
+   Barre d'action
+   ================================ */
+
+.action-bar {
+  position: absolute;
+  left: 50%;
+  bottom: max(var(--sp-4), env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 250;
+
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: min(520px, calc(100% - var(--sp-5)));
+}
+
+/* L'action du tour : large, dorée, impossible à manquer */
+.roll-btn {
+  flex: 1 1 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  min-height: var(--touch-comfy);
+
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-on-gold);
+
+  background: var(--grad-gold);
+  border: 1px solid var(--gold-700);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-gold), var(--shadow-inset);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: transform var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease),
+    opacity var(--dur-base) var(--ease);
+}
+
+.roll-btn-icon {
+  font-size: 1.35em;
+  line-height: 1;
+}
+
+.roll-btn:active {
+  transform: translateY(1px) scale(0.99);
+}
+
+/* Pendant le lancer : le bouton se retire sans disparaître, pour que la barre
+   ne saute pas et que le joueur garde ses repères. */
+.roll-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Respiration lente quand c'est au joueur d'agir : attire l'œil sans agresser */
+.roll-btn.is-ready {
+  animation: roll-pulse 2.4s var(--ease) infinite;
+}
+
+@keyframes roll-pulse {
+  0%, 100% { box-shadow: var(--shadow-gold), var(--shadow-inset); }
+  50% { box-shadow: 0 8px 28px rgba(227, 193, 105, 0.6), var(--shadow-inset); }
+}
+
+/* Entrée dans le tiroir : discrète, elle ne concurrence pas l'action du tour */
+.more-btn {
+  flex: 0 0 auto;
+  width: var(--touch-comfy);
+  height: var(--touch-comfy);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: var(--fs-lg);
+  line-height: 1;
+  color: var(--gold-300);
+  background: rgba(19, 26, 43, 0.9);
+  border: 1px solid var(--marble-500);
+  border-radius: 50%;
+  box-shadow: var(--shadow-raised);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: background var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+}
+
+.more-btn:active {
+  transform: scale(0.95);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .roll-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    background: var(--grad-gold-hover);
+  }
+
+  .more-btn:hover {
+    background: var(--marble-600);
+  }
+}
+
+/* ================================
+   Tiroir des actions secondaires
+   ================================ */
+
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  background: rgba(5, 8, 15, 0.6);
+  backdrop-filter: blur(2px);
+  animation: fade-in var(--dur-base) var(--ease);
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.action-drawer {
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  z-index: 901;
+  transform: translateX(-50%);
+
+  width: min(520px, 100%);
+  max-height: 80vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+
+  padding: var(--sp-2) var(--sp-4) max(var(--sp-5), env(safe-area-inset-bottom));
+  font-family: var(--font-body);
+
+  background:
+    radial-gradient(120% 80% at 12% 0%, rgba(227, 193, 105, 0.1) 0%, transparent 55%),
+    var(--grad-marble);
+  border: 1px solid var(--marble-500);
+  border-bottom: none;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  box-shadow: var(--shadow-panel);
+  animation: drawer-up var(--dur-base) var(--ease);
+}
+
+/* Monte depuis le bas : le tiroir vient de là où le pouce l'a ouvert */
+@keyframes drawer-up {
+  from { transform: translate(-50%, 100%); }
+  to { transform: translate(-50%, 0); }
+}
+
+/* Poignée : signale qu'on peut refermer d'un balayage vers le bas */
+.drawer-handle {
+  width: 40px;
+  height: 4px;
+  margin: var(--sp-2) auto var(--sp-4);
+  background: var(--marble-500);
+  border-radius: var(--radius-pill);
+}
+
+.drawer-section {
+  margin-bottom: var(--sp-4);
+}
+
+.drawer-legend {
+  display: block;
+  margin-bottom: var(--sp-2);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.drawer-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  min-height: var(--touch-min);
+  margin-bottom: var(--sp-2);
+  padding: 0 var(--sp-3);
+
+  font-family: var(--font-body);
+  font-size: var(--fs-md);
+  color: var(--text-base);
+  text-align: left;
+  text-decoration: none; /* .drawer-item sert aussi à des <a> (éditeur) */
+
+  background: var(--marble-700);
+  border: 1px solid var(--marble-500);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.drawer-item:last-child {
+  margin-bottom: 0;
+}
+
+.drawer-icon {
+  font-size: 1.2em;
+  line-height: 1;
+}
+
+.drawer-item--danger {
+  color: var(--danger);
+  border-color: rgba(224, 85, 75, 0.35);
+}
+
+/* Contrôles de vue : en ligne, ils se manipulent souvent d'affilée */
+.drawer-row {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.drawer-chip {
+  flex: 1;
+  min-height: var(--touch-min);
+  font-family: var(--font-body);
+  font-size: var(--fs-lg);
+  line-height: 1;
+  color: var(--gold-300);
+  background: var(--marble-700);
+  border: 1px solid var(--marble-500);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.drawer-chip:active,
+.drawer-item:active {
+  background: var(--marble-600);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .drawer-item:hover,
+  .drawer-chip:hover {
+    background: var(--marble-600);
+  }
+
+  .drawer-item--danger:hover {
+    background: rgba(224, 85, 75, 0.12);
+  }
+}
+
+/* ---- Historique ---- */
+
+.drawer-history {
+  margin-bottom: var(--sp-4);
+}
+
+.history-list {
+  max-height: 34vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--marble-500);
+  border-radius: var(--radius-md);
+}
+
+.history-list li {
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-sm);
+  color: var(--text-base);
+  border-bottom: 1px solid rgba(56, 70, 107, 0.5);
+}
+
+.history-list li:last-child {
+  border-bottom: none;
+}
+
+.history-list li.is-empty {
+  color: var(--text-muted);
+  font-style: italic;
+  text-align: center;
+}
+
+/* ================================
+   Adaptations
+   ================================ */
+
+/* Paysage : la hauteur manque, on compacte le bandeau et la barre */
+@media (max-height: 480px) and (orientation: landscape) {
+  .turn-banner {
+    padding: var(--sp-1) var(--sp-3);
+  }
+
+  .turn-hint {
+    display: none;
+  }
+
+  .action-drawer {
+    max-height: 92vh;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .roll-btn,
+  .more-btn,
+  .drawer-item,
+  .drawer-chip {
+    transition: none;
+  }
+
+  .roll-btn.is-ready {
+    animation: none;
+  }
+
+  .action-drawer,
+  .drawer-backdrop {
+    animation: none;
+  }
+
+  .roll-btn:active,
+  .more-btn:active,
+  .roll-btn:hover:not(:disabled) {
+    transform: none;
+  }
+}

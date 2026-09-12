@@ -64,19 +64,6 @@
   }
 }
 
-/* Le lien flottant « Éditeur de plateau » ferait doublon avec le bouton Éditeur
-   du panneau, et il chevauche la carte sur téléphone.
-   L'écran de setup est masqué en JS via style.display = 'none' quand la partie
-   démarre ; au chargement il n'a aucun attribut style, d'où la règle par défaut
-   (masqué) et l'exception qui rend le lien une fois le setup fermé. */
-.editor-link {
-  display: none;
-}
-
-body:has(.setup-screen[style*='none']) .editor-link {
-  display: inline-flex;
-}
-
 /* --- La carte --- */
 
 .setup-panel {

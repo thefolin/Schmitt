@@ -581,27 +581,7 @@ body {
   font-weight: bold;
 }
 
-/* Bouton son */
-.sound-toggle {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  background: rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(10px);
-  border: none;
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  font-size: 1.5em;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  z-index: 100;
-}
 
-.sound-toggle:hover {
-  background: rgba(255, 255, 255, 0.3);
-  transform: scale(1.1);
-}
 
 /* Responsive */
 @media (max-width: 1024px) {

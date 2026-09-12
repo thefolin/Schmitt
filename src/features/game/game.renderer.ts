@@ -204,6 +204,14 @@ export class GameRenderer {
     const btn = document.getElementById('rollDiceBtn') as HTMLButtonElement;
     if (btn) {
       btn.disabled = !enabled;
+      // Le bouton respire quand c'est au joueur d'agir : le geste attendu se
+      // voit sans avoir à lire.
+      btn.classList.toggle('is-ready', enabled);
+    }
+
+    const hint = document.getElementById('currentPlayerHint');
+    if (hint) {
+      hint.textContent = enabled ? 'À vous de jouer' : 'Lancer en cours…';
     }
   }
 }

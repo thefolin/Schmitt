@@ -537,31 +537,7 @@ body {
   }
 }
 
-/* ================================
-   BOUTON SON - COIN SUPÉRIEUR
-   ================================ */
-.sound-toggle {
-  position: fixed;
-  top: 70px;
-  right: var(--spacing-lg);
-  background: var(--gradient-gold);
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  font-size: 1.3em;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  z-index: 300;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
 
-  /* DÉSACTIVÉ TEMPORAIREMENT - Code gardé pour plus tard */
-  display: none;
-}
-
-.sound-toggle:active {
-  transform: scale(0.9);
-}
 
 /* ================================
    PARTICULES - PERFORMANCE OPTIMISÉE
@@ -741,8 +717,4 @@ body {
     padding-bottom: max(var(--spacing-md), env(safe-area-inset-bottom));
   }
 
-  .sound-toggle {
-    top: max(70px, calc(70px + env(safe-area-inset-top)));
-    right: max(var(--spacing-lg), env(safe-area-inset-right));
   }
-}

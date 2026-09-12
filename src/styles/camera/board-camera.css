@@ -629,153 +629,12 @@
 }
 
 /* ================================
-   BOUTON MENU
-   ================================ */
-.menu-btn {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  border: none;
-  background: rgba(0, 0, 0, 0.6);
-  color: white;
-  font-size: 20px;
-  cursor: pointer;
-  z-index: 250;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  transition: all 0.2s ease;
-}
-
-.menu-btn:hover {
-  background: rgba(0, 0, 0, 0.8);
-  transform: scale(1.05);
-}
-
-/* ================================
-   ZONE BOUTONS D'ACTION (BAS À DROITE)
-   ================================ */
-.action-buttons-zone {
-  position: absolute;
-  bottom: 20px;
-  right: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  z-index: 250;
-}
-
-.action-btn {
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  border: none;
-  background: linear-gradient(145deg, #ffffff 0%, #f0f0f0 100%);
-  color: #333;
-  font-size: 28px;
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-}
-
-.action-btn:hover {
-  transform: scale(1.1);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
-  background: linear-gradient(145deg, #f8f8f8 0%, #e8e8e8 100%);
-}
-
-.action-btn:active {
-  transform: scale(0.95);
-}
-
-/* Boutons contrôles caméra */
-.camera-control-btn {
-  background: rgba(255, 255, 255, 0.95) !important;
-  color: #333 !important;
-  font-weight: bold;
-  font-size: 22px !important;
-}
-
-.camera-control-btn:hover {
-  background: rgba(255, 255, 255, 1) !important;
-}
-
-.camera-control-btn[data-action="focus-dice"] {
-  border: 2px solid #3498db;
-}
-
-/* Bouton lancer le dé */
-#rollDiceBtn {
-  background: linear-gradient(145deg, #4CAF50 0%, #45a049 100%);
-  color: white;
-  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
-}
-
-#rollDiceBtn:hover {
-  background: linear-gradient(145deg, #45a049 0%, #3d8b40 100%);
-  box-shadow: 0 6px 20px rgba(76, 175, 80, 0.6);
-}
-
-/* Bouton déplacement manuel */
-#manualMoveBtn {
-  background: linear-gradient(145deg, #2196F3 0%, #1976D2 100%);
-  color: white;
-  box-shadow: 0 4px 12px rgba(33, 150, 243, 0.4);
-}
-
-#manualMoveBtn:hover {
-  background: linear-gradient(145deg, #1976D2 0%, #1565C0 100%);
-  box-shadow: 0 6px 20px rgba(33, 150, 243, 0.6);
-}
-
-@media (max-width: 768px) {
-  .action-buttons-zone {
-    bottom: 15px;
-    right: 15px;
-    gap: 10px;
-  }
-
-  .action-btn {
-    width: 50px;
-    height: 50px;
-    font-size: 24px;
-  }
-}
-
-/* ================================
-   INDICATEUR JOUEUR ACTUEL
-   ================================ */
-.current-player-indicator {
-  position: absolute;
-  top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.7);
-  padding: 8px 20px;
-  border-radius: 20px;
-  text-align: center;
-  z-index: 250;
-  backdrop-filter: blur(10px);
-}
-
-.current-player-indicator .player-name {
-  display: block;
-  font-weight: bold;
-  font-size: 16px;
-  color: white;
-}
-
-.current-player-indicator .player-turn {
-  display: block;
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.7);
-  margin-top: 2px;
-}
+   HUD DE PARTIE
+   ================================
+   La barre d'action, le tiroir et le bandeau du joueur courant sont désormais
+   dans styles/game/hud.css, sur les tokens du design system. Les anciennes
+   règles (.menu-btn, .action-btn, .action-buttons-zone, .current-player-
+   indicator) ont été retirées : leur markup n'existe plus. */
 
 /* ================================
    MODAL INFO JOUEUR (SLIDE UP)
@@ -1005,14 +864,6 @@
     font-size: 16px;
   }
 
-  .current-player-indicator {
-    padding: 6px 16px;
-  }
-
-  .current-player-indicator .player-name {
-    font-size: 14px;
-  }
-
   .player-stats {
     grid-template-columns: 1fr;
     gap: 10px;
@@ -1024,11 +875,5 @@
     width: 38px;
     height: 38px;
     font-size: 14px;
-  }
-
-  .menu-btn {
-    width: 38px;
-    height: 38px;
-    font-size: 18px;
   }
 }

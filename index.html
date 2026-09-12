@@ -8,95 +8,82 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&display=swap" rel="stylesheet">
-    <style>
-        .editor-link {
-            position: fixed;
-            top: max(10px, env(safe-area-inset-top));
-            right: 10px;
-            z-index: 10000;
-            display: inline-flex;
-            align-items: center;
-            min-height: 44px;
-            padding: 0 16px;
-            background: var(--marble-700, #1c2540);
-            color: var(--gold-300, #f0d787);
-            border: 1px solid var(--marble-500, #38466b);
-            border-radius: var(--radius-md, 12px);
-            text-decoration: none;
-            font-family: var(--font-body, 'Segoe UI', sans-serif);
-            font-size: 13px;
-            font-weight: 600;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
-            transition: all 0.24s ease;
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        @media (hover: hover) and (pointer: fine) {
-            .editor-link:hover {
-                background: var(--marble-600, #273353);
-                transform: translateY(-2px);
-            }
-        }
-
-        .editor-link::before {
-            content: '✏️ ';
-            margin-right: 5px;
-        }
-    </style>
 </head>
 
 <body>
-    <a href="index-editor.html" class="editor-link">Éditeur de plateau</a>
-
     <div class="container">
-        <button class="sound-toggle" id="soundToggle">🔊</button>
-
         <div class="game-area-fullscreen">
             <!-- Zone du plateau avec caméra (plein écran) -->
             <div id="boardCamera" class="board-camera-container">
                 <!-- Les dés seront créés ici dynamiquement -->
             </div>
 
-            <!-- Boutons joueurs style TikTok (côté droit) -->
-            <div class="player-buttons" id="playerButtons">
-                <!-- Générés dynamiquement -->
+            <!-- Bandeau du joueur courant : qui joue, et ce qu'on attend de lui -->
+            <div class="turn-banner" id="currentPlayerIndicator">
+                <span class="turn-dot" id="currentPlayerDot"></span>
+                <span class="turn-text">
+                    <span class="turn-name" id="currentPlayerName">Joueur 1</span>
+                    <span class="turn-hint" id="currentPlayerHint">À vous de jouer</span>
+                </span>
             </div>
 
-            <!-- Bouton menu/settings -->
-            <button class="menu-btn" id="menuBtn">☰</button>
-
-            <!-- Zone de boutons d'action (bas à droite) -->
-            <div class="action-buttons-zone">
-                <!-- Contrôles de caméra -->
-                <button class="action-btn camera-control-btn" data-action="zoom-in" title="Zoom +">
-                    +
+            <!-- Barre d'action : le lancer de dé est le cœur du jeu, il occupe
+                 la place principale. Le reste vit dans le tiroir « ⋯ ». -->
+            <div class="action-bar">
+                <button class="roll-btn" id="rollDiceBtn">
+                    <span class="roll-btn-icon" aria-hidden="true">⚄</span>
+                    <span class="roll-btn-label">Lancer le dé</span>
                 </button>
-                <button class="action-btn camera-control-btn" data-action="zoom-out" title="Zoom -">
-                    −
-                </button>
-                <button class="action-btn camera-control-btn" data-action="focus-dice" title="Focus dés">
-                    🎲
-                </button>
-                <button class="action-btn camera-control-btn" data-action="reset" title="Recentrer">
-                    ⌂
-                </button>
-
-                <!-- Séparateur visuel -->
-                <div style="height: 8px;"></div>
-
-                <!-- Actions de jeu -->
-                <button class="action-btn" id="rollDiceBtn" title="Lancer le dé">
-                    🎲
-                </button>
-                <button class="action-btn" id="manualMoveBtn" title="Déplacement manuel">
-                    🎯
+                <button class="more-btn" id="menuBtn" aria-haspopup="true" aria-expanded="false"
+                    aria-controls="actionDrawer" title="Autres actions">
+                    <span aria-hidden="true">⋯</span>
                 </button>
             </div>
 
-            <!-- Indicateur joueur actuel -->
-            <div class="current-player-indicator" id="currentPlayerIndicator">
-                <span class="player-name" id="currentPlayerName">Joueur 1</span>
-                <span class="player-turn">À vous de jouer !</span>
+            <!-- Tiroir des actions secondaires -->
+            <div class="drawer-backdrop" id="drawerBackdrop" hidden></div>
+            <div class="action-drawer" id="actionDrawer" role="dialog" aria-label="Autres actions" hidden>
+                <div class="drawer-handle" aria-hidden="true"></div>
+
+                <div class="drawer-section">
+                    <span class="drawer-legend">Déplacement</span>
+                    <button class="drawer-item" id="manualMoveBtn">
+                        <span class="drawer-icon" aria-hidden="true">🎯</span>
+                        <span class="drawer-label">Déplacement manuel</span>
+                    </button>
+                </div>
+
+                <div class="drawer-section">
+                    <span class="drawer-legend">Vue</span>
+                    <div class="drawer-row">
+                        <button class="drawer-chip camera-control-btn" data-action="zoom-in" title="Zoom avant">+</button>
+                        <button class="drawer-chip camera-control-btn" data-action="zoom-out" title="Zoom arrière">−</button>
+                        <button class="drawer-chip camera-control-btn" data-action="focus-dice" title="Voir le dé">⚄</button>
+                        <button class="drawer-chip camera-control-btn" data-action="reset" title="Recentrer">⌂</button>
+                    </div>
+                </div>
+
+                <!-- Historique : rempli et basculé en JS depuis le tiroir -->
+                <div class="drawer-history" id="historyPanel" hidden>
+                    <span class="drawer-legend">Historique</span>
+                    <ul class="history-list" id="historyList"></ul>
+                </div>
+
+                <div class="drawer-section">
+                    <span class="drawer-legend">Partie</span>
+                    <button class="drawer-item" id="showHistoryBtn">
+                        <span class="drawer-icon" aria-hidden="true">📜</span>
+                        <span class="drawer-label">Historique</span>
+                    </button>
+                    <a class="drawer-item" href="/index-editor.html">
+                        <span class="drawer-icon" aria-hidden="true">✏️</span>
+                        <span class="drawer-label">Éditeur de plateau</span>
+                    </a>
+                    <button class="drawer-item drawer-item--danger" id="resetBtn">
+                        <span class="drawer-icon" aria-hidden="true">🔄</span>
+                        <span class="drawer-label">Nouvelle partie</span>
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -129,19 +116,6 @@
             </div>
         </div>
 
-        <!-- Modal menu -->
-        <div class="menu-modal" id="menuModal">
-            <div class="menu-modal-content">
-                <div class="modal-header">
-                    <h3>Menu</h3>
-                    <button class="close-modal-btn" id="closeMenuModal">×</button>
-                </div>
-                <div class="menu-actions">
-                    <button class="menu-item" id="showHistoryBtn">📜 Historique</button>
-                    <button class="menu-item" id="resetBtn">🔄 Nouvelle partie</button>
-                </div>
-            </div>
-        </div>
     </div>
 
     <!-- Menu principal : une rampe de lancement, pas un formulaire.

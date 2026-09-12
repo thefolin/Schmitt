@@ -20,6 +20,7 @@ import '../styles/common/setup-screen.css';
 import '../styles/camera/board-camera.css';
 import '../styles/game/player-selector.css';
 import '../styles/game/manual-movement.css';
+import '../styles/game/hud.css';
 
 interface SavedLayout {
   name: string;
@@ -184,11 +185,40 @@ class SchmittOdysseeCamera {
       this.rollDice();
     });
 
+    // --- Tiroir des actions secondaires ---
+    document.getElementById('menuBtn')?.addEventListener('click', () => {
+      const drawer = document.getElementById('actionDrawer');
+      this.toggleDrawer(Boolean(drawer?.hidden));
+    });
+
+    // Fermeture : clic sur le fond, ou touche Échap
+    document.getElementById('drawerBackdrop')?.addEventListener('click', () => {
+      this.toggleDrawer(false);
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') this.toggleDrawer(false);
+    });
+
+    // Historique : replié par défaut pour garder le tiroir court
+    document.getElementById('showHistoryBtn')?.addEventListener('click', () => {
+      const panel = document.getElementById('historyPanel');
+      if (!panel) return;
+      panel.hidden = !panel.hidden;
+      if (!panel.hidden) this.renderHistory(this.gameLogic.getHistory());
+    });
+
     // Nouvelle partie
     document.getElementById('resetBtn')?.addEventListener('click', () => {
       if (confirm('Êtes-vous sûr de vouloir quitter la partie en cours ?')) {
+        this.toggleDrawer(false);
         this.resetGame();
       }
+    });
+
+    // Fermeture des modales d'info (les croix n'étaient câblées à rien)
+    document.getElementById('closePlayerModal')?.addEventListener('click', () => {
+      document.getElementById('playerModal')?.classList.remove('show');
     });
 
     // Fermer les modales
@@ -222,6 +252,7 @@ class SchmittOdysseeCamera {
 
     // Bouton déplacement manuel
     document.getElementById('manualMoveBtn')?.addEventListener('click', () => {
+      this.toggleDrawer(false);
       this.openManualMovementModal();
     });
 
@@ -511,6 +542,8 @@ class SchmittOdysseeCamera {
     this.gameLogic.startGame(players);
     this.gameRenderer.hideSetupScreen();
     this.updateUI();
+    // État initial du HUD : c'est au premier joueur de lancer
+    this.gameRenderer.setDiceButtonEnabled(true);
 
     // Afficher le dé et le positionner au centre de la table
     this.diceManager.showNormalDice();
@@ -1484,7 +1517,62 @@ class SchmittOdysseeCamera {
 
     this.gameRenderer.updatePlayerList(players, currentIndex);
     this.gameRenderer.updateHistory(history);
+    this.updateTurnBanner();
+    this.renderHistory(history);
     this.updateBoard();
+  }
+
+  /**
+   * Bandeau du joueur courant : son nom et sa couleur.
+   * Auparavant le HTML affichait « Joueur 1 » en dur, quel que soit le tour.
+   */
+  private updateTurnBanner(): void {
+    const player = this.gameLogic.getCurrentPlayer();
+    if (!player) return;
+
+    const name = document.getElementById('currentPlayerName');
+    const dot = document.getElementById('currentPlayerDot');
+    if (name) name.textContent = player.name;
+    if (dot) dot.style.background = player.color;
+  }
+
+  private renderHistory(history: string[]): void {
+    const list = document.getElementById('historyList');
+    if (!list) return;
+
+    list.innerHTML = '';
+    if (history.length === 0) {
+      const li = document.createElement('li');
+      li.className = 'is-empty';
+      li.textContent = 'Aucune action pour le moment';
+      list.appendChild(li);
+      return;
+    }
+
+    // Le plus récent en haut : c'est ce qu'on vient de vouloir vérifier
+    [...history].reverse().forEach((entry) => {
+      const li = document.createElement('li');
+      li.textContent = entry;
+      list.appendChild(li);
+    });
+  }
+
+  /** Ouvre ou ferme le tiroir des actions secondaires. */
+  private toggleDrawer(open: boolean): void {
+    const drawer = document.getElementById('actionDrawer');
+    const backdrop = document.getElementById('drawerBackdrop');
+    const trigger = document.getElementById('menuBtn');
+    if (!drawer || !backdrop) return;
+
+    drawer.hidden = !open;
+    backdrop.hidden = !open;
+    trigger?.setAttribute('aria-expanded', String(open));
+
+    // L'historique repart replié à chaque ouverture : le tiroir doit rester court
+    if (!open) {
+      const panel = document.getElementById('historyPanel');
+      if (panel) panel.hidden = true;
+    }
   }
 
   private updateBoard(): void {
