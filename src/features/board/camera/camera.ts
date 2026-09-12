@@ -47,8 +47,11 @@ export class Camera {
       maxX: 1000,
       minY: -1000,
       maxY: 1000,
-      minZoom: 0.5,
-      maxZoom: 2
+      // 0.5 empêchait de dézoomer assez pour cadrer la table sur un petit
+      // téléphone (elle débordait à 190% de la largeur) ; 2 était trop bas
+      // pour tirer parti d'un téléviseur.
+      minZoom: 0.12,
+      maxZoom: 3
     };
   }
 
@@ -170,6 +173,11 @@ export class Camera {
   /**
    * Convertit les coordonnées écran en coordonnées monde
    */
+  /** Niveau de zoom courant (1 = taille normale). */
+  public getZoom(): number {
+    return this.state.zoom;
+  }
+
   public screenToWorld(screenX: number, screenY: number): { x: number; y: number } {
     return {
       x: this.state.x + screenX / this.state.zoom,

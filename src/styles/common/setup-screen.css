@@ -71,7 +71,7 @@
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-width: 560px;
+  max-width: var(--panel-max);
   /* Le panneau ne dépasse jamais l'écran : c'est la liste des joueurs qui défile */
   max-height: 100%;
   margin: auto;
@@ -505,7 +505,6 @@
 
 @media (min-width: 720px) {
   .setup-panel {
-    max-width: 640px;
     padding: var(--sp-6) var(--sp-6) var(--sp-7);
   }
 

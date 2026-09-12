@@ -83,6 +83,10 @@
   --touch-min: 48px; /* hauteur plancher de tout ce qui se tape au doigt */
   --touch-comfy: 56px; /* actions principales */
 
+  /* ---- Largeur de référence des panneaux ----
+     Reprise par le menu et le tiroir pour rester cohérents entre eux. */
+  --panel-max: 560px;
+
   /* ---- Transitions ---- */
   --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
   --dur-fast: 140ms;
@@ -252,5 +256,84 @@ select.ds-field {
   .ds-btn:active,
   .ds-btn:hover:not(:disabled) {
     transform: none;
+  }
+}
+
+
+/* ============================================================
+   Écrans extrêmes
+   ============================================================ */
+
+/**
+ * Très petits téléphones (iPhone SE et assimilés, <= 360px).
+ * On resserre les espacements et les titres, mais JAMAIS les cibles
+ * tactiles : sur un petit écran le doigt a la même taille qu'ailleurs.
+ */
+@media (max-width: 360px) {
+  :root {
+    --sp-4: 12px;
+    --sp-5: 16px;
+    --sp-6: 24px;
+    --sp-7: 32px;
+
+    --fs-lg: 18px;
+    --fs-xl: 22px;
+    --fs-2xl: 28px;
+
+    --radius-lg: 14px;
+  }
+}
+
+/**
+ * Grands écrans et téléviseurs.
+ * Sur une télé on regarde de loin : tout doit grossir, sinon le texte est
+ * illisible. On augmente l'échelle typographique, les cibles et la largeur
+ * des panneaux par paliers.
+ */
+@media (min-width: 1600px) {
+  :root {
+    --fs-xs: 15px;
+    --fs-sm: 18px;
+    --fs-md: 21px;
+    --fs-lg: 27px;
+    --fs-xl: 36px;
+    --fs-2xl: 46px;
+
+    --sp-4: 22px;
+    --sp-5: 32px;
+    --sp-6: 44px;
+    --sp-7: 64px;
+
+    --touch-min: 62px;
+    --touch-comfy: 76px;
+
+    --radius-md: 16px;
+    --radius-lg: 24px;
+
+    --panel-max: 760px;
+  }
+}
+
+@media (min-width: 2400px) {
+  :root {
+    --fs-xs: 20px;
+    --fs-sm: 24px;
+    --fs-md: 28px;
+    --fs-lg: 36px;
+    --fs-xl: 48px;
+    --fs-2xl: 62px;
+
+    --sp-4: 30px;
+    --sp-5: 44px;
+    --sp-6: 60px;
+    --sp-7: 88px;
+
+    --touch-min: 84px;
+    --touch-comfy: 104px;
+
+    --radius-md: 22px;
+    --radius-lg: 32px;
+
+    --panel-max: 1100px;
   }
 }

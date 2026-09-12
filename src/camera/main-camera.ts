@@ -273,8 +273,9 @@ class SchmittOdysseeCamera {
             this.boardRenderer.focusOnDice(this.diceManager.getVisibleDicePosition());
             break;
           case 'reset':
-            this.boardRenderer.getCamera().setZoom(1);
-            this.boardRenderer.getCamera().centerOn(0, 0, true);
+            // Recadrer sur la table plutôt que sur (0,0) au zoom 1 : selon la
+            // taille de l'écran, ce point n'a rien à voir avec le plateau.
+            this.boardRenderer.fitTableToViewport(true);
             break;
         }
       });
@@ -544,6 +545,10 @@ class SchmittOdysseeCamera {
     this.updateUI();
     // État initial du HUD : c'est au premier joueur de lancer
     this.gameRenderer.setDiceButtonEnabled(true);
+
+    // Cadrer la table sur l'écran : indispensable sur très petit ou très grand
+    // écran, où un zoom fixe donne un plateau minuscule ou débordant.
+    this.boardRenderer.fitTableToViewport(false);
 
     // Afficher le dé et le positionner au centre de la table
     this.diceManager.showNormalDice();

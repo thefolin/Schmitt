@@ -247,6 +247,9 @@ export class BoardCameraRenderer {
   private onResize(): void {
     const rect = this.container.getBoundingClientRect();
     this.camera.resize(rect.width, rect.height);
+    // Le cadrage dépend de la taille de l'écran : le recalculer à la rotation
+    // comme au redimensionnement de la fenêtre.
+    this.fitTableToViewport();
   }
 
   private getPinchDistance(touches: TouchList): number {
@@ -347,13 +350,11 @@ export class BoardCameraRenderer {
 
     this.renderPlayers(players);
 
-    // Centrer sur le premier joueur uniquement au premier render
+    // Au premier rendu, cadrer la table entière plutôt que la case de départ :
+    // centrer sur le premier joueur laissait le plateau collé en haut de
+    // l'écran, et minuscule sur un téléviseur.
     if (this.isFirstRender && players.length > 0) {
-      const firstPlayer = players[0];
-      const pos = this.tilePositions[firstPlayer.position];
-      if (pos) {
-        this.camera.centerOn(pos.x, pos.y, false);
-      }
+      this.fitTableToViewport(false);
       this.isFirstRender = false;
     }
   }
@@ -653,6 +654,51 @@ export class BoardCameraRenderer {
     } else if (!player.hasSchmittPower && powerEl) {
       powerEl.remove();
     }
+  }
+
+  /**
+   * Ajuste le zoom pour que la table occupe l'écran, puis la recentre.
+   *
+   * Sans cela le zoom reste à 1 quelle que soit la taille de l'écran : sur un
+   * téléviseur 4K le plateau n'occupait qu'un sixième de la surface, tandis que
+   * sur un petit téléphone il débordait. Le zoom est borné pour éviter un
+   * plateau géant sur très grand écran ou illisible sur très petit.
+   */
+  public fitTableToViewport(animate = false): void {
+    if (!this.tableBounds) return;
+
+    const rect = this.container.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+
+    const tableWidth = this.tableBounds.maxX - this.tableBounds.minX;
+    const tableHeight = this.tableBounds.maxY - this.tableBounds.minY;
+    if (tableWidth <= 0 || tableHeight <= 0) return;
+
+    // Le bandeau en haut et la barre d'action en bas mordent sur la vue :
+    // on cadre la table dans la bande qui reste réellement libre.
+    const topInset = rect.height * 0.10;
+    const bottomInset = rect.height * 0.14;
+    const usableWidth = rect.width * 0.92;
+    const usableHeight = rect.height - topInset - bottomInset;
+
+    // Plancher bas : sur un iPhone SE (320px) la table fait 1209 unités de
+    // large, il faut pouvoir descendre sous 0.25 pour la faire entrer.
+    // Le plateau tient toujours en entier : sur un écran étroit et haut il
+    // reste du vide vertical, mais voir toutes les cases d'un coup vaut mieux
+    // que devoir faire glisser la vue à chaque tour.
+    const rawZoom = Math.min(usableWidth / tableWidth, usableHeight / tableHeight);
+    const zoom = Math.max(0.12, Math.min(2.5, rawZoom));
+    this.camera.setZoom(zoom);
+
+    // centerOn vise le centre de l'écran ; le milieu de la bande laissée libre
+    // par le bandeau et la barre d'action est plus bas, d'où la correction.
+    const bandShift = (bottomInset - topInset) / (2 * zoom);
+
+    this.camera.centerOn(
+      this.tableBounds.minX + tableWidth / 2,
+      this.tableBounds.minY + tableHeight / 2 - bandShift,
+      animate
+    );
   }
 
   /**
