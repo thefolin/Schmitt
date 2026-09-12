@@ -9,6 +9,16 @@
  * Dépend des tokens de design-system.css.
  */
 
+/**
+ * [hidden] doit toujours l'emporter.
+ * Le display: none du navigateur pour [hidden] a une priorité très faible :
+ * n'importe quelle règle posant display (ici le grid du tiroir en paysage)
+ * l'écrase et rend visible un élément pourtant masqué en JS.
+ */
+[hidden] {
+  display: none !important;
+}
+
 /* ================================
    Bandeau du joueur courant
    ================================ */
