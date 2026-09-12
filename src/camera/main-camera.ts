@@ -27,6 +27,25 @@ interface SavedLayout {
   config: BoardLayoutConfig;
 }
 
+/** Un joueur en cours de saisie dans le menu, avant le début de la partie. */
+interface PlayerDraft {
+  name: string;
+  color: string;
+}
+
+const MIN_PLAYERS = 2;
+const MAX_PLAYERS = 10;
+
+/** Palette attribuée aux joueurs dans l'ordre d'ajout. */
+const PLAYER_COLORS = [
+  '#e74c3c', '#3498db', '#2ecc71', '#f39c12',
+  '#9b59b6', '#1abc9c', '#e67e22', '#34495e',
+  '#e91e63', '#00bcd4'
+];
+
+/** Tablée de la dernière partie, rechargée au prochain lancement. */
+const PLAYER_DRAFTS_KEY = 'schmitt-player-drafts';
+
 /**
  * Application principale - Version Caméra
  * Vue 3/4 avec navigation pan/zoom
@@ -39,6 +58,7 @@ class SchmittOdysseeCamera {
   private playerSelector: PlayerSelector;
   private manualMovement: ManualMovement;
   private savedLayouts: SavedLayout[] = [];
+  private playerDrafts: PlayerDraft[] = [];
   private selectedLayout: BoardLayoutConfig | null = null;
   private importedLayout: BoardLayoutConfig | null = null;
   private consecutiveForwardMoves = 0; // Compteur pour éviter les boucles infinies
@@ -69,8 +89,10 @@ class SchmittOdysseeCamera {
     await this.loadTestLayout();
 
     this.populateMapSelect();
+    this.updateBoardLabel();
     this.setupEventListeners();
-    this.generatePlayerInputs(4);
+    this.loadPlayerDrafts();
+    this.renderPlayerInputs();
     this.gameRenderer.showSetupScreen();
   }
 
@@ -133,12 +155,13 @@ class SchmittOdysseeCamera {
   }
 
   private setupEventListeners(): void {
-    // Changement du nombre de joueurs
-    const playerCountInput = document.getElementById('playerCount') as HTMLInputElement;
-    playerCountInput?.addEventListener('change', () => {
-      const count = parseInt(playerCountInput.value);
-      this.generatePlayerInputs(count);
+    // Ajout d'un joueur à la liste
+    document.getElementById('addPlayerBtn')?.addEventListener('click', () => {
+      this.addPlayer();
     });
+
+    // La hauteur disponible change en rotation : recalculer l'indice de défilement
+    window.addEventListener('resize', () => this.updateScrollHint());
 
     // Sélection de la map
     const mapSelect = document.getElementById('mapSelect') as HTMLSelectElement;
@@ -227,26 +250,168 @@ class SchmittOdysseeCamera {
     });
   }
 
-  private generatePlayerInputs(count: number): void {
+  /**
+   * Rend la liste des joueurs à partir de this.playerDrafts.
+   *
+   * La liste EST la source de vérité du nombre de joueurs : il n'y a plus de
+   * champ « nombre de joueurs » à régler avant de pouvoir saisir les noms.
+   */
+  private renderPlayerInputs(): void {
     const container = document.getElementById('playerInputs');
     if (!container) return;
 
     container.innerHTML = '';
 
-    const colors = [
-      '#e74c3c', '#3498db', '#2ecc71', '#f39c12',
-      '#9b59b6', '#1abc9c', '#e67e22', '#34495e',
-      '#e91e63', '#00bcd4'
-    ];
-
-    for (let i = 0; i < count; i++) {
+    this.playerDrafts.forEach((draft, i) => {
       const div = document.createElement('div');
       div.className = 'player-input-item';
-      div.innerHTML = `
-        <input type="text" placeholder="Joueur ${i + 1}" value="Joueur ${i + 1}" data-player-index="${i}">
-        <input type="color" class="color-picker" value="${colors[i % colors.length]}" data-player-index="${i}">
-      `;
+
+      const name = document.createElement('input');
+      name.type = 'text';
+      name.placeholder = `Joueur ${i + 1}`;
+      name.value = draft.name;
+      name.maxLength = 20;
+      name.setAttribute('data-player-index', String(i));
+      name.addEventListener('input', () => {
+        this.playerDrafts[i].name = name.value;
+        this.savePlayerDrafts();
+      });
+      // Entrée passe au joueur suivant, ou ajoute une ligne si on est au bout :
+      // on saisit toute la tablée au clavier sans lâcher les mains.
+      name.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        const next = container.querySelectorAll<HTMLInputElement>('input[type="text"]')[i + 1];
+        if (next) {
+          next.focus();
+          next.select();
+        } else if (this.playerDrafts.length < MAX_PLAYERS) {
+          this.addPlayer();
+        }
+      });
+
+      const color = document.createElement('input');
+      color.type = 'color';
+      color.className = 'color-picker';
+      color.value = draft.color;
+      color.setAttribute('data-player-index', String(i));
+      color.addEventListener('input', () => {
+        this.playerDrafts[i].color = color.value;
+        this.savePlayerDrafts();
+      });
+
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'remove-player-btn';
+      remove.innerHTML = '&times;';
+      remove.title = `Retirer ${draft.name || `Joueur ${i + 1}`}`;
+      remove.setAttribute('aria-label', remove.title);
+      // En dessous de MIN_PLAYERS la partie ne peut pas démarrer : on désactive
+      // plutôt que de masquer, pour que la limite soit visible.
+      remove.disabled = this.playerDrafts.length <= MIN_PLAYERS;
+      remove.addEventListener('click', () => this.removePlayer(i));
+
+      div.append(name, color, remove);
       container.appendChild(div);
+    });
+
+    this.updatePlayerCountUI();
+    this.updateScrollHint();
+  }
+
+  /**
+   * Signale visuellement que la liste déborde (voir .is-scrollable).
+   * Doit être appelé après rendu ET au redimensionnement : passer en paysage
+   * change la hauteur disponible sans changer le nombre de joueurs.
+   */
+  private updateScrollHint(): void {
+    const container = document.getElementById('playerInputs');
+    if (!container) return;
+    container.classList.toggle(
+      'is-scrollable',
+      container.scrollHeight > container.clientHeight + 1
+    );
+  }
+
+  /** Met à jour le compteur et l'état du bouton « Ajouter ». */
+  private updatePlayerCountUI(): void {
+    const label = document.getElementById('playerCountLabel');
+    if (label) label.textContent = `${this.playerDrafts.length} / ${MAX_PLAYERS}`;
+
+    const addBtn = document.getElementById('addPlayerBtn') as HTMLButtonElement | null;
+    if (addBtn) {
+      const full = this.playerDrafts.length >= MAX_PLAYERS;
+      addBtn.disabled = full;
+      addBtn.textContent = full ? `Maximum ${MAX_PLAYERS} joueurs` : '+ Ajouter un joueur';
+    }
+  }
+
+  /** Ajoute un joueur et donne le focus à son champ, prêt à la saisie. */
+  private addPlayer(): void {
+    if (this.playerDrafts.length >= MAX_PLAYERS) return;
+
+    const index = this.playerDrafts.length;
+    this.playerDrafts.push({
+      name: `Joueur ${index + 1}`,
+      color: PLAYER_COLORS[index % PLAYER_COLORS.length]
+    });
+    this.savePlayerDrafts();
+    this.renderPlayerInputs();
+
+    const inputs = document.querySelectorAll<HTMLInputElement>('#playerInputs input[type="text"]');
+    const added = inputs[index];
+    if (added) {
+      added.focus();
+      added.select(); // le nom par défaut part dès la première frappe
+    }
+  }
+
+  private removePlayer(index: number): void {
+    if (this.playerDrafts.length <= MIN_PLAYERS) return;
+    this.playerDrafts.splice(index, 1);
+    this.savePlayerDrafts();
+    this.renderPlayerInputs();
+  }
+
+  /**
+   * Restaure la tablée de la dernière partie : en soirée on enchaîne les
+   * parties avec les mêmes personnes, autant ne pas retaper les prénoms.
+   */
+  private loadPlayerDrafts(): void {
+    const fallback = (): PlayerDraft[] =>
+      Array.from({ length: MIN_PLAYERS }, (_, i) => ({
+        name: `Joueur ${i + 1}`,
+        color: PLAYER_COLORS[i % PLAYER_COLORS.length]
+      }));
+
+    try {
+      const raw = localStorage.getItem(PLAYER_DRAFTS_KEY);
+      if (!raw) {
+        this.playerDrafts = fallback();
+        return;
+      }
+
+      const parsed: unknown = JSON.parse(raw);
+      const drafts = Array.isArray(parsed)
+        ? parsed
+            .filter((d): d is PlayerDraft =>
+              typeof d?.name === 'string' && typeof d?.color === 'string')
+            .slice(0, MAX_PLAYERS)
+            .map((d) => ({ name: d.name.slice(0, 20), color: d.color }))
+        : [];
+
+      this.playerDrafts = drafts.length >= MIN_PLAYERS ? drafts : fallback();
+    } catch {
+      // localStorage indisponible (navigation privée) : on démarre à vide
+      this.playerDrafts = fallback();
+    }
+  }
+
+  private savePlayerDrafts(): void {
+    try {
+      localStorage.setItem(PLAYER_DRAFTS_KEY, JSON.stringify(this.playerDrafts));
+    } catch {
+      // Sauvegarde best-effort : ne doit jamais empêcher de jouer
     }
   }
 
@@ -265,6 +430,21 @@ class SchmittOdysseeCamera {
         this.selectedLayout = layout.config;
       }
     }
+
+    this.updateBoardLabel();
+  }
+
+  /**
+   * Reporte le plateau choisi sur le résumé du panneau replié, pour qu'on sache
+   * sur quelle carte on va jouer sans avoir à déplier « Plateau & outils ».
+   */
+  private updateBoardLabel(): void {
+    const label = document.getElementById('currentBoardLabel');
+    const select = document.getElementById('mapSelect') as HTMLSelectElement | null;
+    if (!label || !select) return;
+
+    const option = select.selectedOptions[0];
+    label.textContent = option ? option.textContent : 'Plateau par défaut';
   }
 
   /**
@@ -308,21 +488,20 @@ class SchmittOdysseeCamera {
   }
 
   private startGame(): void {
-    const inputs = document.querySelectorAll('#playerInputs input[type="text"]') as NodeListOf<HTMLInputElement>;
-    const colorInputs = document.querySelectorAll('#playerInputs input[type="color"]') as NodeListOf<HTMLInputElement>;
+    // Un champ laissé vide reste un joueur valide : on lui rend son nom par défaut
+    const players = this.playerDrafts.map((draft, index) => ({
+      name: draft.name.trim() || `Joueur ${index + 1}`,
+      color: draft.color
+    }));
 
-    const players: { name: string; color: string }[] = [];
-
-    inputs.forEach((input, index) => {
-      const name = input.value.trim() || `Joueur ${index + 1}`;
-      const color = colorInputs[index].value;
-      players.push({ name, color });
-    });
-
-    if (players.length < 2) {
-      alert('Il faut au moins 2 joueurs pour commencer !');
+    if (players.length < MIN_PLAYERS) {
+      this.gameRenderer.showNotification(
+        `Il faut au moins ${MIN_PLAYERS} joueurs pour commencer`
+      );
       return;
     }
+
+    this.savePlayerDrafts();
 
     // Appliquer le layout sélectionné
     if (this.selectedLayout) {
@@ -1294,7 +1473,8 @@ class SchmittOdysseeCamera {
     this.boardRenderer.destroy();
     this.diceManager.hideAll();
     this.gameRenderer.showSetupScreen();
-    this.generatePlayerInputs(4);
+    // On garde la tablée en place : rejouer avec les mêmes personnes est le cas courant
+    this.renderPlayerInputs();
   }
 
   private updateUI(): void {

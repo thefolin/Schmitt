@@ -144,28 +144,48 @@
         </div>
     </div>
 
-    <!-- Modal de configuration -->
+    <!-- Menu principal : une rampe de lancement, pas un formulaire.
+         Tout ce qui n'est pas « ajouter des joueurs » ou « jouer » vit dans
+         le panneau Plateau & outils, replié par défaut. -->
     <div class="setup-screen" id="setupScreen">
         <div class="setup-panel">
-            <h2>Configuration de la partie</h2>
+            <h2>Schmitt Odyssée</h2>
 
-            <div class="form-group">
-                <label>Plateau de jeu</label>
-                <select id="mapSelect" class="ds-field">
-                    <option value="default">Plateau par défaut</option>
-                </select>
-                <div class="setup-actions">
-                    <button type="button" class="ds-btn" id="importMapBtn">Importer JSON</button>
-                    <a href="/index-editor.html" class="ds-btn ds-btn--bronze">Éditeur</a>
+            <div class="players-section">
+                <div class="players-head">
+                    <span class="players-legend">Joueurs</span>
+                    <span class="players-count" id="playerCountLabel">2 / 10</span>
                 </div>
+
+                <div class="player-inputs" id="playerInputs"></div>
+
+                <button type="button" class="add-player-btn" id="addPlayerBtn">
+                    <span class="add-player-plus">+</span> Ajouter un joueur
+                </button>
             </div>
 
-            <div class="form-group">
-                <label>Nombre de joueurs (2-10)</label>
-                <input type="number" id="playerCount" min="2" max="10" value="4">
-            </div>
-            <div class="player-inputs" id="playerInputs"></div>
-            <button class="btn btn-primary" id="startGameBtn">Commencer la partie</button>
+            <button class="btn btn-primary" id="startGameBtn">Jouer</button>
+
+            <!-- Réglages avancés : repliés, pour ne pas encombrer le chemin vers « Jouer » -->
+            <details class="tools-panel" id="toolsPanel">
+                <summary class="tools-summary">
+                    <span class="tools-summary-label">Plateau &amp; outils</span>
+                    <span class="tools-summary-value" id="currentBoardLabel">Plateau par défaut</span>
+                    <span class="tools-chevron" aria-hidden="true"></span>
+                </summary>
+
+                <div class="tools-body">
+                    <label class="tools-label" for="mapSelect">Plateau de jeu</label>
+                    <select id="mapSelect" class="ds-field">
+                        <option value="default">Plateau par défaut</option>
+                    </select>
+
+                    <div class="setup-actions">
+                        <button type="button" class="ds-btn" id="importMapBtn">Importer JSON</button>
+                        <a href="/index-editor.html" class="ds-btn ds-btn--bronze">Éditeur</a>
+                    </div>
+                </div>
+            </details>
         </div>
     </div>
 

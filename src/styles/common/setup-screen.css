@@ -226,17 +226,23 @@ body:has(.setup-screen[style*='none']) .editor-link {
   grid-template-columns: 1fr;
   gap: var(--sp-2);
   /* Seule zone élastique du panneau : elle rétrécit et défile pour que le titre
-     et le bouton « Commencer » restent toujours visibles, même à 10 joueurs. */
+     et le bouton « Jouer » restent toujours visibles, même à 10 joueurs. */
   flex: 1 1 auto;
-  min-height: 96px;
+  min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  margin-bottom: var(--sp-5);
   padding-right: var(--sp-1);
-  /* Le dernier joueur s'estompe au lieu d'être tranché net : signale qu'on peut
-     encore faire défiler. Le masque disparaît une fois arrivé en bas. */
-  mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent 100%);
+  /* Ombres de défilement, ajoutées en JS (classe .is-scrollable) uniquement
+     quand la liste déborde vraiment — sinon des barres parasites apparaissent
+     alors qu'il n'y a rien à faire défiler. */
+}
+
+.player-inputs.is-scrollable {
+  background:
+    linear-gradient(var(--marble-800) 30%, transparent) top / 100% 20px no-repeat local,
+    linear-gradient(transparent, var(--marble-800) 70%) bottom / 100% 20px no-repeat local,
+    radial-gradient(farthest-side at 50% 0, rgba(0, 0, 0, 0.45), transparent) top / 100% 8px no-repeat scroll,
+    radial-gradient(farthest-side at 50% 100%, rgba(0, 0, 0, 0.45), transparent) bottom / 100% 8px no-repeat scroll;
 }
 
 /* Barre de défilement discrète, accordée au thème */
@@ -310,6 +316,171 @@ body:has(.setup-screen[style*='none']) .editor-link {
   box-shadow: 0 0 0 3px rgba(227, 193, 105, 0.25);
 }
 
+/* --- Section joueurs --- */
+
+.players-section {
+  display: flex;
+  flex-direction: column;
+  min-height: 0; /* autorise .player-inputs à rétrécir dans le flex parent */
+  flex: 1 1 auto;
+  margin-bottom: var(--sp-4);
+}
+
+.players-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: var(--sp-2);
+}
+
+.players-legend {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.players-count {
+  font-family: var(--font-display);
+  font-size: var(--fs-sm);
+  color: var(--gold-400);
+}
+
+/* Bouton « Ajouter un joueur » : en pointillés, il se lit comme une place
+   libre dans la liste plutôt que comme une action concurrente de « Jouer ». */
+.add-player-btn {
+  flex: 0 0 auto;
+  width: 100%;
+  min-height: var(--touch-min);
+  margin-top: var(--sp-2);
+  font-family: var(--font-body);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--gold-400);
+  background: transparent;
+  border: 1px dashed var(--gold-700);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+
+.add-player-btn:disabled {
+  color: var(--text-muted);
+  border-color: var(--marble-500);
+  border-style: solid;
+  cursor: not-allowed;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .add-player-btn:not(:disabled):hover {
+    background: rgba(227, 193, 105, 0.08);
+    color: var(--gold-300);
+  }
+}
+
+/* Retirer un joueur : discret au repos, rouge au contact */
+.remove-player-btn {
+  flex: 0 0 auto;
+  width: var(--touch-min);
+  height: var(--touch-min);
+  font-size: var(--fs-lg);
+  line-height: 1;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+
+.remove-player-btn:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .remove-player-btn:not(:disabled):hover {
+    color: var(--danger);
+    background: rgba(224, 85, 75, 0.12);
+  }
+}
+
+/* --- Panneau « Plateau & outils » (replié par défaut) --- */
+
+.tools-panel {
+  flex: 0 0 auto;
+  margin-top: var(--sp-4);
+  border-top: 1px solid var(--marble-500);
+}
+
+.tools-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: var(--touch-min);
+  padding: 0 var(--sp-1);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  list-style: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Masque le triangle natif (Safari a besoin du pseudo-élément dédié) */
+.tools-summary::-webkit-details-marker {
+  display: none;
+}
+
+.tools-summary-label {
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Le plateau courant, résumé à droite : on sait sur quoi on joue sans déplier */
+.tools-summary-value {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--gold-400);
+}
+
+.tools-chevron {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--gold-500);
+  border-bottom: 2px solid var(--gold-500);
+  transform: rotate(45deg) translate(-2px, -2px);
+  transition: transform var(--dur-fast) var(--ease);
+}
+
+.tools-panel[open] .tools-chevron {
+  transform: rotate(-135deg) translate(-2px, -2px);
+}
+
+.tools-body {
+  padding: var(--sp-2) var(--sp-1) var(--sp-1);
+}
+
+.tools-label {
+  display: block;
+  margin-bottom: var(--sp-2);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
 /* --- Action principale --- */
 
 .setup-panel .btn-primary {
@@ -369,67 +540,71 @@ body:has(.setup-screen[style*='none']) .editor-link {
     display: none;
   }
 
-  /* Empiler verticalement ne laisserait qu'un joueur visible : on passe en deux
-     colonnes — réglages à gauche, liste des joueurs à droite — et le bouton
-     principal reprend toute la largeur en bas. */
+  /* La hauteur est le bien rare : on met la liste des joueurs à gauche et la
+     colonne d'actions à droite, pour que « Jouer » reste visible sans défiler. */
   .setup-panel {
-    /* Pas de max-width fixe : l'écran fait souvent moins de 900px de large en
-       paysage, et le panneau déborderait sous les colonnes décoratives. */
+    /* Pas de max-width fixe : l'écran fait souvent moins de 900px de large */
     max-width: 100%;
-    padding: var(--sp-4);
+    padding: var(--sp-3) var(--sp-4);
     display: grid;
-    /* Colonne 1 : les réglages, empilés. Colonne 2 : la liste des joueurs,
-       qui s'étend sur toute la hauteur disponible entre le titre et le bouton. */
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
     grid-template-areas:
-      'title  title'
-      'form1  players'
-      'form2  players'
-      'action action';
-    grid-template-rows: auto auto minmax(0, 1fr) auto;
+      'title   title'
+      'players action'
+      'players tools';
+    grid-template-rows: auto minmax(0, 1fr) auto;
     column-gap: var(--sp-4);
     align-content: start;
   }
 
   .setup-panel h2 {
     grid-area: title;
-  }
-
-  .setup-panel .form-group:nth-of-type(1) {
-    grid-area: form1;
-  }
-
-  .setup-panel .form-group:nth-of-type(2) {
-    grid-area: form2;
-    align-self: start;
-  }
-
-  .player-inputs {
-    grid-area: players;
-    margin-bottom: 0;
-  }
-
-  .setup-panel .btn-primary {
-    grid-column: 1 / -1;
-    margin-top: var(--sp-3);
-  }
-
-  .setup-panel h2 {
     font-size: var(--fs-lg);
-    margin-bottom: var(--sp-1);
+    margin-bottom: var(--sp-2);
   }
 
+  /* Le laurier coûte une ligne entière de hauteur : on s'en passe ici */
   .setup-panel h2::after {
     display: none;
   }
 
-  .setup-panel .form-group {
-    margin-bottom: var(--sp-3);
+  .players-section {
+    grid-area: players;
+    margin-bottom: 0;
   }
 
+  /* Deux joueurs par ligne : on en voit 4 sans défiler. La pastille et la croix
+     se resserrent pour laisser la place au prénom, qui sinon serait tronqué. */
   .player-inputs {
     grid-template-columns: 1fr 1fr;
-    margin-bottom: var(--sp-3);
+  }
+
+  .player-input-item {
+    gap: var(--sp-1);
+    padding: var(--sp-1);
+  }
+
+  .player-input-item input[type='text'] {
+    padding: 0 var(--sp-2);
+  }
+
+  /* On reste au-dessus de 44px : c'est la taille minimale utilisable au doigt.
+     La place se gagne sur les marges, jamais sur les cibles tactiles. */
+  .player-input-item input.color-picker,
+  .remove-player-btn {
+    width: 44px;
+    height: 44px;
+  }
+
+  .setup-panel .btn-primary {
+    grid-area: action;
+    align-self: center;
+  }
+
+  .tools-panel {
+    grid-area: tools;
+    margin-top: var(--sp-2);
+    align-self: end;
   }
 }
 
