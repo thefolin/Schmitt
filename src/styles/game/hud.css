@@ -15,7 +15,7 @@
 
 .turn-banner {
   position: absolute;
-  top: max(var(--sp-3), env(safe-area-inset-top));
+  top: calc(var(--sp-3) + env(safe-area-inset-top, 0px));
   left: 50%;
   transform: translateX(-50%);
   z-index: 250;
@@ -75,7 +75,10 @@
 .action-bar {
   position: absolute;
   left: 50%;
-  bottom: max(var(--sp-4), env(safe-area-inset-bottom));
+  /* La barre de navigation gestuelle d'Android mord sur le bas de l'écran :
+     on additionne la safe-area et une marge propre, au lieu de prendre le
+     maximum des deux, sinon le bouton se retrouve dessous. */
+  bottom: calc(var(--sp-4) + env(safe-area-inset-bottom, 0px));
   transform: translateX(-50%);
   z-index: 250;
 
@@ -362,9 +365,51 @@
    Adaptations
    ================================ */
 
-/* Paysage : la hauteur manque, on compacte le bandeau et la barre */
-@media (max-height: 480px) and (orientation: landscape) {
+/**
+ * Paysage téléphone — le mode de jeu principal.
+ *
+ * La hauteur est le bien rare et la largeur abondante : les commandes passent
+ * en colonne sur le bord droit, là où tombe le pouce quand on tient l'appareil
+ * à deux mains. Le plateau garde ainsi toute la hauteur, au lieu d'avoir sa
+ * dernière rangée de cases recouverte par une barre horizontale.
+ */
+@media (max-height: 520px) and (orientation: landscape) {
+  .action-bar {
+    left: auto;
+    right: calc(var(--sp-3) + env(safe-area-inset-right, 0px));
+    bottom: auto;
+    top: 50%;
+    transform: translateY(-50%);
+
+    flex-direction: column;
+    align-items: stretch;
+    width: auto;
+    max-width: 40vw;
+  }
+
+  /* Le bouton passe en bloc : icône au-dessus du libellé, pour rester large
+     sans empiéter sur le plateau. */
+  .roll-btn {
+    flex-direction: column;
+    gap: var(--sp-1);
+    min-height: 0;
+    padding: var(--sp-3) var(--sp-4);
+    border-radius: var(--radius-lg);
+    line-height: 1.1;
+  }
+
+  .roll-btn-icon {
+    font-size: 1.6em;
+  }
+
+  .more-btn {
+    align-self: center;
+  }
+
+  /* Le bandeau se décale à gauche pour ne pas chevaucher la colonne */
   .turn-banner {
+    left: calc(var(--sp-3) + env(safe-area-inset-left, 0px));
+    transform: none;
     padding: var(--sp-1) var(--sp-3);
   }
 
@@ -372,8 +417,33 @@
     display: none;
   }
 
+  /* Tiroir sur deux colonnes : en paysage la hauteur ne suffit pas pour tout
+     empiler, et il faudrait faire défiler pour atteindre les dernières
+     actions. */
   .action-drawer {
-    max-height: 92vh;
+    max-height: 92dvh;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: var(--sp-4);
+    align-content: start;
+  }
+
+  .drawer-handle {
+    grid-column: 1 / -1;
+    margin-bottom: var(--sp-2);
+  }
+
+  .drawer-section {
+    margin-bottom: var(--sp-3);
+  }
+
+  /* L'historique, plus long, prend toute la largeur */
+  .drawer-history {
+    grid-column: 1 / -1;
+  }
+
+  .history-list {
+    max-height: 30dvh;
   }
 }
 

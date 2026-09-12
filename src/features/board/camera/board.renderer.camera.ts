@@ -674,11 +674,16 @@ export class BoardCameraRenderer {
     const tableHeight = this.tableBounds.maxY - this.tableBounds.minY;
     if (tableWidth <= 0 || tableHeight <= 0) return;
 
-    // Le bandeau en haut et la barre d'action en bas mordent sur la vue :
-    // on cadre la table dans la bande qui reste réellement libre.
+    // Le HUD mord sur la vue, mais pas du même côté selon l'orientation :
+    // en paysage téléphone les commandes sont en colonne à droite, ailleurs
+    // c'est une barre en bas. On cadre la table dans ce qui reste libre.
+    const isPhoneLandscape = rect.height <= 520 && rect.width > rect.height;
+
     const topInset = rect.height * 0.10;
-    const bottomInset = rect.height * 0.14;
-    const usableWidth = rect.width * 0.92;
+    const bottomInset = isPhoneLandscape ? rect.height * 0.04 : rect.height * 0.14;
+    const rightInset = isPhoneLandscape ? rect.width * 0.24 : 0;
+
+    const usableWidth = rect.width * 0.92 - rightInset;
     const usableHeight = rect.height - topInset - bottomInset;
 
     // Plancher bas : sur un iPhone SE (320px) la table fait 1209 unités de
@@ -690,13 +695,14 @@ export class BoardCameraRenderer {
     const zoom = Math.max(0.12, Math.min(2.5, rawZoom));
     this.camera.setZoom(zoom);
 
-    // centerOn vise le centre de l'écran ; le milieu de la bande laissée libre
-    // par le bandeau et la barre d'action est plus bas, d'où la correction.
-    const bandShift = (bottomInset - topInset) / (2 * zoom);
+    // centerOn vise le centre de l'écran ; le milieu de la zone laissée libre
+    // par le HUD est décalé, d'où ces deux corrections.
+    const bandShiftY = (bottomInset - topInset) / (2 * zoom);
+    const bandShiftX = rightInset / (2 * zoom);
 
     this.camera.centerOn(
-      this.tableBounds.minX + tableWidth / 2,
-      this.tableBounds.minY + tableHeight / 2 - bandShift,
+      this.tableBounds.minX + tableWidth / 2 + bandShiftX,
+      this.tableBounds.minY + tableHeight / 2 - bandShiftY,
       animate
     );
   }

@@ -10,6 +10,7 @@ body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -20,6 +21,7 @@ body {
   width: 100%;
   max-width: 1400px;
   height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   padding: 20px;

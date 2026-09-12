@@ -468,7 +468,10 @@
   top: 0;
   left: 0;
   width: 100vw;
+  /* dvh et non vh : sur Android, 100vh inclut la zone masquée par la barre
+     d'URL, ce qui poussait la barre d'action hors de l'écran. */
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
 }
 
