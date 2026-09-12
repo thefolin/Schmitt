@@ -21,6 +21,8 @@ import '../styles/camera/board-camera.css';
 import '../styles/game/player-selector.css';
 import '../styles/game/manual-movement.css';
 import '../styles/game/hud.css';
+// Chargée en dernier : réaligne les modales et panneaux hérités sur les tokens
+import '../styles/common/surfaces.css';
 
 interface SavedLayout {
   name: string;

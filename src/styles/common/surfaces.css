@@ -1,0 +1,342 @@
+/**
+ * Surfaces communes — modales, panneaux, notifications.
+ *
+ * Ces écrans ont été écrits avant le design system, chacun avec sa propre
+ * palette (blanc, gris Bootstrap, bleus et rouges arbitraires). Cette feuille
+ * les réaligne sur les tokens sans réécrire chaque fichier d'origine : elle est
+ * chargée en dernier et ne redéfinit que ce qui porte une couleur ou une forme.
+ *
+ * Règle : aucune valeur de couleur en dur ici non plus — tout vient des tokens.
+ */
+
+/* ============================================================
+   Voiles de fond
+   ============================================================ */
+
+.modal,
+.player-modal,
+.victory-screen,
+.manual-movement-panel,
+.player-selector-modal {
+  background: rgba(5, 8, 15, 0.72);
+  backdrop-filter: blur(3px);
+}
+
+/* ============================================================
+   Panneaux : le socle commun de toutes les boîtes
+   ============================================================ */
+
+.modal-content,
+.player-modal-content,
+.victory-content,
+.manual-movement-content,
+.player-selector-content {
+  /* Repère pour la croix de fermeture, positionnée en absolu dans le coin */
+  position: relative;
+  font-family: var(--font-body);
+  color: var(--text-base);
+
+  background:
+    radial-gradient(120% 80% at 12% 0%, rgba(227, 193, 105, 0.1) 0%, transparent 55%),
+    var(--grad-marble);
+  border: 1px solid var(--marble-500);
+  box-shadow: var(--shadow-panel), var(--shadow-inset);
+}
+
+/* Les panneaux centrés sont des cartes ; ceux qui montent du bas gardent
+   leurs coins hauts arrondis et s'appuient sur le bord de l'écran. */
+.modal-content,
+.victory-content,
+.player-selector-content {
+  border-radius: var(--radius-lg);
+  padding: var(--sp-5);
+}
+
+.player-modal-content,
+.manual-movement-content {
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  border-bottom: none;
+  padding: var(--sp-4) var(--sp-4) max(var(--sp-5), env(safe-area-inset-bottom, 0px));
+}
+
+/* ============================================================
+   Titres et textes
+   ============================================================ */
+
+.modal-content h2,
+.victory-content h1,
+.manual-movement-title,
+.player-selector-title,
+.modal-header h3 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text-strong);
+  /* Annule le dégradé doré découpé dans le texte, illisible sur fond sombre */
+  background: none;
+  -webkit-text-fill-color: currentColor;
+}
+
+.modal-content h2,
+.manual-movement-title {
+  font-size: var(--fs-xl);
+  text-align: center;
+  /* Marge pour la croix de fermeture, en absolu dans le coin */
+  padding: 0 var(--touch-min);
+}
+
+.victory-content h1 {
+  font-size: var(--fs-2xl);
+}
+
+.modal-content p,
+.manual-movement-subtitle,
+.step-title,
+.player-selector-subtitle,
+.modal-body {
+  color: var(--text-base);
+}
+
+.step-title,
+.manual-movement-subtitle {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.player-selection-name,
+.player-movement-name,
+.player-selector-name {
+  color: var(--text-strong);
+}
+
+.player-selection-info,
+.player-movement-info,
+.player-selector-stats {
+  color: var(--text-muted);
+}
+
+.selected-player-name {
+  font-family: var(--font-display);
+  color: var(--gold-300);
+}
+
+/* ============================================================
+   Boutons de fermeture
+   ============================================================ */
+
+.close-modal,
+.close-modal-btn,
+.close-manual-movement,
+.close-player-selector {
+  position: absolute;
+  top: var(--sp-2);
+  right: var(--sp-2);
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--touch-min);
+  height: var(--touch-min);
+
+  font-size: var(--fs-lg);
+  line-height: 1;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .close-modal:hover,
+  .close-modal-btn:hover,
+  .close-manual-movement:hover,
+  .close-player-selector:hover {
+    color: var(--danger);
+    background: rgba(224, 85, 75, 0.12);
+    /* La rotation d'origine faisait tourner la croix : trop bavard ici */
+    transform: none;
+  }
+}
+
+/* ============================================================
+   Boutons d'action
+   ============================================================ */
+
+.modal-actions,
+.panel-actions {
+  display: flex;
+  gap: var(--sp-2);
+  margin-top: var(--sp-4);
+}
+
+.modal-actions .btn,
+.panel-actions .btn {
+  flex: 1;
+  min-height: var(--touch-min);
+  font-family: var(--font-display);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Action principale : dorée, comme « Jouer » et « Lancer le dé » */
+.modal-actions .btn-primary,
+.panel-actions .btn-primary {
+  color: var(--text-on-gold);
+  background: var(--grad-gold);
+  border: 1px solid var(--gold-700);
+  box-shadow: var(--shadow-gold), var(--shadow-inset);
+}
+
+.panel-actions .btn-secondary,
+.modal-actions .btn-secondary {
+  color: var(--text-base);
+  background: var(--marble-700);
+  border: 1px solid var(--marble-500);
+  box-shadow: none;
+}
+
+.modal-actions .btn:disabled,
+.panel-actions .btn:disabled {
+  /* background explicite : les feuilles d'origine imposaient un gris opaque */
+  color: var(--text-muted);
+  background: var(--marble-700);
+  border-color: var(--marble-500);
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* ============================================================
+   Éléments de choix (joueurs, directions, pas)
+   ============================================================ */
+
+/* La bordure de ces cartes porte la couleur du joueur (posée en JS) :
+   on ne redéfinit que le fond et le texte, jamais border-color. */
+.player-selection-card,
+.player-movement-card,
+.player-selection-item,
+.player-movement-item,
+.direction-btn,
+.stepper-btn,
+.player-selector-card,
+.stat-item {
+  color: var(--text-base);
+  background: var(--marble-700);
+  border-radius: var(--radius-md);
+}
+
+.direction-btn,
+.stepper-btn,
+.player-selector-card,
+.stat-item,
+.player-selection-item,
+.player-movement-item {
+  border: 1px solid var(--marble-500);
+}
+
+.direction-btn,
+.stepper-btn {
+  min-width: var(--touch-min);
+  min-height: var(--touch-min);
+  font-size: var(--fs-md);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Sélection : liseré doré plutôt qu'un aplat de couleur, pour rester lisible */
+.player-selection-card.selected,
+.player-selection-item.selected,
+.player-selector-card.selected,
+.direction-btn.active,
+.direction-btn.selected {
+  color: var(--gold-100);
+  background: rgba(227, 193, 105, 0.14);
+  border-color: var(--gold-400);
+  box-shadow: 0 0 0 1px var(--gold-400) inset;
+}
+
+.position-input,
+.number-stepper input,
+.manual-movement-content input[type='number'] {
+  min-height: var(--touch-min);
+  font-size: var(--fs-md);
+  color: var(--text-base);
+  text-align: center;
+  background: var(--marble-800);
+  border: 1px solid var(--marble-500);
+  border-radius: var(--radius-md);
+}
+
+/* ============================================================
+   Notification
+   ============================================================ */
+
+.notification {
+  font-family: var(--font-body);
+  font-size: var(--fs-md);
+  color: var(--text-strong);
+  background: rgba(19, 26, 43, 0.96);
+  border: 1px solid var(--gold-700);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-panel);
+  /* Le dégradé doré d'origine rendait le texte illisible */
+  -webkit-text-fill-color: currentColor;
+}
+
+/* ============================================================
+   Statistiques de victoire
+   ============================================================ */
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--sp-2);
+}
+
+.stat-item {
+  padding: var(--sp-3);
+  text-align: center;
+}
+
+.stat-label {
+  display: block;
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.stat-value {
+  display: block;
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  color: var(--gold-300);
+}
+
+.winner-name {
+  font-family: var(--font-display);
+  font-size: var(--fs-xl);
+  color: var(--gold-300);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .close-modal,
+  .close-modal-btn,
+  .close-manual-movement {
+    transition: none;
+  }
+}
