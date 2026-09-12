@@ -427,6 +427,53 @@ class BoardEditor {
     this.hidePlacementGhost();
   }
 
+  /**
+   * Déplace une case posée au doigt.
+   *
+   * On suit le pointeur jusqu'au relâchement, en gardant le décalage entre le
+   * point touché et le coin de la case pour qu'elle ne saute pas sous le doigt.
+   */
+  private startTouchDrag(e: PointerEvent, tile: PlacedTile, el: HTMLElement): void {
+    e.preventDefault();
+    el.setPointerCapture(e.pointerId);
+    el.classList.add('dragging');
+
+    const rect = this.fineGrid.getBoundingClientRect();
+    const grabOffsetX = (e.clientX - rect.left) / this.state.zoom - tile.x;
+    const grabOffsetY = (e.clientY - rect.top) / this.state.zoom - tile.y;
+
+    const onMove = (ev: PointerEvent) => {
+      const gridRect = this.fineGrid.getBoundingClientRect();
+      let x = (ev.clientX - gridRect.left) / this.state.zoom - grabOffsetX;
+      let y = (ev.clientY - gridRect.top) / this.state.zoom - grabOffsetY;
+
+      x = Math.round(x / this.state.snapSize) * this.state.snapSize;
+      y = Math.round(y / this.state.snapSize) * this.state.snapSize;
+
+      x = Math.max(0, Math.min(x, this.state.gridCols * 20 - tile.width));
+      y = Math.max(0, Math.min(y, this.state.gridRows * 20 - tile.height));
+
+      // Déplacement visuel immédiat, sans reconstruire toute la grille
+      el.style.left = `${x}px`;
+      el.style.top = `${y}px`;
+      tile.x = x;
+      tile.y = y;
+    };
+
+    const onEnd = () => {
+      el.classList.remove('dragging');
+      el.releasePointerCapture(e.pointerId);
+      el.removeEventListener('pointermove', onMove);
+      el.removeEventListener('pointerup', onEnd);
+      el.removeEventListener('pointercancel', onEnd);
+      this.renderPlacedTiles();
+    };
+
+    el.addEventListener('pointermove', onMove);
+    el.addEventListener('pointerup', onEnd);
+    el.addEventListener('pointercancel', onEnd);
+  }
+
   /** Ouvre le tiroir demandé, en refermant l'autre. */
   private toggleMobilePanel(panelId: string): void {
     const panel = document.getElementById(panelId);
@@ -604,11 +651,11 @@ class BoardEditor {
       const displayId = isGodPower ? godPower!.name : `#${tile.tileId}`;
       const displayImage = isGodPower ? godPower!.image : tileConfig!.image;
 
+      // Rotation désactivée : les images des cases sont déjà dans le bon sens,
+      // et les boutons encombraient la case au doigt. Le champ `rotation` est
+      // conservé dans le modèle et l'export pour ne pas casser les layouts
+      // existants ; il vaut toujours 0.
       el.innerHTML = `
-        <div class="tile-controls">
-          <button class="tile-control-btn" data-action="rotate-left" title="Rotation gauche">↺</button>
-          <button class="tile-control-btn" data-action="rotate-right" title="Rotation droite">↻</button>
-        </div>
         ${displayImage
           ? `<img src="${displayImage}" alt="${displayName}" onerror="this.style.display='none'">`
           : `<span style="font-size: ${Math.min(tile.width, tile.height) * 0.4}px">${displayIcon}</span>`
@@ -638,18 +685,12 @@ class BoardEditor {
 
       el.addEventListener('dragend', () => this.onDragEnd());
 
-      // Boutons de rotation
-      el.querySelectorAll('.tile-control-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const action = (btn as HTMLElement).dataset.action;
-          if (action === 'rotate-left') {
-            tile.rotation = (tile.rotation - 90 + 360) % 360;
-          } else if (action === 'rotate-right') {
-            tile.rotation = (tile.rotation + 90) % 360;
-          }
-          this.renderPlacedTiles();
-        });
+      // Déplacement au doigt : dragstart ne se déclenche pas au toucher, une
+      // case posée était donc impossible à bouger sur mobile.
+      el.addEventListener('pointerdown', (e) => {
+        if (e.pointerType === 'mouse') return; // la souris garde le drag & drop
+        if ((e.target as HTMLElement).closest('.remove-btn, .resize-handle')) return;
+        this.startTouchDrag(e, tile, el);
       });
 
       // Poignées de redimensionnement

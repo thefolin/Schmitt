@@ -191,6 +191,25 @@ body {
   box-shadow: 0 0 0 1px var(--gold-400) inset, var(--shadow-gold);
 }
 
+/* ---- Cases posées ---- */
+
+/* touch-action: none : sans lui, le navigateur intercepte le glissement pour
+   faire défiler la page et la case ne bouge pas. */
+.placed-tile {
+  touch-action: none;
+}
+
+.placed-tile.dragging {
+  opacity: 0.75;
+  z-index: 10;
+}
+
+/* Les boutons de rotation sont retirés ; la règle reste au cas où un ancien
+   rendu en produirait encore. */
+.tile-controls {
+  display: none;
+}
+
 /* ---- Grille ---- */
 
 .grid-container {
@@ -224,7 +243,8 @@ body {
    ============================================================ */
 
 .editor-mobile-bar,
-.editor-drawer-backdrop {
+.editor-drawer-backdrop,
+.game-link-mobile {
   display: none;
 }
 
@@ -342,6 +362,19 @@ body {
     padding: var(--sp-2);
   }
 
+  /* Les poignées de redimensionnement sont conçues pour la souris : au doigt
+     elles sont trop petites et gênent le déplacement. */
+  .resize-handle {
+    display: none;
+  }
+
+  /* Le bouton de suppression doit rester atteignable */
+  .placed-tile .remove-btn {
+    width: 32px;
+    height: 32px;
+    font-size: var(--fs-md);
+  }
+
   /* Les options d'accrochage tombaient à 31px : intapables au doigt */
   .snap-options {
     display: grid;
@@ -394,14 +427,28 @@ body {
   }
 
   /* Le lien « Retour au jeu » ne doit pas recouvrir la barre d'outils */
-  /* Ancré en haut : en bas il recouvrait la barre d'info et la barre mobile */
+  /* En haut il recouvrait la barre d'outils, en bas la barre mobile : il prend
+     donc sa place dans le tiroir des réglages, hors de la zone de travail. */
   .game-link {
-    top: calc(var(--sp-2) + env(safe-area-inset-top, 0px));
-    bottom: auto;
-    right: var(--sp-2);
-    z-index: 900;
-    padding: var(--sp-2) var(--sp-3);
-    font-size: var(--fs-xs);
+    display: none;
+  }
+
+  #configPanel .panel-content .game-link-mobile {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-2);
+    width: 100%;
+    min-height: var(--touch-min);
+    margin-top: var(--sp-4);
+    font-family: var(--font-body);
+    font-size: var(--fs-md);
+    font-weight: 600;
+    color: var(--gold-300);
+    text-decoration: none;
+    background: var(--marble-700);
+    border: 1px solid var(--marble-500);
+    border-radius: var(--radius-md);
   }
 
   .info-bar {
