@@ -448,6 +448,23 @@ export class BoardCameraRenderer {
   }
 
   /**
+   * Renvoie le tileId de la case occupant une position du parcours.
+   *
+   * L'effet appliqué doit venir de la case réellement posée, pas de l'index du
+   * pion : sur un plateau personnalisé les deux diffèrent, et même sur le
+   * plateau officiel un tileId manquant les décalait.
+   */
+  public getTileIdAtPosition(position: number): number | null {
+    const placement = this.boardLayout.placements[position];
+    return placement ? placement.tileId : null;
+  }
+
+  /** Nombre de cases du parcours, dernière position jouable incluse. */
+  public getTileCount(): number {
+    return this.boardLayout.placements.length;
+  }
+
+  /**
    * Obtient la configuration de la table
    */
   public getTableConfig(): TableConfig | null {

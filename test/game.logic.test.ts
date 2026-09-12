@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { GameLogic } from '@/features/game/game.logic';
+import { GameLogic, DEFAULT_LAST_POSITION } from '@/features/game/game.logic';
 
 const players = [
   { name: 'Alice', color: '#f00' },
@@ -84,12 +84,15 @@ describe('GameLogic.movePlayer', () => {
     expect(game.getPlayerByIndex(0)?.position).toBe(5);
   });
 
-  it('plafonne la position à 23 (case FINISH), même en cas de très gros saut', () => {
+  it('plafonne la position à la dernière case, même en cas de très gros saut', () => {
     const game = new GameLogic();
     game.startGame(players);
 
     game.movePlayer(0, 100);
-    expect(game.getPlayerByIndex(0)?.position).toBe(23);
+    // DEFAULT_LAST_POSITION : dernière case du plateau officiel (0 à 22).
+    // Auparavant le plafond était 23, une position au-delà du plateau réel,
+    // ce qui rendait la victoire inatteignable.
+    expect(game.getPlayerByIndex(0)?.position).toBe(DEFAULT_LAST_POSITION);
   });
 
   it('ne fait rien et retourne 0 pour un index de joueur invalide', () => {
@@ -197,7 +200,7 @@ describe('GameLogic.setPlayerPosition (pouvoir Hermès)', () => {
     expect(game.getPlayerByIndex(0)?.position).toBe(10);
   });
 
-  it('clamp la position entre 0 et 23', () => {
+  it('clamp la position entre 0 et la dernière case', () => {
     const game = new GameLogic();
     game.startGame(players);
 
@@ -205,23 +208,23 @@ describe('GameLogic.setPlayerPosition (pouvoir Hermès)', () => {
     expect(game.getPlayerByIndex(0)?.position).toBe(0);
 
     game.setPlayerPosition(0, 999);
-    expect(game.getPlayerByIndex(0)?.position).toBe(23);
+    expect(game.getPlayerByIndex(0)?.position).toBe(DEFAULT_LAST_POSITION);
   });
 });
 
 describe('GameLogic.checkVictory', () => {
-  it('ne détecte pas de gagnant tant que personne n\'a atteint la case 23', () => {
+  it('ne détecte pas de gagnant avant la dernière case', () => {
     const game = new GameLogic();
     game.startGame(players);
-    game.movePlayer(0, 22);
+    game.movePlayer(0, DEFAULT_LAST_POSITION - 1);
 
     expect(game.checkVictory()).toBeNull();
   });
 
-  it('détecte le premier joueur ayant atteint ou dépassé la case 23', () => {
+  it('détecte le premier joueur ayant atteint la dernière case', () => {
     const game = new GameLogic();
     game.startGame(players);
-    game.movePlayer(1, 23);
+    game.movePlayer(1, DEFAULT_LAST_POSITION);
 
     const winner = game.checkVictory();
     expect(winner?.name).toBe('Bob');

@@ -648,8 +648,15 @@ class BoardEditor {
       // Contenu selon le type
       const displayName = isGodPower ? godPower!.name : tileConfig!.name;
       const displayIcon = isGodPower ? godPower!.icon : tileConfig!.icon;
-      const displayId = isGodPower ? godPower!.name : `#${tile.tileId}`;
       const displayImage = isGodPower ? godPower!.image : tileConfig!.image;
+
+      // Rang dans le parcours : c'est lui qui détermine l'ordre de jeu, pas le
+      // tileId. Sans ce numéro, l'ordre du chemin est invisible pendant la
+      // construction. Les pouvoirs des dieux ne font pas partie du parcours.
+      const pathIndex = isGodPower
+        ? null
+        : this.state.placedTiles.filter((t) => t.tileId < 100).indexOf(tile);
+      const displayId = isGodPower ? godPower!.name : `${pathIndex}`;
 
       // Rotation désactivée : les images des cases sont déjà dans le bon sens,
       // et les boutons encombraient la case au doigt. Le champ `rotation` est

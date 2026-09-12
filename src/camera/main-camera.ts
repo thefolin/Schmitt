@@ -542,6 +542,10 @@ class SchmittOdysseeCamera {
       this.boardRenderer.setLayout(this.selectedLayout);
     }
 
+    // La logique doit connaître la taille du plateau chargé : un plateau
+    // composé par un joueur n'a pas forcément 23 cases.
+    this.gameLogic.setBoardSize(this.boardRenderer.getTileCount());
+
     this.gameLogic.startGame(players);
     this.gameRenderer.hideSetupScreen();
     this.updateUI();
@@ -765,7 +769,13 @@ class SchmittOdysseeCamera {
     const currentPlayer = this.gameLogic.getCurrentPlayer();
     if (!currentPlayer) return;
 
-    const tile = TILE_CONFIGS[position];
+    // L'effet vient de la case réellement posée à cette position, et non de
+    // l'index du pion : c'est ce qui permet à un joueur de composer son propre
+    // plateau. Sur le plateau officiel, dont les cases sont posées dans
+    // l'ordre, le résultat est identique — sauf là où un tileId manquant
+    // décalait l'effet par rapport à l'image affichée.
+    const tileId = this.boardRenderer.getTileIdAtPosition(position);
+    const tile = tileId !== null ? TILE_CONFIGS[tileId] : undefined;
     if (!tile) return;
 
     this.gameRenderer.showEffectModal(tile.icon, tile.name, tile.description || '');

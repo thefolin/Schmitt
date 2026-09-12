@@ -5,12 +5,35 @@ import type { Player } from '@/core/models/Player';
  * Pas de DOM, pas de Canvas, pas de UI
  * Seulement l'état et les règles du jeu
  */
+/**
+ * Dernière position du plateau officiel (23 cases, de 0 à 22).
+ * Sert de repli tant qu'aucun plateau n'a été chargé.
+ */
+export const DEFAULT_LAST_POSITION = 22;
+
 export class GameLogic {
   private players: Player[] = [];
+  /**
+   * Dernière case du plateau chargé : un plateau composé par un joueur peut
+   * en compter plus ou moins que le plateau officiel.
+   */
+  private lastPosition: number = DEFAULT_LAST_POSITION;
   private currentPlayerIndex: number = 0;
   private gameStarted: boolean = false;
   private history: string[] = [];
   private lastDiceRoll: number = 0;
+
+  /**
+   * Définit la taille du plateau en cours (nombre de cases du parcours).
+   * À appeler avant startGame() quand un layout personnalisé est chargé.
+   */
+  public setBoardSize(tileCount: number): void {
+    this.lastPosition = Math.max(1, tileCount - 1);
+  }
+
+  public getLastPosition(): number {
+    return this.lastPosition;
+  }
 
   /**
    * Initialise une nouvelle partie
@@ -57,7 +80,7 @@ export class GameLogic {
     if (!player) return 0;
 
     const newPosition = player.position + steps;
-    player.position = Math.min(newPosition, 23); // Max 23 cases
+    player.position = Math.min(newPosition, this.lastPosition);
 
     return player.position;
   }
@@ -111,7 +134,7 @@ export class GameLogic {
   public setPlayerPosition(playerIndex: number, position: number): void {
     const player = this.players[playerIndex];
     if (player) {
-      player.position = Math.max(0, Math.min(position, 23));
+      player.position = Math.max(0, Math.min(position, this.lastPosition));
     }
   }
 
@@ -119,7 +142,7 @@ export class GameLogic {
    * Vérifie si un joueur a gagné
    */
   public checkVictory(): Player | null {
-    const winner = this.players.find(p => p.position >= 23);
+    const winner = this.players.find(p => p.position >= this.lastPosition);
     return winner || null;
   }
 
