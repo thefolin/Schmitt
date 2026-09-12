@@ -1,0 +1,418 @@
+/**
+ * Éditeur de plateau — thème et adaptation mobile.
+ *
+ * L'éditeur était pensé pour le bureau : trois colonnes fixes, drag & drop
+ * HTML5 (inopérant au doigt), aucune media query. Cette feuille le réaligne
+ * sur le design system et le rend utilisable sur téléphone :
+ *   - la grille passe en plein écran
+ *   - la palette et la configuration deviennent des tiroirs
+ *   - le placement se fait en choisissant une case puis en tapant la grille
+ *
+ * Chargée après le <style> du document, elle n'en redéfinit que le nécessaire.
+ */
+
+body {
+  font-family: var(--font-body);
+  background: var(--marble-900);
+  color: var(--text-base);
+}
+
+.side-panel,
+.editor-toolbar,
+.info-bar,
+.modal-content {
+  background:
+    radial-gradient(120% 80% at 12% 0%, rgba(227, 193, 105, 0.08) 0%, transparent 55%),
+    var(--grad-marble);
+  border-color: var(--marble-500);
+  color: var(--text-base);
+}
+
+.panel-header {
+  border-bottom: 1px solid var(--marble-500);
+}
+
+.panel-header h3,
+.section-title,
+.config-section h4,
+.saved-layouts h4,
+.modal-content h3 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text-strong);
+}
+
+.toolbar-label,
+.config-group label,
+.info-bar {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+/* ---- Boutons ---- */
+
+.editor-toolbar button,
+.modal-actions button,
+.pin-btn,
+.snap-option {
+  font-family: var(--font-body);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-base);
+  background: var(--marble-700);
+  border: 1px solid var(--marble-500);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: background var(--dur-fast) var(--ease);
+}
+
+/* Les actions engageantes gardent leur sens : or pour valider, rouge pour
+   détruire — mais dans la palette du design system. */
+.editor-toolbar .btn-success,
+.modal-actions .btn-success {
+  color: var(--text-on-gold);
+  background: var(--grad-gold);
+  border-color: var(--gold-700);
+}
+
+.editor-toolbar .btn-danger {
+  color: var(--danger);
+  border-color: rgba(224, 85, 75, 0.4);
+}
+
+.snap-option.active,
+.pin-btn.pinned {
+  color: var(--gold-100);
+  background: rgba(227, 193, 105, 0.16);
+  border-color: var(--gold-400);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .editor-toolbar button:hover,
+  .snap-option:hover,
+  .pin-btn:hover {
+    background: var(--marble-600);
+  }
+}
+
+/* ---- Champs ---- */
+
+.editor-toolbar input,
+.config-group input,
+.modal-content input {
+  min-height: var(--touch-min);
+  padding: 0 var(--sp-3);
+  font-family: var(--font-body);
+  /* 16px minimum : en dessous, iOS zoome au focus */
+  font-size: var(--fs-md);
+  color: var(--text-base);
+  background: var(--marble-800);
+  border: 1px solid var(--marble-500);
+  border-radius: var(--radius-md);
+}
+
+/* Les champs de la barre d'outils tenaient sur 2 chiffres ("3 x 4" au lieu de
+   "30 x 45") : le padding du design system avait mangé la place. */
+.editor-toolbar input {
+  width: 72px;
+  text-align: center;
+}
+
+/* La barre d'outils défile plutôt que de passer sur deux lignes.
+   min-width: 0 est indispensable : sans lui, une barre non repliable pousse
+   la colonne centrale au-delà de l'écran et le panneau de configuration
+   sort du cadre. */
+.editor-main {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.editor-toolbar {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--sp-2);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.editor-toolbar::-webkit-scrollbar {
+  display: none;
+}
+
+.editor-toolbar > * {
+  flex: 0 0 auto;
+}
+
+/* Le lien de retour recouvrait le titre du panneau de configuration */
+.game-link {
+  top: var(--sp-2);
+  right: var(--sp-2);
+}
+
+.config-panel .panel-header {
+  padding-right: 150px;
+}
+
+.editor-toolbar input:focus,
+.config-group input:focus,
+.modal-content input:focus {
+  outline: none;
+  border-color: var(--gold-400);
+  box-shadow: 0 0 0 3px rgba(227, 193, 105, 0.2);
+}
+
+/* ---- Palette de cases ---- */
+
+.tile-item {
+  color: var(--text-base);
+  background: var(--marble-700);
+  border: 1px solid var(--marble-500);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tile-name {
+  color: var(--text-strong);
+}
+
+.tile-id {
+  color: var(--text-muted);
+}
+
+/* Case choisie, en attente d'être posée : liseré doré franc */
+.tile-item.armed {
+  background: rgba(227, 193, 105, 0.16);
+  border-color: var(--gold-400);
+  box-shadow: 0 0 0 1px var(--gold-400) inset, var(--shadow-gold);
+}
+
+/* ---- Grille ---- */
+
+.grid-container {
+  background: var(--marble-900);
+}
+
+/* Pendant un placement, le curseur annonce l'action */
+.grid-container.is-placing {
+  cursor: copy;
+}
+
+.armed-hint {
+  color: var(--gold-300);
+  font-weight: 600;
+}
+
+/* ---- Lien de retour ---- */
+
+.game-link {
+  font-family: var(--font-body);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--gold-300);
+  background: var(--marble-700);
+  border: 1px solid var(--marble-500);
+  border-radius: var(--radius-md);
+}
+
+/* ============================================================
+   Barre mobile et tiroirs — masqués sur grand écran
+   ============================================================ */
+
+.editor-mobile-bar,
+.editor-drawer-backdrop {
+  display: none;
+}
+
+/* [hidden] doit primer sur tout display posé par les règles ci-dessus */
+[hidden] {
+  display: none !important;
+}
+
+/* ============================================================
+   Mobile et tablette : grille plein écran, panneaux en tiroirs
+   ============================================================ */
+
+@media (max-width: 1024px) {
+  .editor-container {
+    display: block;
+    height: 100dvh;
+  }
+
+  .editor-main {
+    width: 100%;
+    height: 100dvh;
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Barre d'outils : défilement horizontal plutôt que retour à la ligne */
+  .editor-toolbar {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: var(--sp-2);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: var(--sp-2);
+    scrollbar-width: none;
+  }
+
+  .editor-toolbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .editor-toolbar button,
+  .editor-toolbar input {
+    flex: 0 0 auto;
+    min-height: var(--touch-min);
+  }
+
+  .editor-toolbar input {
+    width: 72px;
+  }
+
+  /* Les deux panneaux deviennent des tiroirs qui montent du bas */
+  .side-panel {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1200;
+
+    width: 100%;
+    max-height: 70dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    border: 1px solid var(--marble-500);
+    border-bottom: none;
+    box-shadow: var(--shadow-panel);
+    padding-bottom: max(var(--sp-4), env(safe-area-inset-bottom, 0px));
+
+    transform: translateY(100%);
+    transition: transform var(--dur-base) var(--ease);
+  }
+
+  .side-panel.is-open {
+    transform: translateY(0);
+  }
+
+  /* L'épinglage n'a pas de sens quand le panneau est un tiroir */
+  .pin-btn {
+    display: none;
+  }
+
+  .panel-header {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--marble-800);
+  }
+
+  /* Palette : deux colonnes, cibles confortables */
+  .section-list {
+    display: grid;
+    /* minmax(0,1fr) : sans lui les noms longs élargissent la colonne et la
+       palette déborde de l'écran. */
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--sp-2);
+  }
+
+  .panel-content,
+  .tiles-section {
+    padding: var(--sp-3);
+  }
+
+  .tile-info {
+    min-width: 0;
+  }
+
+  .tile-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .tile-item {
+    min-height: var(--touch-comfy);
+    padding: var(--sp-2);
+  }
+
+  /* Les options d'accrochage tombaient à 31px : intapables au doigt */
+  .snap-options {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--sp-2);
+  }
+
+  .snap-option {
+    min-height: var(--touch-min);
+  }
+
+  .editor-drawer-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 1100;
+    background: rgba(5, 8, 15, 0.6);
+  }
+
+  /* Barre d'accès aux tiroirs, ancrée en bas */
+  .editor-mobile-bar {
+    display: flex;
+    gap: var(--sp-2);
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1000;
+
+    padding: var(--sp-2);
+    padding-bottom: calc(var(--sp-2) + env(safe-area-inset-bottom, 0px));
+    background: rgba(11, 15, 26, 0.94);
+    border-top: 1px solid var(--marble-500);
+    backdrop-filter: blur(8px);
+  }
+
+  .editor-mobile-btn {
+    flex: 1;
+    min-height: var(--touch-min);
+    font-family: var(--font-body);
+    font-size: var(--fs-md);
+    font-weight: 600;
+    color: var(--gold-300);
+    background: var(--marble-700);
+    border: 1px solid var(--marble-500);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  /* Le lien « Retour au jeu » ne doit pas recouvrir la barre d'outils */
+  /* Ancré en haut : en bas il recouvrait la barre d'info et la barre mobile */
+  .game-link {
+    top: calc(var(--sp-2) + env(safe-area-inset-top, 0px));
+    bottom: auto;
+    right: var(--sp-2);
+    z-index: 900;
+    padding: var(--sp-2) var(--sp-3);
+    font-size: var(--fs-xs);
+  }
+
+  .info-bar {
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    font-size: var(--fs-xs);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .side-panel {
+    transition: none;
+  }
+}

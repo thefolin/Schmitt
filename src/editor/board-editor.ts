@@ -8,6 +8,8 @@
 
 import { TILE_CONFIGS } from '@/features/tiles/tile.config';
 import type { BoardLayoutConfig, TilePlacement } from '@/features/board/camera/board-layout.config';
+import '../styles/common/design-system.css';
+import '../styles/editor/editor-theme.css';
 
 // Configuration des pouvoirs des dieux pour l'éditeur
 const GOD_POWERS = [
@@ -122,6 +124,12 @@ class BoardEditor {
   private cursorPosEl!: HTMLElement;
 
   private draggedTileId: number | null = null;
+  /**
+   * Case choisie dans la palette, en attente d'être posée par un tap sur la
+   * grille. Le drag & drop HTML5 ne fonctionne pas au doigt : c'est ce mode
+   * « je choisis puis je pose » qui rend l'éditeur utilisable sur mobile.
+   */
+  private armedTileId: number | null = null;
   private draggedPlacedTile: PlacedTile | null = null;
   private isResizing = false;
   private resizingTile: PlacedTile | null = null;
@@ -251,6 +259,7 @@ class BoardEditor {
 
       tileItem.addEventListener('dragstart', (e) => this.onTileDragStart(e, index));
       tileItem.addEventListener('dragend', () => this.onDragEnd());
+      tileItem.addEventListener('click', () => this.armTile(index));
 
       gameList.appendChild(tileItem);
     });
@@ -289,6 +298,7 @@ class BoardEditor {
 
       tileItem.addEventListener('dragstart', (e) => this.onTileDragStart(e, power.id));
       tileItem.addEventListener('dragend', () => this.onDragEnd());
+      tileItem.addEventListener('click', () => this.armTile(power.id));
 
       godList.appendChild(tileItem);
     });
@@ -352,6 +362,38 @@ class BoardEditor {
       this.handleDrop(e);
     });
 
+    // Échap annule la sélection en cours et referme les tiroirs
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      this.clearArmedTile();
+      this.closeMobilePanels();
+    });
+
+    // Tiroirs mobiles : la palette et la configuration, inaccessibles autrement
+    // quand les colonnes latérales sont masquées sur petit écran.
+    document.getElementById('openTilesBtn')?.addEventListener('click', () => {
+      this.toggleMobilePanel('tilesPanel');
+    });
+
+    document.getElementById('openConfigBtn')?.addEventListener('click', () => {
+      this.toggleMobilePanel('configPanel');
+    });
+
+    document.getElementById('editorBackdrop')?.addEventListener('click', () => {
+      this.closeMobilePanels();
+    });
+
+    // Placement au tap : pose la case choisie dans la palette. Ignoré si le
+    // tap vise une case déjà posée, pour ne pas empiler à l'aveugle.
+    gridContainer.addEventListener('click', (e) => {
+      if (this.armedTileId === null) return;
+      if ((e.target as HTMLElement).closest('.placed-tile')) return;
+
+      const { x, y } = this.pointToTilePosition(e.clientX, e.clientY);
+      this.placeTileAt(this.armedTileId, x, y);
+      // La case reste choisie : poser une série va plus vite
+    });
+
     // Track mouse position for info bar
     gridContainer.addEventListener('mousemove', (e) => {
       const rect = this.fineGrid.getBoundingClientRect();
@@ -385,22 +427,114 @@ class BoardEditor {
     this.hidePlacementGhost();
   }
 
+  /** Ouvre le tiroir demandé, en refermant l'autre. */
+  private toggleMobilePanel(panelId: string): void {
+    const panel = document.getElementById(panelId);
+    if (!panel) return;
+
+    const wasOpen = panel.classList.contains('is-open');
+    this.closeMobilePanels();
+    if (!wasOpen) {
+      panel.classList.add('is-open');
+      const backdrop = document.getElementById('editorBackdrop');
+      if (backdrop) backdrop.hidden = false;
+    }
+  }
+
+  private closeMobilePanels(): void {
+    document.querySelectorAll('.side-panel.is-open').forEach((el) =>
+      el.classList.remove('is-open')
+    );
+    const backdrop = document.getElementById('editorBackdrop');
+    if (backdrop) backdrop.hidden = true;
+  }
+
+  /**
+   * Choisit (ou désélectionne) la case à poser au prochain tap sur la grille.
+   */
+  private armTile(tileId: number): void {
+    this.armedTileId = this.armedTileId === tileId ? null : tileId;
+    this.refreshArmedState();
+
+    // Sur mobile, choisir une case doit rendre la grille : c'est l'étape
+    // suivante du geste.
+    if (this.armedTileId !== null) this.closeMobilePanels();
+  }
+
+  private clearArmedTile(): void {
+    this.armedTileId = null;
+    this.refreshArmedState();
+  }
+
+  /** Reflète la case choisie dans la palette et dans la barre d'info. */
+  private refreshArmedState(): void {
+    document.querySelectorAll('.tile-item').forEach((el) => {
+      const id = (el as HTMLElement).dataset.tileId;
+      el.classList.toggle('armed', id !== undefined && Number(id) === this.armedTileId);
+    });
+
+    const hint = document.getElementById('armedHint');
+    if (hint) {
+      if (this.armedTileId === null) {
+        hint.textContent = '';
+        hint.hidden = true;
+      } else {
+        const isGodPower = this.armedTileId >= 100;
+        const name = isGodPower
+          ? GOD_POWERS.find((g) => g.id === this.armedTileId)?.name
+          : TILE_CONFIGS[this.armedTileId]?.name;
+        hint.textContent = `${name ?? 'Case'} — touchez la grille pour poser`;
+        hint.hidden = false;
+      }
+    }
+
+    document.getElementById('gridContainer')?.classList.toggle(
+      'is-placing',
+      this.armedTileId !== null
+    );
+  }
+
+  /**
+   * Convertit un point de l'écran en position de case, accrochée à la grille.
+   * Partagé par le survol, le drop et le placement au doigt : un seul calcul,
+   * donc un seul comportement à corriger si la grille change.
+   */
+  private pointToTilePosition(clientX: number, clientY: number): { x: number; y: number } {
+    const rect = this.fineGrid.getBoundingClientRect();
+    let x = (clientX - rect.left) / this.state.zoom - this.state.tileSize / 2;
+    let y = (clientY - rect.top) / this.state.zoom - this.state.tileSize / 2;
+
+    x = Math.round(x / this.state.snapSize) * this.state.snapSize;
+    y = Math.round(y / this.state.snapSize) * this.state.snapSize;
+
+    x = Math.max(0, Math.min(x, this.state.gridCols * 20 - this.state.tileSize));
+    y = Math.max(0, Math.min(y, this.state.gridRows * 20 - this.state.tileSize));
+
+    return { x, y };
+  }
+
+  /**
+   * Pose une case à la position donnée, ou y déplace celle en cours de saisie.
+   */
+  private placeTileAt(tileId: number, x: number, y: number): void {
+    const tile: PlacedTile = {
+      id: `tile-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      tileId,
+      x,
+      y,
+      rotation: 0,
+      width: this.state.tileSize,
+      height: this.state.tileSize
+    };
+    this.state.placedTiles.push(tile);
+    this.renderPlacedTiles();
+  }
+
   /**
    * Met à jour la position du ghost de placement
    */
   private updatePlacementGhost(e: DragEvent): void {
-    const rect = this.fineGrid.getBoundingClientRect();
-    // Account for zoom when calculating mouse position
-    let x = (e.clientX - rect.left) / this.state.zoom - this.state.tileSize / 2;
-    let y = (e.clientY - rect.top) / this.state.zoom - this.state.tileSize / 2;
-
-    // Snap to grid
-    x = Math.round(x / this.state.snapSize) * this.state.snapSize;
-    y = Math.round(y / this.state.snapSize) * this.state.snapSize;
-
-    // Clamp to bounds
-    x = Math.max(0, Math.min(x, this.state.gridCols * 20 - this.state.tileSize));
-    y = Math.max(0, Math.min(y, this.state.gridRows * 20 - this.state.tileSize));
+    const { x, y } = this.pointToTilePosition(e.clientX, e.clientY);
 
     this.placementGhost.style.display = 'block';
     this.placementGhost.style.left = `${x}px`;
@@ -420,38 +554,17 @@ class BoardEditor {
    * Gère le drop d'une tuile
    */
   private handleDrop(e: DragEvent): void {
-    const rect = this.fineGrid.getBoundingClientRect();
-    // Account for zoom when calculating mouse position
-    let x = (e.clientX - rect.left) / this.state.zoom - this.state.tileSize / 2;
-    let y = (e.clientY - rect.top) / this.state.zoom - this.state.tileSize / 2;
-
-    // Snap to grid
-    x = Math.round(x / this.state.snapSize) * this.state.snapSize;
-    y = Math.round(y / this.state.snapSize) * this.state.snapSize;
-
-    // Clamp to bounds
-    x = Math.max(0, Math.min(x, this.state.gridCols * 20 - this.state.tileSize));
-    y = Math.max(0, Math.min(y, this.state.gridRows * 20 - this.state.tileSize));
+    const { x, y } = this.pointToTilePosition(e.clientX, e.clientY);
 
     if (this.draggedPlacedTile) {
       // Déplacer une tuile existante
       this.draggedPlacedTile.x = x;
       this.draggedPlacedTile.y = y;
+      this.renderPlacedTiles();
     } else if (this.draggedTileId !== null) {
-      // Nouvelle tuile
-      const tile: PlacedTile = {
-        id: `tile-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        tileId: this.draggedTileId,
-        x,
-        y,
-        rotation: 0,
-        width: this.state.tileSize,
-        height: this.state.tileSize
-      };
-      this.state.placedTiles.push(tile);
+      this.placeTileAt(this.draggedTileId, x, y);
     }
 
-    this.renderPlacedTiles();
     this.onDragEnd();
   }
 

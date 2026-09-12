@@ -3,7 +3,10 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&display=swap" rel="stylesheet">
     <title>Schmitt Odyssée - Éditeur de Plateau</title>
     <style>
         .game-link {
@@ -688,6 +691,18 @@
 <body>
     <a href="index.html" class="game-link">Retour au jeu</a>
 
+    <!-- Barre mobile : les deux panneaux latéraux deviennent des tiroirs -->
+    <div class="editor-mobile-bar">
+        <button type="button" class="editor-mobile-btn" id="openTilesBtn">
+            <span aria-hidden="true">🧩</span> Cases
+        </button>
+        <button type="button" class="editor-mobile-btn" id="openConfigBtn">
+            <span aria-hidden="true">⚙️</span> Réglages
+        </button>
+    </div>
+
+    <div class="editor-drawer-backdrop" id="editorBackdrop" hidden></div>
+
     <div class="editor-container">
         <!-- Panneau des cases -->
         <div class="side-panel tiles-panel" id="tilesPanel">
@@ -740,6 +755,7 @@
 
             <div class="info-bar">
                 <span id="tileCount">0 cases placées</span>
+                <span id="armedHint" class="armed-hint" hidden></span>
                 <span id="cursorPos">Position: -</span>
             </div>
         </div>
