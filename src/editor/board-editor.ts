@@ -713,6 +713,8 @@ class BoardEditor {
 
     // Update count
     this.tileCountEl.textContent = `${this.state.placedTiles.length} cases placées`;
+
+    this.updateBoardStatus();
   }
 
   /**
@@ -856,6 +858,8 @@ class BoardEditor {
       return;
     }
 
+    if (!this.confirmDespiteErrors(this.validateBoard(), 'Sauvegarder')) return;
+
     const config = this.generateConfig();
 
     const layout: SavedLayout = {
@@ -877,6 +881,74 @@ class BoardEditor {
     this.renderLayoutsList();
 
     alert(`Layout "${name}" sauvegardé !`);
+  }
+
+  /**
+   * Affiche en continu si le plateau est jouable, pour qu'on le sache en
+   * construisant plutôt qu'au moment d'exporter.
+   */
+  private updateBoardStatus(): void {
+    const el = document.getElementById('boardStatus');
+    if (!el) return;
+
+    const errors = this.validateBoard();
+    if (errors.length === 0) {
+      el.textContent = '✓ Plateau jouable';
+      el.className = 'board-status is-valid';
+      el.title = ''; // sinon l'infobulle garde les erreurs déjà corrigées
+    } else {
+      el.textContent = `⚠ ${errors.length} problème${errors.length > 1 ? 's' : ''}`;
+      el.className = 'board-status is-invalid';
+      el.title = errors.join('\n');
+    }
+  }
+
+  /**
+   * Vérifie qu'un plateau est jouable : il lui faut exactement un départ et
+   * au moins une arrivée, sans quoi la partie n'a ni point de lancement ni
+   * condition de victoire.
+   *
+   * Les types sont cherchés dans TILE_CONFIGS plutôt que par un identifiant
+   * en dur : si l'ordre des cases change, la validation suit.
+   */
+  private validateBoard(): string[] {
+    const errors: string[] = [];
+    const placed = this.state.placedTiles.filter((t) => t.tileId < 100);
+
+    if (placed.length === 0) {
+      return ['Le plateau est vide : ajoutez au moins une case de départ et une arrivée.'];
+    }
+
+    const countByType = (type: string) =>
+      placed.filter((t) => TILE_CONFIGS[t.tileId]?.type === type).length;
+
+    const starts = countByType('start');
+    const finishes = countByType('finish');
+
+    if (starts === 0) {
+      errors.push('Il manque une case de départ (START) : la partie ne peut pas commencer.');
+    } else if (starts > 1) {
+      errors.push(`Il y a ${starts} cases de départ : gardez-en une seule.`);
+    }
+
+    if (finishes === 0) {
+      errors.push("Il manque une case d'arrivée : la partie ne pourrait jamais se terminer.");
+    }
+
+    return errors;
+  }
+
+  /**
+   * Affiche les erreurs de validation et demande si l'on veut continuer.
+   * Retourne true si l'on peut poursuivre l'action.
+   */
+  private confirmDespiteErrors(errors: string[], action: string): boolean {
+    if (errors.length === 0) return true;
+
+    const list = errors.map((e) => `• ${e}`).join('\n');
+    return confirm(
+      `Ce plateau n'est pas jouable :\n\n${list}\n\n${action} quand même ?`
+    );
   }
 
   /**
@@ -927,6 +999,8 @@ class BoardEditor {
    * Exporte le layout en JSON
    */
   public exportJson(): void {
+    if (!this.confirmDespiteErrors(this.validateBoard(), 'Exporter')) return;
+
     const config = this.generateConfig();
     const json = JSON.stringify(config, null, 2);
 

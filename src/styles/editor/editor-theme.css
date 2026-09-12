@@ -226,6 +226,21 @@ body {
   font-weight: 600;
 }
 
+/* État du plateau : visible en permanence pendant la construction, pour ne pas
+   découvrir qu'il manque un départ au moment d'exporter. */
+.board-status {
+  font-weight: 600;
+  cursor: default;
+}
+
+.board-status.is-valid {
+  color: var(--success);
+}
+
+.board-status.is-invalid {
+  color: var(--danger);
+}
+
 /* ---- Lien de retour ---- */
 
 .game-link {
