@@ -33,6 +33,12 @@ export class GameLogic {
   private chickenRank: number = 0;
 
   /**
+   * Le pouvoir du Schmitt n'est pris qu'une fois par partie. Sa prise fait
+   * basculer le jeu en phase de retour : on ne gagne qu'en revenant sur START.
+   */
+  private schmittPowerClaimed: boolean = false;
+
+  /**
    * Règles inventées par les joueurs sur les cases « CRÉEZ UNE RÈGLE ».
    * Le jeu ne peut pas les appliquer — elles se jouent à la voix — mais il
    * les garde affichables pour que personne n'oublie une règle en cours de
@@ -62,6 +68,38 @@ export class GameLogic {
 
   public getChickenRank(): number {
     return this.chickenRank;
+  }
+
+  /**
+   * Applique la sentence du Poulet sur un jet de dé.
+   *
+   * Règle officielle : à chaque 3 ou 6 de n'importe quel joueur, le Petit
+   * Poulet boit 1 gorgée. S'il est devenu GROS POULET, il distribue au lieu
+   * de boire — c'est tout l'intérêt de la promotion.
+   *
+   * Renvoie ce qui s'est passé, pour que l'interface l'annonce, ou null si
+   * le jet ne déclenche rien.
+   */
+  public applyChickenPenalty(roll: number): {
+    playerIndex: number;
+    name: string;
+    distributes: boolean;
+  } | null {
+    if (roll !== 3 && roll !== 6) return null;
+    if (this.chickenPlayerIndex === null) return null;
+
+    const chicken = this.players[this.chickenPlayerIndex];
+    if (!chicken) return null;
+
+    const distributes = this.chickenRank >= 2;
+    if (!distributes) {
+      chicken.drinks += 1;
+      this.addToHistory(`\u{1F414} ${chicken.name} (Poulet) boit 1 gorgée sur un ${roll}`);
+    } else {
+      this.addToHistory(`\u{1F414} ${chicken.name} (GROS POULET) distribue 1 gorgée sur un ${roll}`);
+    }
+
+    return { playerIndex: this.chickenPlayerIndex, name: chicken.name, distributes };
   }
 
   /**
@@ -107,6 +145,7 @@ export class GameLogic {
     this.chickenPlayerIndex = null;
     this.chickenRank = 0;
     this.customRules = [];
+    this.schmittPowerClaimed = false;
 
     this.players = playersConfig.map((config, index) => ({
       name: config.name,
@@ -115,6 +154,7 @@ export class GameLogic {
       index,
       hasSchmittPower: false,
       isReturning: false,
+      hasLeftStartOnReturn: false,
       drinks: 0,
       hasAthenaShield: false,
       canReplay: false
@@ -148,10 +188,64 @@ export class GameLogic {
     const player = this.players[playerIndex];
     if (!player) return 0;
 
-    const newPosition = player.position + steps;
-    player.position = Math.min(newPosition, this.lastPosition);
+    // La cible doit être atteinte par une valeur EXACTE : un jet trop grand
+    // fait rebondir le pion du surplus. Auparavant on collait simplement le
+    // pion sur la dernière case (Math.min), ce qui rendait l'arrivée
+    // automatique et supprimait toute la tension de fin de parcours.
+    if (player.isReturning) {
+      // Phase 2 : retour vers START, on recule
+      const target = player.position - steps;
+      player.position = target < 0 ? Math.abs(target) : target;
+    } else {
+      // Phase 1 : aller vers la dernière case
+      const target = player.position + steps;
+      player.position =
+        target > this.lastPosition ? this.lastPosition - (target - this.lastPosition) : target;
+    }
+
+    // Un rebond ne doit jamais sortir du plateau, même sur un petit parcours
+    player.position = Math.max(0, Math.min(player.position, this.lastPosition));
+
+    if (player.isReturning && player.position !== 0) {
+      player.hasLeftStartOnReturn = true;
+    }
 
     return player.position;
+  }
+
+  /**
+   * Donne le pouvoir du Schmitt au joueur et fait basculer la partie en
+   * phase de retour : tous les pions font demi-tour vers START.
+   *
+   * Le pouvoir n'est attribué qu'une fois par partie — son porteur est le
+   * seul de toute l'odyssée.
+   */
+  public claimSchmittPower(playerIndex: number): boolean {
+    if (this.schmittPowerClaimed) return false;
+
+    const player = this.players[playerIndex];
+    if (!player) return false;
+
+    this.schmittPowerClaimed = true;
+    player.hasSchmittPower = true;
+    // Un joueur encore sur START au moment du demi-tour gagnerait
+    // instantanément : il doit d'abord quitter la case avant d'y revenir.
+    this.players.forEach(p => {
+      p.isReturning = true;
+      p.hasLeftStartOnReturn = p.position !== 0;
+    });
+
+    this.addToHistory(`\u{26A1} ${player.name} s'empare du pouvoir du Schmitt ! Demi-tour !`);
+    return true;
+  }
+
+  public isSchmittPowerClaimed(): boolean {
+    return this.schmittPowerClaimed;
+  }
+
+  /** Indique si la partie est dans sa phase de retour vers START. */
+  public isReturnPhase(): boolean {
+    return this.schmittPowerClaimed;
   }
 
   /**
@@ -211,7 +305,14 @@ export class GameLogic {
    * Vérifie si un joueur a gagné
    */
   public checkVictory(): Player | null {
-    const winner = this.players.find(p => p.position >= this.lastPosition);
+    // On ne gagne pas en atteignant la dernière case : celle-ci ne donne que
+    // le pouvoir du Schmitt. La victoire s'obtient en revenant exactement sur
+    // START, une fois le demi-tour enclenché.
+    if (!this.schmittPowerClaimed) return null;
+
+    const winner = this.players.find(
+      p => p.isReturning && p.position === 0 && p.hasLeftStartOnReturn
+    );
     return winner || null;
   }
 
@@ -223,6 +324,7 @@ export class GameLogic {
     this.chickenPlayerIndex = null;
     this.chickenRank = 0;
     this.customRules = [];
+    this.schmittPowerClaimed = false;
     this.currentPlayerIndex = 0;
     this.gameStarted = false;
     this.history = [];

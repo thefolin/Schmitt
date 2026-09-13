@@ -84,15 +84,34 @@ describe('GameLogic.movePlayer', () => {
     expect(game.getPlayerByIndex(0)?.position).toBe(5);
   });
 
-  it('plafonne la position à la dernière case, même en cas de très gros saut', () => {
+  it('fait rebondir le pion quand le jet dépasse la dernière case', () => {
+    const game = new GameLogic();
+    game.startGame(players);
+
+    // Règle officielle : la dernière case s'atteint par une valeur EXACTE.
+    // Un jet trop grand fait reculer du surplus.
+    game.setPlayerPosition(0, DEFAULT_LAST_POSITION - 1);
+    game.movePlayer(0, 4); // 3 de trop -> recule de 3
+    expect(game.getPlayerByIndex(0)?.position).toBe(DEFAULT_LAST_POSITION - 3);
+  });
+
+  it('atteint la dernière case sur une valeur exacte', () => {
+    const game = new GameLogic();
+    game.startGame(players);
+
+    game.setPlayerPosition(0, DEFAULT_LAST_POSITION - 3);
+    game.movePlayer(0, 3);
+    expect(game.getPlayerByIndex(0)?.position).toBe(DEFAULT_LAST_POSITION);
+  });
+
+  it('ne sort jamais du plateau, même sur un jet démesuré', () => {
     const game = new GameLogic();
     game.startGame(players);
 
     game.movePlayer(0, 100);
-    // DEFAULT_LAST_POSITION : dernière case du plateau officiel (0 à 22).
-    // Auparavant le plafond était 23, une position au-delà du plateau réel,
-    // ce qui rendait la victoire inatteignable.
-    expect(game.getPlayerByIndex(0)?.position).toBe(DEFAULT_LAST_POSITION);
+    const pos = game.getPlayerByIndex(0)?.position ?? -1;
+    expect(pos).toBeGreaterThanOrEqual(0);
+    expect(pos).toBeLessThanOrEqual(DEFAULT_LAST_POSITION);
   });
 
   it('ne fait rien et retourne 0 pour un index de joueur invalide', () => {
@@ -221,13 +240,38 @@ describe('GameLogic.checkVictory', () => {
     expect(game.checkVictory()).toBeNull();
   });
 
-  it('détecte le premier joueur ayant atteint la dernière case', () => {
+  it('ne déclare aucun vainqueur tant que le pouvoir du Schmitt n\'est pas pris', () => {
     const game = new GameLogic();
     game.startGame(players);
     game.movePlayer(1, DEFAULT_LAST_POSITION);
 
-    const winner = game.checkVictory();
-    expect(winner?.name).toBe('Bob');
+    // Atteindre la dernière case ne fait pas gagner : c'est la phase 1
+    expect(game.checkVictory()).toBeNull();
+  });
+
+  it('déclare vainqueur le joueur revenu exactement sur START', () => {
+    const game = new GameLogic();
+    game.startGame(players);
+    game.movePlayer(1, DEFAULT_LAST_POSITION);
+    game.claimSchmittPower(1);
+
+    // Bob fait demi-tour et revient pile sur START
+    game.setPlayerPosition(1, 3);
+    game.movePlayer(1, 3);
+
+    expect(game.checkVictory()?.name).toBe('Bob');
+  });
+
+  it('ne déclare pas vainqueur un joueur qui dépasse START au retour', () => {
+    const game = new GameLogic();
+    game.startGame(players);
+    game.claimSchmittPower(1);
+
+    game.setPlayerPosition(1, 2);
+    game.movePlayer(1, 5); // rebond : |2-5| = 3
+
+    expect(game.getPlayerByIndex(1)?.position).toBe(3);
+    expect(game.checkVictory()).toBeNull();
   });
 });
 

@@ -762,6 +762,9 @@ class SchmittOdysseeCamera {
     const currentPlayer = this.gameLogic.getCurrentPlayer();
     if (!currentPlayer) return;
 
+    // Sentence du Poulet : sur un 3 ou un 6, quel que soit le lanceur.
+    this.applyChickenPenalty(steps);
+
     console.log(`📹 Centrage caméra sur ${currentPlayer.name} avant déplacement`);
 
     // Centrer la caméra sur le joueur actuel avant de le déplacer
@@ -875,7 +878,10 @@ class SchmittOdysseeCamera {
         this.gameRenderer.showNotification('Tout le monde boit !');
         break;
       case 'finish':
-        this.handleVictory();
+        // La dernière case ne fait pas gagner : elle donne le pouvoir du
+        // Schmitt et déclenche le demi-tour. La victoire s'obtient en
+        // revenant sur START.
+        this.handleSchmittPowerClaim(currentPlayer);
         return;
     }
 
@@ -976,6 +982,73 @@ class SchmittOdysseeCamera {
   }
 
   /**
+   * Applique la sentence du Poulet sur le jet qui vient d'être fait.
+   * Le Petit Poulet boit ; le GROS POULET distribue, et choisit sa cible.
+   */
+  private applyChickenPenalty(roll: number): void {
+    const verdict = this.gameLogic.applyChickenPenalty(roll);
+    if (!verdict) return;
+
+    if (!verdict.distributes) {
+      this.gameRenderer.showNotification(
+        `\u{1F414} ${verdict.name} est le Poulet : 1 gorgée sur ce ${roll} !`,
+        2500
+      );
+      this.updateUI();
+      return;
+    }
+
+    // GROS POULET : il distribue au lieu de boire
+    const others = this.gameLogic
+      .getPlayers()
+      .filter(p => p.index !== verdict.playerIndex);
+    if (others.length === 0) return;
+
+    this.gameRenderer.showNotification(
+      `\u{1F414} ${verdict.name} est le GROS POULET : il distribue 1 gorgée !`,
+      2500
+    );
+    this.withPlayerSelection(others, 1, verdict.playerIndex, (selected) => {
+      const target = selected[0];
+      if (!target) return;
+      this.gameLogic.addDrinks(target.index, 1);
+      this.gameRenderer.showNotification(`${target.name} boit 1 gorgée !`);
+      this.updateUI();
+    });
+  }
+
+  /**
+   * Le joueur atteint la dernière case et s'empare du pouvoir du Schmitt.
+   *
+   * C'est le pivot de la partie : tous les pions font demi-tour, et la
+   * victoire ne s'obtient plus qu'en revenant exactement sur START. Le
+   * pouvoir n'est attribué qu'une fois — les joueurs suivants qui passent
+   * par là ne le reprennent pas.
+   */
+  private handleSchmittPowerClaim(currentPlayer: Player): void {
+    const claimed = this.gameLogic.claimSchmittPower(currentPlayer.index);
+
+    if (claimed) {
+      this.gameRenderer.showNotification(
+        `\u{26A1} ${currentPlayer.name} s'empare du POUVOIR DU SCHMITT ! Demi-tour, retour au START !`,
+        3500
+      );
+      // Le joueur rejoue immédiatement, comme le veut la règle
+      currentPlayer.canReplay = true;
+      this.updateUI();
+      this.updateBoard();
+      this.scheduleNextTurn(3000);
+      return;
+    }
+
+    // Le pouvoir est déjà pris : la case n'a plus d'effet
+    this.gameRenderer.showNotification(
+      `Le pouvoir du Schmitt appartient déjà à un autre joueur.`
+    );
+    this.scheduleNextTurn(2000);
+  }
+
+  /**
    * MOUTON — le joueur choisit un adversaire et vient se poser sur sa case.
    *
    * « Copier l'effet d'un adversaire » se traduit ici par le suivre sur le
@@ -1037,7 +1110,11 @@ class SchmittOdysseeCamera {
    */
   private handleSchmittCall(currentPlayer: Player): void {
     const players = this.gameLogic.getPlayers();
-    const gulps = players.length;
+    // Règle officielle : 1 gorgée par joueur SE TROUVANT SUR CETTE CASE,
+    // et non par joueur de la partie. À 4 joueurs dont 2 sur la case, c'est
+    // 2 gorgées.
+    const onTile = players.filter(p => p.position === currentPlayer.position);
+    const gulps = Math.max(1, onTile.length);
 
     this.gameRenderer.closeEffectModal();
     this.gameRenderer.showNotification(

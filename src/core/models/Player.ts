@@ -7,6 +7,12 @@ export interface Player {
   position: number;
   hasSchmittPower: boolean;
   isReturning: boolean;
+  /**
+   * Vrai dès que le joueur a quitté START pendant la phase de retour.
+   * Sans ce drapeau, un joueur encore sur START au moment du demi-tour
+   * gagnerait instantanément, sans avoir fait le voyage de retour.
+   */
+  hasLeftStartOnReturn: boolean;
   drinks: number;
   hasAthenaShield: boolean;
   canReplay: boolean; // Permet de rejouer (case replay)
@@ -22,6 +28,7 @@ export class PlayerModel implements Player {
   position: number;
   hasSchmittPower: boolean;
   isReturning: boolean;
+  hasLeftStartOnReturn: boolean;
   drinks: number;
   hasAthenaShield: boolean;
   canReplay: boolean;
@@ -34,6 +41,7 @@ export class PlayerModel implements Player {
     this.position = 0;
     this.hasSchmittPower = false;
     this.isReturning = false;
+    this.hasLeftStartOnReturn = false;
     this.drinks = 0;
     this.hasAthenaShield = false;
     this.canReplay = false;
@@ -71,6 +79,7 @@ export class PlayerModel implements Player {
     this.position = 0;
     this.hasSchmittPower = false;
     this.isReturning = false;
+    this.hasLeftStartOnReturn = false;
     this.drinks = 0;
     this.hasAthenaShield = false;
     this.canReplay = false;

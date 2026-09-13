@@ -92,9 +92,33 @@ npm run type-check   # Vérification TypeScript
 npm run preview      # Preview du build
 npm run android:dev  # Build + sync + run sur Android (Capacitor)
 npm run ios:dev      # Build + sync + run sur iOS (Capacitor)
+npm test             # Tests unitaires (Vitest)
 ```
 
 Voir `docs/` pour les guides de déploiement mobile détaillés.
+
+### Vérification en navigateur réel
+
+En plus des tests unitaires, `tools/test-drive/` contient des scripts qui
+pilotent un vrai Chrome sans fenêtre : ils jouent une partie complète,
+mesurent les tailles à l'écran et prennent des captures. Ils servent à
+trouver ce que les tests unitaires ne voient pas — un bouton invisible, une
+animation avalée, un tour qui se fige.
+
+**Playwright n'est volontairement pas une dépendance du projet** : il
+télécharge un navigateur complet (~1,1 Go, dans un cache global de la
+machine). L'ajouter à `package.json` ferait payer ce téléchargement à tout
+clone du projet, pour un outil qui ne sert qu'au diagnostic ponctuel.
+
+Pour s'en servir, l'installer une fois :
+
+```bash
+npm install --no-save playwright && npx playwright install chromium
+npx vite --port 5179                  # dans un terminal
+node tools/test-drive/full2.mjs       # dans un autre
+```
+
+Détail des scripts : `tools/test-drive/README.md`.
 
 ---
 
@@ -109,15 +133,28 @@ Voir `docs/` pour les guides de déploiement mobile détaillés.
 
 ## Règles du Jeu
 
-1. Chaque joueur lance un dé à son tour
-2. Avancez sur le plateau selon le résultat
-3. Respectez les effets des cases spéciales :
-   - **START** : Point de départ
-   - **FINISH** : Arrivée (premier joueur gagne)
-   - **Boire X** : Boire des gorgées
-   - **Pouvoir Schmitt** : Avantage spécial
-   - **Rejouer** : Relancer le dé
-4. Le premier joueur à atteindre la case finale gagne
+La partie se joue en **deux phases** :
+
+1. **L'aller** — chaque joueur lance 1 dé, avance et applique l'effet de sa
+   case. Le but est d'atteindre la dernière case **par une valeur exacte** :
+   un jet trop grand fait reculer du surplus. Le premier à y parvenir
+   s'empare du **pouvoir du Schmitt**, dont il reste l'unique porteur.
+2. **Le retour** — dès que le pouvoir est pris, tous les pions font
+   demi-tour. La victoire revient au premier joueur qui **revient exactement
+   sur START**.
+
+Atteindre la dernière case ne fait donc pas gagner : ce n'est que la moitié
+du voyage.
+
+Quelques cases notables :
+
+- **PETIT POULET** — vous devenez le Poulet et buvez 1 gorgée à chaque 3 ou 6
+  de n'importe quel joueur. Y retomber vous promeut **GROS POULET** : vous
+  distribuez au lieu de boire.
+- **SCHMITT !!!** — le dernier à crier boit 1 gorgée par joueur présent sur
+  la case.
+- **FAVEUR DES DIEUX** — lancez 2 dés et consultez la faveur correspondante.
+  Un double déclenche la **colère des dieux** : pas de faveur, et 1 cul sec.
 
 Règles complètes : [Schmitt Odyssée](https://unoff31.wixsite.com/schmittodyssee)
 

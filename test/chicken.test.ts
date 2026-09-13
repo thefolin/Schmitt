@@ -67,3 +67,66 @@ describe('règle du Poulet', () => {
     expect(g.getChickenRank()).toBe(0);
   });
 });
+
+describe('sentence du Poulet sur les 3 et 6', () => {
+  it('le Petit Poulet boit 1 gorgée sur un 3', () => {
+    const g = new GameLogic();
+    g.startGame(players);
+    g.setChicken(0);
+
+    const verdict = g.applyChickenPenalty(3);
+
+    expect(verdict?.distributes).toBe(false);
+    expect(g.getPlayers()[0].drinks).toBe(1);
+  });
+
+  it('le Petit Poulet boit aussi sur un 6', () => {
+    const g = new GameLogic();
+    g.startGame(players);
+    g.setChicken(0);
+
+    g.applyChickenPenalty(6);
+
+    expect(g.getPlayers()[0].drinks).toBe(1);
+  });
+
+  it('ne se déclenche sur aucune autre valeur', () => {
+    const g = new GameLogic();
+    g.startGame(players);
+    g.setChicken(0);
+
+    [1, 2, 4, 5].forEach(v => expect(g.applyChickenPenalty(v)).toBeNull());
+    expect(g.getPlayers()[0].drinks).toBe(0);
+  });
+
+  it('ne fait rien tant que personne n\'est Poulet', () => {
+    const g = new GameLogic();
+    g.startGame(players);
+
+    expect(g.applyChickenPenalty(3)).toBeNull();
+  });
+
+  it('le GROS POULET distribue au lieu de boire', () => {
+    const g = new GameLogic();
+    g.startGame(players);
+    g.setChicken(0);
+    g.setChicken(0); // promotion
+
+    const verdict = g.applyChickenPenalty(3);
+
+    expect(verdict?.distributes).toBe(true);
+    expect(g.getPlayers()[0].drinks).toBe(0); // il ne boit pas
+  });
+
+  it('suit le changement de Poulet', () => {
+    const g = new GameLogic();
+    g.startGame(players);
+    g.setChicken(0);
+    g.setChicken(1); // Bob prend la place
+
+    g.applyChickenPenalty(3);
+
+    expect(g.getPlayers()[0].drinks).toBe(0);
+    expect(g.getPlayers()[1].drinks).toBe(1);
+  });
+});
