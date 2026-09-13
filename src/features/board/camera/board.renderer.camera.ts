@@ -43,6 +43,7 @@ export class BoardCameraRenderer {
   private viewport!: HTMLElement;
   private worldContainer!: HTMLElement;
   private tableLayer!: HTMLElement;
+  private isoLayer!: HTMLElement;
   private camera: Camera;
 
   private tilePositions: TilePosition[] = [];
@@ -112,8 +113,14 @@ export class BoardCameraRenderer {
     this.worldContainer = document.createElement('div');
     this.worldContainer.className = 'board-camera-world';
 
-    this.viewport.appendChild(this.tableLayer);
-    this.viewport.appendChild(this.worldContainer);
+    // Calque d'inclinaison : il bascule tapis et cases d'un seul bloc, autour
+    // du centre du viewport. La caméra cadre ensuite une scène déjà inclinée.
+    this.isoLayer = document.createElement('div');
+    this.isoLayer.className = 'board-camera-iso';
+
+    this.isoLayer.appendChild(this.tableLayer);
+    this.isoLayer.appendChild(this.worldContainer);
+    this.viewport.appendChild(this.isoLayer);
     this.container.appendChild(this.viewport);
 
     // Contrôles de navigation
@@ -527,6 +534,14 @@ export class BoardCameraRenderer {
       el.dataset.size = placement.size;
     }
 
+    // Les illustrations ont été scannées depuis le plateau physique : celles
+    // de la rangée du bas y sont imprimées tête-bêche, pour le joueur assis
+    // en face. À l'écran il n'y a qu'un seul point de vue, donc on les
+    // redresse, sinon une case sur deux est illisible.
+    if (this.isFlippedRow(index)) {
+      el.classList.add('board-tile--flipped');
+    }
+
     // Afficher l'image ou l'icône selon ce qui est disponible
     if (tile.image) {
       el.innerHTML = `
@@ -699,6 +714,36 @@ export class BoardCameraRenderer {
    * sur un petit téléphone il débordait. Le zoom est borné pour éviter un
    * plateau géant sur très grand écran ou illisible sur très petit.
    */
+  /**
+   * Indique si la case appartient à la rangée du bas du parcours, dont les
+   * illustrations sont imprimées à l'envers sur le plateau physique.
+   *
+   * On se fie à la géométrie (la rangée la plus basse du layout) plutôt qu'à
+   * une liste d'index en dur, pour qu'un plateau personnalisé reste correct.
+   */
+  private isFlippedRow(index: number): boolean {
+    const placements = this.boardLayout?.placements;
+    if (!placements || placements.length === 0) return false;
+
+    const maxRow = Math.max(...placements.map(p => p.gridRow));
+    const here = placements.find(p => p.tileId === index);
+    return here ? here.gridRow === maxRow : false;
+  }
+
+  /**
+   * Part de hauteur conservée par la projection isométrique.
+   *
+   * Lue depuis le CSS pour qu'il n'existe qu'une seule source de vérité :
+   * changer `--iso-tilt` doit suffire à réaccorder le cadrage, sans avoir à
+   * répercuter la valeur ici.
+   */
+  private getIsoVerticalRatio(): number {
+    const styles = getComputedStyle(document.documentElement);
+    const tilt = parseFloat(styles.getPropertyValue('--iso-tilt')) || 55;
+    const squash = parseFloat(styles.getPropertyValue('--iso-squash')) || 0.82;
+    return Math.cos((tilt * Math.PI) / 180) * squash;
+  }
+
   public fitTableToViewport(animate = false): void {
     if (!this.tableBounds) return;
 
@@ -706,8 +751,14 @@ export class BoardCameraRenderer {
     if (rect.width === 0 || rect.height === 0) return;
 
     const tableWidth = this.tableBounds.maxX - this.tableBounds.minX;
-    const tableHeight = this.tableBounds.maxY - this.tableBounds.minY;
-    if (tableWidth <= 0 || tableHeight <= 0) return;
+    const tableHeightWorld = this.tableBounds.maxY - this.tableBounds.minY;
+    if (tableWidth <= 0 || tableHeightWorld <= 0) return;
+
+    // La projection isométrique écrase la scène verticalement : une table de
+    // 800 unités de haut n'occupe plus que 800 × cos(tilt) × squash à l'écran.
+    // Sans cette correction le cadrage raisonne sur une hauteur qui n'existe
+    // pas, et le plateau sort du champ.
+    const tableHeight = tableHeightWorld * this.getIsoVerticalRatio();
 
     // Le HUD mord sur la vue, mais pas du même côté selon l'orientation :
     // en paysage téléphone les commandes sont en colonne à droite, ailleurs
@@ -718,7 +769,7 @@ export class BoardCameraRenderer {
     const bottomInset = isPhoneLandscape ? rect.height * 0.04 : rect.height * 0.14;
     const rightInset = isPhoneLandscape ? rect.width * 0.24 : 0;
 
-    const usableWidth = rect.width * 0.92 - rightInset;
+    const usableWidth = rect.width * 0.97 - rightInset;
     const usableHeight = rect.height - topInset - bottomInset;
 
     // Plancher bas : sur un iPhone SE (320px) la table fait 1209 unités de
@@ -732,12 +783,13 @@ export class BoardCameraRenderer {
 
     // centerOn vise le centre de l'écran ; le milieu de la zone laissée libre
     // par le HUD est décalé, d'où ces deux corrections.
-    const bandShiftY = (bottomInset - topInset) / (2 * zoom);
+    const bandShiftY =
+      (bottomInset - topInset) / (2 * zoom * this.getIsoVerticalRatio());
     const bandShiftX = rightInset / (2 * zoom);
 
     this.camera.centerOn(
       this.tableBounds.minX + tableWidth / 2 + bandShiftX,
-      this.tableBounds.minY + tableHeight / 2 - bandShiftY,
+      this.tableBounds.minY + tableHeightWorld / 2 - bandShiftY,
       animate
     );
   }

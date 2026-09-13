@@ -13,8 +13,33 @@
   --slot-size: 60px;
   --camera-bg: #2c3e50;
 
-  /* Compensation perspective pour vue 40deg */
-  --tile-overlap: -8px; /* Overlap pour compenser l'écart visuel */
+  /* ---- Projection isométrique ----
+     On ne fait PAS de perspective conique (celle-ci rétrécit ce qui s'éloigne :
+     les cases mesuraient 79px puis 63px, plus rien ne s'emboîtait et le tapis
+     ne suivait plus). En isométrie tout garde la même taille, seul l'angle
+     donne la profondeur — c'est ce qui permet à une grille de s'imbriquer
+     parfaitement, comme dans Monopoly GO ou Age of Empires.
+
+     L'inclinaison est portée par UNE seule transformation, appliquée à la
+     scène entière (tapis compris), pour qu'il n'existe qu'un seul plan. */
+  --iso-tilt: 58deg;   /* bascule vers l'arrière, proche de l'iso classique */
+  --iso-squash: 1.25;  /* réétire en hauteur : compense l'écrasement du cosinus
+                          pour que les cases restent lisibles, sans toucher à
+                          l'angle qui crée le relief */
+  --iso: rotateX(var(--iso-tilt)) scaleY(calc(1 / var(--iso-squash)));
+
+  /* Facteur qui annule l'écrasement vertical de la scène, pour les éléments
+     qui doivent rester ronds (les pions).
+
+     Formule : 1 / (cos(--iso-tilt) × --iso-squash)
+     Ici     : 1 / (cos(58°) × 1.25) = 1 / 0.6624 = 1.51
+
+     CSS ne sait pas calculer un cosinus : si --iso-tilt change, recalculer
+     cette valeur, sans quoi les pions redeviennent ovales. */
+  --iso-unsquash: 1.51;
+
+  /* Épaisseur du carton d'une case : c'est elle qui donne le relief */
+  --tile-thickness: 10px;
 }
 
 /* ================================
@@ -82,10 +107,34 @@
   overflow: hidden;
   cursor: grab;
 
-  /* Vue joueur assis - angle intermédiaire 40deg */
-  perspective: 1200px;
+  /* Pas de `perspective` : l'isométrie est une projection PARALLÈLE.
+     Une perspective conique ferait varier la taille des cases selon leur
+     distance au centre, et la grille cesserait de s'emboîter. */
   transform-style: preserve-3d;
   -webkit-transform-style: preserve-3d;
+}
+
+/**
+ * Calque d'inclinaison isométrique.
+ *
+ * Il enveloppe le monde ET le tapis, et s'incline autour du centre du
+ * viewport. La caméra cadre ensuite une scène déjà basculée : si la bascule
+ * venait après le cadrage, elle décalerait tout ce que le centrage vient de
+ * positionner, et le plateau sortirait du champ.
+ */
+.board-camera-iso {
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% 50%;
+  transform: rotateX(var(--iso-tilt)) scaleY(var(--iso-squash));
+  transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
+  pointer-events: none;
+}
+
+/* Les cases restent cliquables malgré le calque non interactif au-dessus */
+.board-camera-iso > * {
+  pointer-events: auto;
 }
 
 .board-camera-viewport:active {
@@ -124,13 +173,36 @@
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   cursor: pointer;
 
-  /* Vue joueur assis - 40deg */
-  transform: rotateX(40deg);
+  /* L'inclinaison isométrique vient de la scène entière (board-camera-world),
+     pas d'ici : une case qui s'incline seule se désolidarise du tapis. */
   transform-style: preserve-3d;
 }
 
+/**
+ * Épaisseur du carton.
+ *
+ * Une ombre portée seule donne une image posée sur une table ; c'est cette
+ * tranche visible sous la case qui la transforme en OBJET. C'est le détail
+ * qui fait basculer la lecture de « 2D à plat » à « plateau en volume »,
+ * pour un pseudo-élément et aucun coût de rendu.
+ */
+.board-tile::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  height: var(--tile-thickness);
+  border-radius: 0 0 12px 12px;
+  /* Dégradé sombre : la tranche reçoit moins de lumière que le dessus */
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.6));
+  transform-origin: 50% 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
 .board-tile:hover {
-  transform: rotateX(40deg) translateY(-5px) scale(1.05);
+  transform: translateY(-5px) scale(1.05);
   box-shadow:
     0 8px 20px rgba(0, 0, 0, 0.4),
     inset 0 1px 0 rgba(255, 255, 255, 0.8);
@@ -335,8 +407,13 @@
   transition: left 0.45s cubic-bezier(0.34, 1.56, 0.64, 1),
     top 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
 
-  /* Vue joueur assis - 40deg */
-  transform: rotateX(40deg);
+  /* Le pion suit le plan du plateau, comme une pastille posée dessus.
+     Le redresser à la verticale semblait plus « 3D », mais l'annulation
+     exacte du calque isométrique le déformait en ovale (mesuré 21x39 pour
+     un disque de 46px) : la géométrie d'un disque redressé projette
+     forcément une ellipse. Suivre le plan le garde parfaitement rond ; le
+     volume vient de l'ombre portée et du dégradé interne. */
+  transform: scaleY(var(--iso-unsquash));
 }
 
 /* Le pion qui bouge passe au-dessus des autres, sinon il disparaît derrière
@@ -388,8 +465,14 @@
 }
 
 @keyframes pawnJump {
-  0%, 100% { transform: rotateX(40deg) translateY(0) scale(1); }
-  50% { transform: rotateX(40deg) translateY(-26px) scale(1.25); }
+  0%, 100% {
+    transform: scaleY(var(--iso-unsquash)) translateY(0) scale(1);
+  }
+  50% {
+    /* Le saut monte à l'écran, pas dans le plan : c'est ce décalage vertical
+       qui fait lire « il décolle » plutôt que « il glisse ». */
+    transform: scaleY(var(--iso-unsquash)) translateY(-30px) scale(1.2);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -434,8 +517,8 @@
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(255, 215, 0, 0.3);
 
-  /* Vue joueur assis - 40deg */
-  transform: rotateX(40deg);
+  /* Redressé comme les pions, pour rester lisible sur le plan incliné */
+  transform: scaleY(var(--iso-unsquash));
 }
 
 .god-power-icon {
@@ -916,4 +999,20 @@
     height: 38px;
     font-size: 14px;
   }
+}
+
+/**
+ * Rangée du bas : illustrations redressées.
+ *
+ * Sur le plateau physique ces cases sont imprimées tête-bêche, à destination
+ * du joueur assis en face. Un écran n'a qu'un seul point de vue : sans cette
+ * rotation, une rangée entière est illisible.
+ */
+.board-tile--flipped .tile-image {
+  transform: rotate(180deg);
+}
+
+/* Le numéro, lui, ne doit pas repasser à l'envers */
+.board-tile--flipped .tile-number {
+  transform: none;
 }
