@@ -109,11 +109,25 @@ jobs:
               -Pandroid.injected.signing.key.password="$KEY_PASSWORD"
             echo "SIGNED=oui" >> $GITHUB_ENV
           else
-            # Sans keystore l'APK n'est pas installable : on le dit clairement
-            # dans la release plutôt que de livrer un fichier qui échouera.
-            echo "::warning::Aucun keystore configuré — APK NON SIGNÉ, non installable"
-            ./gradlew assembleRelease
-            echo "SIGNED=non" >> $GITHUB_ENV
+            # Sans secret configuré, on génère une clé de DÉBOGAGE à la volée :
+            # un APK non signé ne s'installe tout simplement pas, et livrer un
+            # fichier inutilisable n'aide personne. Cette clé change à chaque
+            # build, elle ne convient donc qu'aux tests — pour le Play Store,
+            # ou pour que les mises à jour s'installent par-dessus, il faut
+            # une vraie clé stable dans les secrets (voir le README).
+            echo "::warning::Aucun keystore dans les secrets — signature de test générée à la volée"
+            keytool -genkeypair -v \
+              -keystore test.keystore \
+              -alias schmitt-test \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass schmitt-test -keypass schmitt-test \
+              -dname "CN=Schmitt Odyssee Test, OU=Dev, O=Schmitt, L=Paris, C=FR"
+            ./gradlew assembleRelease \
+              -Pandroid.injected.signing.store.file=test.keystore \
+              -Pandroid.injected.signing.store.password=schmitt-test \
+              -Pandroid.injected.signing.key.alias=schmitt-test \
+              -Pandroid.injected.signing.key.password=schmitt-test
+            echo "SIGNED=test" >> $GITHUB_ENV
           fi
 
       - name: Renommer l'APK
@@ -150,6 +164,9 @@ jobs:
             - Le jeu se joue de préférence **en paysage** (tournez l'écran)
             - De 2 à 10 joueurs
             - APK signé : `${{ env.SIGNED }}`
+              (`test` = clé de débogage générée au build : installable, mais
+              une mise à jour ne s'installera pas par-dessus. Android peut
+              demander d'autoriser l'installation.)
 
             ⚠️ **Version de développement.** Les droits de la police Gelio et
             des illustrations ne sont pas encore réglés : usage privé
