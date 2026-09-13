@@ -10,8 +10,14 @@ CSS concurrente, le damier de carrés clairs sur les faces du dé.
 
 ## Prérequis
 
-Playwright n'est **pas** une dépendance du projet (c'est un gros paquet, et
-il ne sert qu'à la vérification manuelle). Il faut l'installer une fois :
+Playwright n'est **pas** une dépendance du projet : il télécharge un
+navigateur Chrome complet (~1,1 Go, dans un cache global de la machine, pas
+dans le dépôt), et il ne sert qu'à la vérification manuelle. L'ajouter à
+`package.json` ferait payer ce téléchargement à tout clone du projet.
+
+Les scripts eux-mêmes pèsent 36 Ko. Ils n'ont aucun effet sur le jeu livré.
+
+Il faut donc installer Playwright une fois, à part :
 
 ```bash
 npm install --no-save playwright && npx playwright install chromium
