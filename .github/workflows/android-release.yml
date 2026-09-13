@@ -1,0 +1,166 @@
+name: Release Android
+
+# Publie une release GitHub avec l'APK téléchargeable.
+#
+# Le workflow « Build Android APK/AAB » produit un artifact, qui expire et
+# n'est visible que depuis l'onglet Actions. Celui-ci crée une vraie release :
+# un lien stable, partageable à la communauté.
+#
+# Deux façons de le lancer :
+#   - pousser un tag `v*`      → version tirée du tag (ex : v1.2.0)
+#   - depuis l'onglet Actions  → saisir la version à la main
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (ex : 1.2.0)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Marquer comme préversion (jeu en développement)'
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Déterminer la version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="${{ github.event.inputs.version }}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+          echo "Version : $VERSION"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      # Une release ne doit pas partir si le jeu est cassé : les tests sont
+      # rapides (moins de 3 s) et couvrent les règles du jeu.
+      - name: Vérifier les types
+        run: npm run type-check
+
+      - name: Lancer les tests
+        run: npm test
+
+      - name: Build web assets
+        run: |
+          export CAPACITOR_PLATFORM=true
+          npm run build
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Sync Capacitor
+        run: npx cap sync android
+
+      # versionCode doit croître à chaque publication, sinon le Play Store
+      # refuse la mise à jour. Le numéro de run fait un compteur simple et
+      # toujours croissant.
+      - name: Fixer la version dans le build Android
+        run: |
+          cd android/app
+          sed -i "s/versionCode 1/versionCode ${{ github.run_number }}/" build.gradle
+          sed -i "s/versionName \"1.0\"/versionName \"${{ steps.version.outputs.version }}\"/" build.gradle
+          grep -E "versionCode|versionName" build.gradle
+
+      - name: Construire l'APK signé
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          cd android
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 --decode > release.keystore
+            ./gradlew assembleRelease \
+              -Pandroid.injected.signing.store.file=release.keystore \
+              -Pandroid.injected.signing.store.password="$KEYSTORE_PASSWORD" \
+              -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
+              -Pandroid.injected.signing.key.password="$KEY_PASSWORD"
+            echo "SIGNED=oui" >> $GITHUB_ENV
+          else
+            # Sans keystore l'APK n'est pas installable : on le dit clairement
+            # dans la release plutôt que de livrer un fichier qui échouera.
+            echo "::warning::Aucun keystore configuré — APK NON SIGNÉ, non installable"
+            ./gradlew assembleRelease
+            echo "SIGNED=non" >> $GITHUB_ENV
+          fi
+
+      - name: Renommer l'APK
+        run: |
+          cd android/app/build/outputs/apk/release
+          ls -la
+          APK=$(ls *.apk | head -1)
+          mv "$APK" "schmitt-odyssee-${{ steps.version.outputs.version }}.apk"
+          ls -la
+
+      - name: Publier la release GitHub
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Schmitt Odyssée ${{ steps.version.outputs.version }}
+          # Le jeu est en développement et ses droits d'assets ne sont pas
+          # encore réglés : préversion par défaut.
+          prerelease: ${{ github.event.inputs.prerelease != 'false' }}
+          generate_release_notes: true
+          files: android/app/build/outputs/apk/release/*.apk
+          body: |
+            ## 🎲 Schmitt Odyssée ${{ steps.version.outputs.version }}
+
+            **APK Android** — téléchargez le fichier `.apk` ci-dessous.
+
+            ### Installation
+
+            1. Téléchargez l'APK sur votre téléphone
+            2. Autorisez l'installation depuis des sources inconnues
+            3. Ouvrez le fichier téléchargé
+
+            ### Bon à savoir
+
+            - Le jeu se joue de préférence **en paysage** (tournez l'écran)
+            - De 2 à 10 joueurs
+            - APK signé : `${{ env.SIGNED }}`
+
+            ⚠️ **Version de développement.** Les droits de la police Gelio et
+            des illustrations ne sont pas encore réglés : usage privé
+            uniquement (voir le README).
+
+      - name: Résumé
+        run: |
+          echo "## 🎲 Release publiée" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version** : ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **versionCode** : ${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **APK signé** : ${{ env.SIGNED }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "[Voir la release](${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ steps.version.outputs.tag }})" >> $GITHUB_STEP_SUMMARY

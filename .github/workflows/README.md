@@ -289,3 +289,65 @@ GitHub → Actions → Workflow run → Job → Step
 ---
 
 **Besoin d'aide ?** Consultez [docs/DEPLOIEMENT-MOBILE.md](../../docs/DEPLOIEMENT-MOBILE.md)
+
+---
+
+## 🎲 Publier une release Android
+
+`android-release.yml` construit l'APK **et publie une release GitHub**, avec
+un lien stable à partager. C'est ce qu'il faut pour distribuer le jeu, là où
+`android-build.yml` ne produit qu'un artifact temporaire visible dans l'onglet
+Actions.
+
+### Lancer une release
+
+Deux façons, au choix :
+
+```bash
+# 1. Par un tag (recommandé) — la version vient du tag
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+Ou depuis l'onglet **Actions** → **Release Android** → *Run workflow*, en
+saisissant la version à la main.
+
+Le workflow vérifie les types et lance les tests avant de construire : une
+release ne part pas si le jeu est cassé.
+
+### ⚠️ Signature de l'APK
+
+**Sans keystore configuré, l'APK produit n'est pas signé — donc pas
+installable sur un téléphone.** Le workflow ne bloque pas, mais l'indique
+dans la release.
+
+Pour signer, créer une clé une seule fois :
+
+```bash
+keytool -genkey -v -keystore schmitt.keystore \
+  -alias schmitt -keyalg RSA -keysize 2048 -validity 10000
+```
+
+Puis l'encoder et l'ajouter aux secrets du dépôt
+(*Settings → Secrets and variables → Actions*) :
+
+```bash
+base64 -i schmitt.keystore | pbcopy   # macOS : copie dans le presse-papier
+```
+
+| Secret | Contenu |
+|---|---|
+| `ANDROID_KEYSTORE_BASE64` | le keystore encodé en base64 |
+| `ANDROID_KEYSTORE_PASSWORD` | mot de passe du keystore |
+| `ANDROID_KEY_ALIAS` | l'alias (`schmitt` ci-dessus) |
+| `ANDROID_KEY_PASSWORD` | mot de passe de la clé |
+
+**Garder le fichier keystore en lieu sûr et ne jamais le commiter** : sans
+lui, il devient impossible de publier une mise à jour de l'application, et il
+faut recréer une fiche Play Store.
+
+### versionCode
+
+Il est fixé automatiquement au numéro de run GitHub, qui croît à chaque
+exécution. C'est nécessaire : le Play Store refuse un `versionCode` qui
+n'augmente pas.
