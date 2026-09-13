@@ -676,9 +676,11 @@ class SchmittOdysseeCamera {
         // Réinitialiser le flag
         this.isRollingForGodPower = false;
 
-        // Cacher les dés
+        // Ne cacher que le dé de faveur : `hideAll()` masquait aussi le dé
+        // normal, et le joueur ne voyait plus AUCUN dé aux tours suivants —
+        // la valeur qui le déplaçait devenait invisible.
         setTimeout(() => {
-          this.diceManager.hideAll();
+          this.diceManager.showNormalDice();
 
           if (isDouble) {
             // COLÈRE DES DIEUX ! (double)
