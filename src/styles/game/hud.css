@@ -613,3 +613,57 @@
     transform: none;
   }
 }
+
+/* ============================================================
+   Annonce en grand
+   ============================================================ */
+
+/**
+ * Fenêtre d'annonce à lire depuis l'autre bout de la table.
+ *
+ * Le chiffre occupe l'essentiel de la surface : dans une soirée, personne ne
+ * s'approche de l'écran pour lire une ligne de texte. Une notification
+ * fugace passait inaperçue et la règle était oubliée.
+ */
+.announce {
+  text-align: center;
+  gap: var(--sp-2);
+}
+
+.announce-big {
+  font-family: var(--font-display);
+  /* Volontairement énorme : c'est LE chiffre que toute la table doit voir */
+  font-size: clamp(72px, 22vh, 160px);
+  line-height: 1;
+  font-weight: 700;
+  color: var(--gold-300);
+  text-shadow: 0 4px 18px rgba(0, 0, 0, 0.6);
+}
+
+.announce-label {
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-strong);
+}
+
+.announce-ok {
+  width: 100%;
+  margin-top: var(--sp-2);
+}
+
+/* En paysage téléphone la hauteur est rare : on resserre sans jamais
+   descendre sous la taille de cible tactile. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .announce-big {
+    font-size: clamp(56px, 26vh, 110px);
+  }
+
+  .announce .rule-prompt-hint {
+    /* Le rappel de la règle reste utile ici, contrairement aux autres
+       fenêtres où il est masqué : c'est lui qui dit quoi faire. */
+    display: block;
+    font-size: var(--fs-xs);
+  }
+}

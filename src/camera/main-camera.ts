@@ -631,15 +631,11 @@ class SchmittOdysseeCamera {
     this.consecutiveForwardMoves = 0;
     this.sheepHops = 0;
 
-    // Si le joueur a le pouvoir Schmitt, lancer les deux dés
-    if (currentPlayer.hasSchmittPower) {
-      this.gameRenderer.showNotification(`✨ Pouvoir Schmitt activé !`);
-      // rollBothDice() déclenche l'animation ; le résultat arrive via le
-      // callback onDiceRollEnd (déjà branché), qui gère la suite normalement.
-      void this.diceManager.rollBothDice();
-    } else {
-      void this.diceManager.rollNormalDice();
-    }
+    // Le porteur du pouvoir du Schmitt lance UN SEUL dé, comme tout le monde.
+    // Il lançait les deux dés et avançait de leur somme, ce qui n'est pas la
+    // règle : le second dé sert aux faveurs des dieux, jamais au déplacement.
+    // Son pouvoir est de distribuer des gorgées aux joueurs qu'il croise.
+    void this.diceManager.rollNormalDice();
 
     // Le dé peut aussi être glissé manuellement pendant l'animation ou après
     // un arrêt anormal (chute) ; le callback onDiceRollEnd gère les deux cas.
@@ -702,27 +698,8 @@ class SchmittOdysseeCamera {
       return;
     }
 
-    // Si le joueur a le pouvoir Schmitt (déplacement normal avec 2 dés), attendre que les deux dés soient lancés
-    if (currentPlayer.hasSchmittPower) {
-      if (this.diceResults.normal !== null && this.diceResults.godPower !== null) {
-        // Les deux dés se sont arrêtés
-        const total = this.diceResults.normal + this.diceResults.godPower;
-        this.gameRenderer.showNotification(
-          `🎲 Dé normal: ${this.diceResults.normal} + Pouvoir des dieux: ${this.diceResults.godPower} = Total: ${total}`
-        );
-
-        // Déplacer le joueur et repositionner les dés pour le prochain tour
-        setTimeout(() => {
-          this.moveCurrentPlayer(total);
-          // Repositionner les dés au centre après le déplacement
-          const tableBounds = this.boardRenderer.getTableBounds();
-          if (tableBounds) {
-            this.diceManager.positionDiceInTable(tableBounds);
-          }
-        }, 1000);
-      }
-    } else {
-      // Un seul dé, déplacer directement
+    {
+      // Un seul dé pour tout le monde, porteur du pouvoir compris
       this.gameRenderer.showDiceResult(result);
 
       setTimeout(() => {
@@ -787,6 +764,13 @@ class SchmittOdysseeCamera {
     // Animation avec suivi caméra
     await this.boardRenderer.animatePawnMove(currentPlayer.index, oldPosition, newPosition);
     this.updateBoard();
+
+    // Pouvoir du Schmitt : son porteur distribue des gorgées aux joueurs
+    // qu'il croise. C'est là son seul avantage — il lance un dé comme tout le
+    // monde, contrairement à ce que faisait le code.
+    if (currentPlayer.hasSchmittPower) {
+      this.applySchmittPowerPass(currentPlayer, oldPosition, newPosition, steps);
+    }
 
     // Laisser le temps de voir OÙ le pion s'est arrêté avant que la modale
     // d'effet ne recouvre le plateau. À 500ms l'arrivée passait inaperçue :
@@ -923,11 +907,34 @@ class SchmittOdysseeCamera {
     if (this.pendingModalAction) {
       clearTimeout(this.pendingModalAction.timeoutId);
     }
-    const timeoutId = window.setTimeout(() => {
-      this.pendingModalAction = null;
+
+    // Le tour n'avance QUE sur clic du joueur.
+    //
+    // Un minuteur enchaînait auparavant tout seul : le message d'une case
+    // s'affichait une seconde puis disparaissait, sans laisser le temps de
+    // lire la règle — c'est le reproche le plus fréquent des joueurs. Autour
+    // d'une table, on lit à voix haute, on discute, puis on valide.
+    //
+    // Le délai reste dans la signature pour les appelants, mais n'est plus
+    // utilisé : `delay` ne déclenche plus rien.
+    void delay;
+
+    // Si aucune modale n'est ouverte, rien n'attend le clic : on enchaîne.
+    const modalOpen = this.isEffectModalOpen();
+    if (!modalOpen) {
       action();
-    }, delay);
-    this.pendingModalAction = { timeoutId, callback: action };
+      return;
+    }
+
+    this.pendingModalAction = { timeoutId: 0, callback: action };
+  }
+
+  /** La modale d'effet est-elle visible à l'écran ? */
+  private isEffectModalOpen(): boolean {
+    const modal = document.getElementById('effectModal');
+    if (!modal) return false;
+    const display = window.getComputedStyle(modal).display;
+    return display !== 'none';
   }
 
   /**
@@ -937,57 +944,53 @@ class SchmittOdysseeCamera {
     const currentPlayer = this.gameLogic.getCurrentPlayer();
     if (!currentPlayer) return;
 
-    // Déterminer le nombre de gorgées à distribuer
     const gulpsCount = tileType === 'distribute_2' ? 2 : tileType === 'distribute_3' ? 3 : 4;
-    const allPlayers = this.gameLogic.getPlayers();
 
-    // Filtrer les joueurs disponibles (tous sauf le joueur actuel)
-    const availablePlayers = allPlayers.filter(p => p.index !== currentPlayer.index);
-
-    // On ne peut pas sélectionner plus de joueurs qu'il n'y en a de disponibles
-    // (ex: distribute_4 avec seulement 3 adversaires en partie à 4 joueurs) —
-    // sans ce plafond, le sélecteur ne peut jamais atteindre le nombre requis
-    // et le tour se bloque définitivement.
-    const requiredSelection = Math.min(gulpsCount, availablePlayers.length);
-
-    // Fermer le modal de l'effet ("DISTRIBUEZ X GORGÉES") avant d'afficher le
-    // sélecteur de joueurs, pour ne pas laisser les deux superposés
-    this.gameRenderer.closeEffectModal();
-
-    // Afficher le sélecteur de joueurs pour choisir qui reçoit les gorgées.
-    // Passe par withPlayerSelection : refermer le sélecteur sans choisir doit
-    // rendre la main au tour suivant, jamais figer la partie.
-    this.withPlayerSelection(
-      availablePlayers,
-      requiredSelection,
-      currentPlayer.index,
-      (selectedPlayers) => {
-        if (selectedPlayers.length === 0) {
-          this.scheduleNextTurn(500);
-          return;
-        }
-
-        // Distribuer 1 gorgée à chaque joueur sélectionné
-        selectedPlayers.forEach(player => {
-          this.gameLogic.addDrinks(player.index, 1);
-        });
-
-        const names = selectedPlayers.map(p => p.name).join(', ');
-        this.gameRenderer.showNotification(`${names} ${selectedPlayers.length > 1 ? 'boivent' : 'boit'} !`);
-
-        this.updateUI();
-
-        // Vérifier victoire et passer au joueur suivant
-        const winner = this.gameLogic.checkVictory();
-        if (winner) {
-          this.handleVictory();
-          return;
-        }
-
-        // Passer au joueur suivant après un délai
-        this.scheduleNextTurn(2000);
-      }
+    // Pas de sélecteur de joueurs : autour d'une table, on désigne à voix
+    // haute, et c'est bien plus rapide. L'application se contente d'annoncer
+    // combien de gorgées sont à distribuer ; le décompte exact n'a pas besoin
+    // d'être saisi, il se règle entre joueurs.
+    this.gameRenderer.showNotification(
+      `\u{1F381} ${currentPlayer.name} distribue ${gulpsCount} gorgées !`,
+      3000
     );
+    this.gameLogic.logEvent(`\u{1F381} ${currentPlayer.name} distribue ${gulpsCount} gorgées`);
+    this.updateUI();
+
+    this.scheduleNextTurn(2500);
+  }
+
+  /**
+   * Le porteur du pouvoir du Schmitt distribue des gorgées aux joueurs
+   * rencontrés sur son passage, à hauteur de la valeur du dé.
+   */
+  private applySchmittPowerPass(
+    holder: Player,
+    from: number,
+    to: number,
+    diceValue: number
+  ): void {
+    const low = Math.min(from, to);
+    const high = Math.max(from, to);
+
+    // Les joueurs croisés, case d'arrivée comprise
+    const hit = this.gameLogic
+      .getPlayers()
+      .filter(p => p.index !== holder.index && p.position > low && p.position <= high);
+
+    if (hit.length === 0) return;
+
+    hit.forEach(p => this.gameLogic.addDrinks(p.index, diceValue));
+
+    const names = hit.map(p => p.name).join(', ');
+    this.gameLogic.logEvent(
+      `\u{26A1} Pouvoir du Schmitt : ${names} ${hit.length > 1 ? 'boivent' : 'boit'} ${diceValue} gorgées`
+    );
+    this.gameRenderer.showNotification(
+      `\u{26A1} ${holder.name} croise ${names} : ${diceValue} gorgées chacun !`,
+      3000
+    );
+    this.updateUI();
   }
 
   /**
@@ -998,32 +1001,29 @@ class SchmittOdysseeCamera {
     const verdict = this.gameLogic.applyChickenPenalty(roll);
     if (!verdict) return;
 
+    // Une notification fugace passait inaperçue et le Poulet oubliait de
+    // boire. Une fenêtre à valider garantit que personne ne saute la sentence.
     if (!verdict.distributes) {
-      this.gameRenderer.showNotification(
-        `\u{1F414} ${verdict.name} est le Poulet : 1 gorgée sur ce ${roll} !`,
-        2500
+      this.promptBigAnnounce(
+        '🐔',
+        'PETIT POULET',
+        '1',
+        'gorgée à boire',
+        `${verdict.name} est le Petit Poulet : un ${roll} est sorti, il boit 1 gorgée.`,
+        () => this.updateUI()
       );
-      this.updateUI();
       return;
     }
 
-    // GROS POULET : il distribue au lieu de boire
-    const others = this.gameLogic
-      .getPlayers()
-      .filter(p => p.index !== verdict.playerIndex);
-    if (others.length === 0) return;
-
-    this.gameRenderer.showNotification(
-      `\u{1F414} ${verdict.name} est le GROS POULET : il distribue 1 gorgée !`,
-      2500
+    this.promptBigAnnounce(
+      '🐔',
+      'GROS POULET',
+      '1',
+      'gorgée à distribuer',
+      `${verdict.name} est le GROS POULET : un ${roll} est sorti, ` +
+        `il distribue 1 gorgée au joueur de son choix.`,
+      () => this.updateUI()
     );
-    this.withPlayerSelection(others, 1, verdict.playerIndex, (selected) => {
-      const target = selected[0];
-      if (!target) return;
-      this.gameLogic.addDrinks(target.index, 1);
-      this.gameRenderer.showNotification(`${target.name} boit 1 gorgée !`);
-      this.updateUI();
-    });
   }
 
   /**
@@ -1058,56 +1058,81 @@ class SchmittOdysseeCamera {
   }
 
   /**
-   * MOUTON — le joueur choisit un adversaire et vient se poser sur sa case.
+   * MOUTON — le joueur copie la case d'un adversaire et en subit l'effet.
    *
-   * « Copier l'effet d'un adversaire » se traduit ici par le suivre sur le
-   * plateau : c'est la seule lecture que le jeu peut appliquer sans ambiguïté,
-   * et elle garde le mordant de la case (on peut y gagner beaucoup de terrain
-   * comme en perdre autant).
+   * Il ne se déplace PAS : il reste où il est et rejoue simplement l'effet de
+   * la case choisie. Copier le pouvoir des dieux lance donc les dés de faveur,
+   * copier une case « boire » fait boire, etc.
    */
   private handleSheep(currentPlayer: Player): void {
     const others = this.gameLogic.getPlayers().filter(p => p.index !== currentPlayer.index);
 
-    // Seul en piste : personne à suivre, la case est sans effet.
     if (others.length === 0) {
-      this.gameRenderer.showNotification('Aucun adversaire à suivre : le mouton reste sur place.');
+      this.gameRenderer.showNotification('Aucun adversaire à copier : le mouton reste sur place.');
+      this.scheduleNextTurn(2000);
+      return;
+    }
+
+    // On propose les cases OCCUPÉES par les adversaires, pas les joueurs :
+    // c'est une case que l'on copie, et deux joueurs peuvent partager la même.
+    const seen = new Set<number>();
+    const choices: { label: string; value: string }[] = [];
+
+    others.forEach(p => {
+      if (seen.has(p.position)) return;
+      seen.add(p.position);
+
+      const tileId = this.boardRenderer.getTileIdAtPosition(p.position);
+      const tile = tileId !== null ? TILE_CONFIGS[tileId] : undefined;
+      if (!tile) return;
+
+      const who = others.filter(o => o.position === p.position).map(o => o.name).join(', ');
+      choices.push({
+        label: `${tile.icon} ${tile.name} — ${who}`,
+        value: String(p.position)
+      });
+    });
+
+    if (choices.length === 0) {
+      this.gameRenderer.showNotification('Aucune case à copier.');
       this.scheduleNextTurn(2000);
       return;
     }
 
     this.gameRenderer.closeEffectModal();
 
-    this.withPlayerSelection(others, 1, currentPlayer.index, async (selected) => {
-      const target = selected[0];
-      if (!target) {
-        // Sélecteur fermé sans choix : on ne bloque pas la partie.
-        this.scheduleNextTurn(500);
-        return;
+    this.promptChoice(
+      'Mouton',
+      `${currentPlayer.name} copie la case d'un adversaire et en subit l'effet.`,
+      choices,
+      (picked) => {
+        if (picked === null) {
+          this.scheduleNextTurn(500);
+          return;
+        }
+
+        const position = parseInt(picked, 10);
+        const tileId = this.boardRenderer.getTileIdAtPosition(position);
+        const tile = tileId !== null ? TILE_CONFIGS[tileId] : undefined;
+
+        this.gameLogic.logEvent(
+          `\u{1F411} ${currentPlayer.name} copie ${tile ? tile.name : 'une case'}`
+        );
+
+        // Garde-fou : copier une case MOUTON relancerait le choix sans fin.
+        if (tile?.type === 'copy') {
+          this.gameRenderer.showNotification(
+            `\u{1F411} Un mouton qui copie un mouton : rien ne se passe !`,
+            3000
+          );
+          this.scheduleNextTurn(2500);
+          return;
+        }
+
+        // On applique l'effet de la case copiée SANS déplacer le pion
+        this.applyTileEffect(position);
       }
-
-      const from = currentPlayer.position;
-      const to = target.position;
-      this.gameLogic.setPlayerPosition(currentPlayer.index, to);
-
-      await this.boardRenderer.animatePawnMove(currentPlayer.index, from, to);
-      this.updateBoard();
-      this.updateUI();
-
-      this.gameLogic.logEvent(`\u{1F411} ${currentPlayer.name} suit ${target.name} case ${to}`);
-      this.gameRenderer.showNotification(
-        `\u{1F411} ${currentPlayer.name} suit ${target.name} sur la case ${to} !`
-      );
-
-      // La case d'arrivée agit à son tour, sauf si le mouton se copie sur
-      // place : sans ce garde-fou, deux moutons face à face bouclent sans fin.
-      if (to !== from && this.sheepHops < 1) {
-        this.sheepHops++;
-        this.scheduleModalAction(1500, () => this.applyTileEffect(to));
-        return;
-      }
-
-      this.scheduleNextTurn(2000);
-    });
+    );
   }
 
   /**
@@ -1119,37 +1144,26 @@ class SchmittOdysseeCamera {
    */
   private handleSchmittCall(currentPlayer: Player): void {
     const players = this.gameLogic.getPlayers();
-    // Règle officielle : 1 gorgée par joueur SE TROUVANT SUR CETTE CASE,
-    // et non par joueur de la partie. À 4 joueurs dont 2 sur la case, c'est
-    // 2 gorgées.
+    // Le nombre de gorgées dépend des joueurs PRÉSENTS SUR LA CASE.
     const onTile = players.filter(p => p.position === currentPlayer.position);
     const gulps = Math.max(1, onTile.length);
+    const names = onTile.map(p => p.name).join(', ');
 
-    this.gameRenderer.closeEffectModal();
-    this.gameRenderer.showNotification(
-      `\u{1F4E2} Tout le monde crie SCHMITT ! Le dernier boit ${gulps} gorgées.`,
-      2500
+    // Qui a crié en dernier se règle à voix haute, l'application ne le
+    // demande plus. En revanche elle compte les joueurs sur la case, ce que
+    // personne n'a envie de faire de tête au bout de quelques tours.
+    this.promptBigAnnounce(
+      '📢',
+      'SCHMITT !!!',
+      `${gulps}`,
+      `gorgée${gulps > 1 ? 's' : ''} pour le dernier à crier`,
+      `Tout le monde crie « SCHMITT ! » et place son pouce sur le front. ` +
+        `${onTile.length} joueur${onTile.length > 1 ? 's' : ''} sur la case : ${names}.`,
+      () => {
+        this.gameLogic.logEvent(`\u{1F4E2} SCHMITT ! Le dernier boit ${gulps} gorgées`);
+        this.prepareNextPlayerTurn();
+      }
     );
-
-    // Le perdant peut être n'importe qui, y compris celui qui est tombé sur
-    // la case : la sélection s'ouvre donc sur la table entière.
-    this.scheduleModalAction(1200, () => {
-      this.withPlayerSelection(players, 1, currentPlayer.index, (selected) => {
-        const loser = selected[0];
-        if (!loser) {
-          this.scheduleNextTurn(500);
-          return;
-        }
-
-        this.gameLogic.addDrinks(loser.index, gulps);
-        this.gameLogic.logEvent(`\u{1F4E2} ${loser.name} crie trop tard : ${gulps} gorgées`);
-        this.gameRenderer.showNotification(
-          `\u{1F4E2} ${loser.name} a crié trop tard : ${gulps} gorgées !`
-        );
-        this.updateUI();
-        this.scheduleNextTurn(2000);
-      }, { allowSelf: true, title: 'Qui a crié en dernier ?' });
-    });
   }
 
   /**
@@ -1330,6 +1344,67 @@ class SchmittOdysseeCamera {
         this.showGodFavorResult(sum);
       }
     );
+  }
+
+  /**
+   * Annonce en grand, à lire depuis l'autre bout de la table.
+   *
+   * Le chiffre occupe l'essentiel de la fenêtre : c'est l'information qui
+   * compte dans une soirée, et elle doit se lire d'un coup d'œil, sans que
+   * personne ait à s'approcher de l'écran. La fenêtre attend un clic.
+   */
+  private promptBigAnnounce(
+    icon: string,
+    title: string,
+    bigValue: string,
+    bigLabel: string,
+    hint: string,
+    done: () => void
+  ): void {
+    const overlay = document.createElement('div');
+    overlay.className = 'rule-prompt';
+
+    const content = document.createElement('div');
+    content.className = 'rule-prompt-content ds-surface announce';
+
+    const h = document.createElement('h2');
+    h.className = 'ds-title';
+    h.textContent = `${icon} ${title}`;
+    content.appendChild(h);
+
+    const big = document.createElement('div');
+    big.className = 'announce-big';
+    big.textContent = bigValue;
+    content.appendChild(big);
+
+    const lbl = document.createElement('div');
+    lbl.className = 'announce-label';
+    lbl.textContent = bigLabel;
+    content.appendChild(lbl);
+
+    if (hint) {
+      const pEl = document.createElement('p');
+      pEl.className = 'rule-prompt-hint';
+      pEl.textContent = hint;
+      content.appendChild(pEl);
+    }
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'ds-btn ds-btn--gold announce-ok';
+    btn.textContent = "C'est fait";
+
+    let settled = false;
+    btn.addEventListener('click', () => {
+      if (settled) return;
+      settled = true;
+      overlay.remove();
+      done();
+    });
+
+    content.appendChild(btn);
+    overlay.appendChild(content);
+    document.body.appendChild(overlay);
   }
 
   /**

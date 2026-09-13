@@ -20,7 +20,7 @@
     },
     {
       "type": "forward_2",
-      "icon": "⬇️",
+      "icon": "⬆️",
       "name": "AVANCEZ DE 2 CASES",
       "description": "Avancez de 2 cases",
       "image": "assets/cells/jump.png"
@@ -34,11 +34,11 @@
       "amount": 2
     },
     {
-      "type": "temple",
-      "icon": "🏛️",
-      "name": "TEMPLE",
-      "description": "Entrée du temple",
-      "image": "assets/cells/schmitt_power.png"
+      "type": "power",
+      "icon": "⚡",
+      "name": "FAVEUR DES DIEUX",
+      "description": "Lancez 2 dés pour connaître la faveur des dieux",
+      "image": "assets/cells/power_gods.png"
     },
     {
       "type": "chicken",
@@ -130,10 +130,10 @@
       "amount": 3
     },
     {
-      "type": "big_chicken",
-      "icon": "🐓",
-      "name": "GRAND POULET",
-      "description": "Le joueur devient le Grand Poulet",
+      "type": "chicken",
+      "icon": "🐔",
+      "name": "PETIT POULET",
+      "description": "Le joueur devient le Petit Poulet",
       "image": "assets/cells/chicken.png"
     },
     {
