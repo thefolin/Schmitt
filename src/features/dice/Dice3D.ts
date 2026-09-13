@@ -289,6 +289,18 @@ export class Dice3D {
   };
 
   /**
+   * Inclinaison de la scène, lue depuis le CSS.
+   *
+   * Une constante dupliquée ici finit toujours par diverger de `--iso-tilt`
+   * quand on ajuste le rendu du plateau ; c'est précisément ce qui est arrivé.
+   */
+  private readSceneTilt(): number {
+    const raw = getComputedStyle(document.documentElement).getPropertyValue('--iso-tilt');
+    const parsed = parseFloat(raw);
+    return Number.isFinite(parsed) ? parsed : 58;
+  }
+
+  /**
    * Met à jour la position et la rotation du dé dans le DOM
    */
   private updatePosition(): void {
@@ -302,12 +314,16 @@ export class Dice3D {
     this.element.style.left = `${state.position.x - wrapperSize / 2}px`;
     this.element.style.top = `${state.position.y - wrapperSize / 2 - state.height}px`;
 
-    // Même redressement que les cases (rotateX(40deg) dans board-camera.css) :
-    // il compense la perspective du viewport. Avec le signe opposé, le dé
-    // subissait cette perspective au lieu de la compenser, et s'affichait
-    // écrasé. Appliqué AVANT l'orientation dans la chaîne CSS (donc APRÈS dans
-    // l'espace), sinon la face lue par la physique ne serait pas celle vue.
-    const sceneTiltX = 40;
+    // Redressement contre l'inclinaison de la scène : il annule la bascule du
+    // plateau pour que la face lue par la physique (celle tournée vers le haut)
+    // soit bien celle que le joueur voit.
+    //
+    // La valeur était codée en dur à 40°, l'inclinaison d'alors. Le passage en
+    // projection isométrique l'a portée à 58° sans que cette constante suive :
+    // le dé restait décalé de 18° et présentait une autre face que celle
+    // annoncée — d'où un dé qui ne correspondait jamais au déplacement.
+    // On la lit donc depuis le CSS, seule source de vérité.
+    const sceneTiltX = this.readSceneTilt();
 
     // Léger décalage de POINT DE VUE (pas d'orientation) : vu pile de face, un
     // cube se lit comme un carré plat. Ces quelques degrés révèlent deux faces
