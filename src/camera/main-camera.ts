@@ -766,10 +766,12 @@ class SchmittOdysseeCamera {
     await this.boardRenderer.animatePawnMove(currentPlayer.index, oldPosition, newPosition);
     this.updateBoard();
 
-    // Attendre un peu puis appliquer l'effet de la case
+    // Laisser le temps de voir OÙ le pion s'est arrêté avant que la modale
+    // d'effet ne recouvre le plateau. À 500ms l'arrivée passait inaperçue :
+    // on lançait le dé, et la case tombait sans qu'on ait vu le déplacement.
     setTimeout(() => {
       this.applyTileEffect(newPosition);
-    }, 500);
+    }, 1100);
   }
 
   private applyTileEffect(position: number): void {

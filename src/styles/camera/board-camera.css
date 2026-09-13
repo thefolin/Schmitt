@@ -6,7 +6,10 @@
 :root {
   --tile-size: 120px;
   --tile-gap: 15px;
-  --pawn-size: 30px;
+  /* 46px sur des cases de 120px. À 30px le pion était un point de 19px à
+     l'écran une fois la table mise à l'échelle : on ne voyait pas qui se
+     déplaçait, ce qui est pourtant l'information principale du tour. */
+  --pawn-size: 46px;
   --slot-size: 60px;
   --camera-bg: #2c3e50;
 
@@ -326,10 +329,20 @@
   width: var(--pawn-size);
   height: var(--pawn-size);
   z-index: 100;
-  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  /* On ne transitionne QUE la position. `all` incluait transform, qui entrait
+     en conflit avec l'animation de saut : les deux écrivaient la même
+     propriété, et le saut était avalé. */
+  transition: left 0.45s cubic-bezier(0.34, 1.56, 0.64, 1),
+    top 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
 
   /* Vue joueur assis - 40deg */
   transform: rotateX(40deg);
+}
+
+/* Le pion qui bouge passe au-dessus des autres, sinon il disparaît derrière
+   un pion immobile en traversant une case occupée. */
+.board-pawn.pawn-moving {
+  z-index: 140;
 }
 
 .pawn-body {
@@ -338,8 +351,10 @@
   background: var(--player-color, #3498db);
   border-radius: 50%;
   border: 3px solid white;
+  /* Le halo sombre détache le pion des illustrations claires des cases */
   box-shadow:
-    0 4px 12px rgba(0, 0, 0, 0.4),
+    0 0 0 2px rgba(0, 0, 0, 0.55),
+    0 6px 16px rgba(0, 0, 0, 0.5),
     inset -3px -3px 8px rgba(0, 0, 0, 0.2),
     inset 3px 3px 8px rgba(255, 255, 255, 0.4);
 }
@@ -358,14 +373,33 @@
   50% { transform: translateX(-50%) translateY(-5px); }
 }
 
-/* Animation de déplacement */
+/* Animation de déplacement : le saut dit « c'est moi qui bouge ».
+   Le halo doré double le message pour ceux qui regardaient ailleurs. */
 .pawn-moving {
-  animation: pawnJump 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: pawnJump 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.pawn-moving .pawn-body {
+  box-shadow:
+    0 0 0 3px var(--gold-400, #e3c169),
+    0 10px 22px rgba(0, 0, 0, 0.55),
+    inset -3px -3px 8px rgba(0, 0, 0, 0.2),
+    inset 3px 3px 8px rgba(255, 255, 255, 0.4);
 }
 
 @keyframes pawnJump {
   0%, 100% { transform: rotateX(40deg) translateY(0) scale(1); }
-  50% { transform: rotateX(40deg) translateY(-30px) scale(1.2); }
+  50% { transform: rotateX(40deg) translateY(-26px) scale(1.25); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .board-pawn {
+    transition: none;
+  }
+
+  .pawn-moving {
+    animation: none;
+  }
 }
 
 /* ================================

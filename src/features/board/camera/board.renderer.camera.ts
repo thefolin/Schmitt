@@ -26,6 +26,15 @@ import {
 } from './table.config';
 
 /**
+ * Diamètre d'un pion, en pixels monde.
+ *
+ * Doit rester aligné sur `--pawn-size` dans board-camera.css : le CSS dessine
+ * le pion, ce fichier calcule où le poser. Deux valeurs divergentes décalent
+ * les pions du centre de leur case.
+ */
+export const PAWN_SIZE = 46;
+
+/**
  * Renderer avec système de caméra
  * Vue 3/4 avec navigation pan/zoom
  */
@@ -631,14 +640,22 @@ export class BoardCameraRenderer {
     const indexOnTile = playersOnSameTile.indexOf(player);
 
     // Calculer les positions pour jusqu'à 10 joueurs sur une case
-    // Grille 3x3 pour 9 joueurs + 1 position centrale pour le 10ème
     const tileSize = this.config.tileSize;
-    const pawnSize = 30;
     const padding = 5;
 
-    // Positions en grille 3x3 dans la case
-    const gridSize = 3;
+    // La grille s'adapte au nombre de pions présents : seul sur sa case, un
+    // pion occupe toute la place et reste bien lisible ; c'est seulement à
+    // plusieurs qu'on resserre. Une grille 3x3 systématique réduisait le cas
+    // courant — un pion par case — à un point minuscule.
+    const crowd = playersOnSameTile.length;
+    const gridSize = crowd <= 1 ? 1 : crowd <= 4 ? 2 : 3;
     const cellSize = (tileSize - padding * 2) / gridSize;
+
+    // Le pion ne doit jamais déborder de sa cellule, sinon les pions se
+    // chevauchent et mordent sur les cases voisines.
+    const pawnSize = Math.min(PAWN_SIZE, Math.round(cellSize * 0.92));
+    pawnEl.style.width = `${pawnSize}px`;
+    pawnEl.style.height = `${pawnSize}px`;
     const slots: { x: number; y: number }[] = [];
 
     for (let row = 0; row < gridSize; row++) {
@@ -650,16 +667,17 @@ export class BoardCameraRenderer {
       }
     }
 
-    // Si plus de 9 joueurs, empiler au centre
-    const slotIndex = indexOnTile < 9 ? indexOnTile : 4; // Position centrale (index 4)
+    // Au-delà des emplacements disponibles, on empile sur le dernier
+    const maxSlots = gridSize * gridSize;
+    const slotIndex = indexOnTile < maxSlots ? indexOnTile : maxSlots - 1;
     const slot = slots[slotIndex];
 
     pawnEl.style.left = `${slot.x}px`;
     pawnEl.style.top = `${slot.y}px`;
 
-    // Si empilés au centre, ajouter un léger offset pour visibilité
-    if (indexOnTile >= 9) {
-      const stackOffset = (indexOnTile - 9) * 3;
+    // Si empilés, ajouter un léger offset pour qu'on devine la pile
+    if (indexOnTile >= maxSlots) {
+      const stackOffset = (indexOnTile - maxSlots + 1) * 3;
       pawnEl.style.left = `${slot.x + stackOffset}px`;
       pawnEl.style.top = `${slot.y + stackOffset}px`;
     }
@@ -774,7 +792,7 @@ export class BoardCameraRenderer {
       if (!pos) continue;
 
       // Calculer la position du pion (centré dans la case)
-      const pawnSize = 30;
+      const pawnSize = PAWN_SIZE;
       const halfTileSize = this.config.tileSize / 2;
       const centerOffset = (halfTileSize - pawnSize) / 2;
 

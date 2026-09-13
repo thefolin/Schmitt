@@ -340,3 +340,93 @@
     transition: none;
   }
 }
+
+/* ============================================================
+   Modale d'effet en paysage sur téléphone
+   ============================================================ */
+
+/**
+ * En paysage, la modale d'effet occupait presque tout l'écran : le joueur
+ * lançait le dé et la case tombait sans qu'il ait vu son pion se déplacer.
+ * On la resserre en carte compacte, alignée à gauche, pour que le plateau
+ * — et surtout le pion qui vient d'arriver — restent visibles derrière.
+ */
+@media (orientation: landscape) and (max-height: 560px) {
+  #effectModal {
+    justify-content: flex-start;
+    align-items: flex-end;
+    padding: var(--sp-3);
+    /* Le fond ne doit plus masquer le plateau : ni voile opaque, ni flou.
+       Le flou rendait le pion illisible, ce qui annulait tout l'intérêt de
+       garder le plateau visible. */
+    background: rgba(5, 8, 15, 0.3);
+    backdrop-filter: none;
+  }
+
+  #effectModal .modal-content {
+    width: auto;
+    max-width: 380px;
+    max-height: 62dvh;
+    padding: var(--sp-4);
+  }
+
+  #effectModal .tile-effect-icon {
+    font-size: var(--fs-xl);
+    margin-bottom: var(--sp-2);
+  }
+
+  #effectModal h2 {
+    font-size: var(--fs-lg);
+    margin-bottom: var(--sp-2);
+  }
+
+  #effectModal p {
+    font-size: var(--fs-sm);
+    margin-bottom: var(--sp-3);
+  }
+}
+
+/* ============================================================
+   Notification
+   ============================================================ */
+
+/**
+ * La notification était centrée au milieu de l'écran, donc pile sur le titre
+ * de la modale d'effet — les deux disaient la même chose, superposées et
+ * illisibles. Elle devient un bandeau haut, qui ne recouvre ni la modale ni
+ * le plateau.
+ */
+.notification {
+  top: calc(var(--sp-3) + env(safe-area-inset-top, 0px));
+  left: 50%;
+  bottom: auto;
+  transform: translate(-50%, -140%) scale(1);
+  width: max-content;
+  max-width: min(92vw, var(--panel-max));
+  padding: var(--sp-3) var(--sp-4);
+  font-family: var(--font-display);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text-on-gold);
+  background: var(--grad-gold);
+  border: 1px solid var(--gold-700);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-gold);
+  transition: transform var(--dur-base) var(--ease), opacity var(--dur-base) var(--ease);
+  opacity: 0;
+  /* Purement informative : ne doit jamais intercepter un tap */
+  pointer-events: none;
+}
+
+.notification.show {
+  transform: translate(-50%, 0) scale(1);
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notification {
+    transition: opacity var(--dur-fast) var(--ease);
+    transform: translate(-50%, 0) scale(1);
+  }
+}
