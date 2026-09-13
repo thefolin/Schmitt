@@ -1,7 +1,7 @@
 import { GameLogic } from '../features/game/game.logic';
 import { GameRenderer } from '../features/game/game.renderer';
 import { BoardCameraRenderer } from '../features/board/camera/board.renderer.camera';
-import { TILE_CONFIGS } from '../features/tiles/tile.config';
+import { TILE_CONFIGS, loadTileConfigs } from '../features/tiles/tile.config';
 import { assetManager } from '../core/assets/AssetManager';
 import type { BoardLayoutConfig } from '../features/board/camera/board-layout.config';
 import type { TileType } from '@/core/models/Tile';
@@ -86,6 +86,11 @@ class SchmittOdysseeCamera {
 
   private async init(): Promise<void> {
     assetManager.loadDefaultAssets();
+
+    // Le parcours vient d'un fichier de données : il doit être chargé avant
+    // que le plateau ne soit rendu ou qu'un effet ne soit appliqué.
+    await loadTileConfigs();
+
     this.loadSavedLayouts();
 
     // Charger test.json par défaut
@@ -818,6 +823,17 @@ class SchmittOdysseeCamera {
           this.gameRenderer.showNotification(`${currentPlayer.name} a atteint la limite de déplacements consécutifs !`);
         }
         break;
+      case 'chicken':
+      case 'big_chicken': {
+        // Tomber sur la case fait de vous le Petit Poulet ; y retomber sans
+        // qu'un autre joueur soit passé entre-temps vous promeut Grand Poulet.
+        const rank = this.gameLogic.setChicken(currentPlayer.index);
+        const title = rank >= 2 ? 'GRAND POULET' : 'PETIT POULET';
+        this.gameRenderer.showNotification(
+          `🐔 ${currentPlayer.name} devient le ${title} !`
+        );
+        break;
+      }
       case 'power':
         // Faveur des dieux : le joueur doit lancer 2 dés immédiatement
         this.handleGodPowerRoll(currentPlayer);

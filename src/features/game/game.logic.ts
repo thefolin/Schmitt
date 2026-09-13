@@ -22,6 +22,39 @@ export class GameLogic {
   private gameStarted: boolean = false;
   private history: string[] = [];
   private lastDiceRoll: number = 0;
+  /**
+   * Joueur actuellement Petit Poulet, et son rang (1 = petit, 2 = grand).
+   *
+   * Règle : tomber sur la case fait de vous le Petit Poulet. Y retomber vous
+   * promeut Grand Poulet — mais seulement si aucun autre joueur n'est passé
+   * sur la case entre-temps : un nouveau venu réinitialise le rang.
+   */
+  private chickenPlayerIndex: number | null = null;
+  private chickenRank: number = 0;
+
+  /**
+   * Applique la case Poulet à un joueur et renvoie son nouveau rang.
+   * 1 = Petit Poulet, 2 = Grand Poulet.
+   */
+  public setChicken(playerIndex: number): number {
+    if (this.chickenPlayerIndex === playerIndex) {
+      // Même joueur, sans interruption : il monte en grade
+      this.chickenRank = Math.min(this.chickenRank + 1, 2);
+    } else {
+      // Un autre joueur prend la place : le rang repart de zéro
+      this.chickenPlayerIndex = playerIndex;
+      this.chickenRank = 1;
+    }
+    return this.chickenRank;
+  }
+
+  public getChickenPlayerIndex(): number | null {
+    return this.chickenPlayerIndex;
+  }
+
+  public getChickenRank(): number {
+    return this.chickenRank;
+  }
 
   /**
    * Définit la taille du plateau en cours (nombre de cases du parcours).
@@ -39,6 +72,9 @@ export class GameLogic {
    * Initialise une nouvelle partie
    */
   public startGame(playersConfig: { name: string; color: string }[]): void {
+    this.chickenPlayerIndex = null;
+    this.chickenRank = 0;
+
     this.players = playersConfig.map((config, index) => ({
       name: config.name,
       color: config.color,
@@ -151,6 +187,8 @@ export class GameLogic {
    */
   public reset(): void {
     this.players = [];
+    this.chickenPlayerIndex = null;
+    this.chickenRank = 0;
     this.currentPlayerIndex = 0;
     this.gameStarted = false;
     this.history = [];

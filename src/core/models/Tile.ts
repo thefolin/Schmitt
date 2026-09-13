@@ -25,6 +25,7 @@ export enum TileType {
   WATERFALL = 'waterfall',
   LUCKY = 'lucky',
   CHICKEN = 'chicken',
+  BIG_CHICKEN = 'big_chicken',
   COPY = 'copy',
   RULE = 'rule',
   SCHMITT_CALL = 'schmitt_call',

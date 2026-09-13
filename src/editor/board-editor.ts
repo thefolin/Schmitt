@@ -6,7 +6,7 @@
  * - Déplacement des tuiles placées
  */
 
-import { TILE_CONFIGS } from '@/features/tiles/tile.config';
+import { TILE_CONFIGS, loadTileConfigs } from '@/features/tiles/tile.config';
 import type { BoardLayoutConfig, TilePlacement } from '@/features/board/camera/board-layout.config';
 import '../styles/common/design-system.css';
 import '../styles/editor/editor-theme.css';
@@ -157,10 +157,14 @@ class BoardEditor {
   }
 
   private init(): void {
+    // L'éditeur charge le même parcours que le jeu : sa palette doit refléter
+    // board-tiles.json, sinon les deux divergeraient.
+    const start = () => void loadTileConfigs().then(() => this.setup());
+
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', () => this.setup());
+      document.addEventListener('DOMContentLoaded', start);
     } else {
-      this.setup();
+      start();
     }
   }
 

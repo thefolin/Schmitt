@@ -169,6 +169,53 @@ export const TILE_CONFIGS: TileConfig[] = [
 ];
 
 /**
+ * Charge le parcours depuis public/data/board-tiles.json.
+ *
+ * Le plateau vit dans un fichier de données et non dans le code : modifier
+ * une case, en ajouter ou en retirer ne demande aucune recompilation.
+ * L'ordre du tableau `tiles` EST l'ordre de parcours.
+ *
+ * En cas d'échec (fichier absent ou invalide), le parcours codé ci-dessus
+ * sert de repli : le jeu reste jouable.
+ */
+export async function loadTileConfigs(
+  url = '/data/board-tiles.json'
+): Promise<TileConfig[]> {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const data: unknown = await response.json();
+    const tiles = (data as { tiles?: unknown }).tiles;
+    if (!Array.isArray(tiles) || tiles.length === 0) {
+      throw new Error('board-tiles.json : "tiles" doit être un tableau non vide');
+    }
+
+    const parsed = tiles.filter(
+      (t): t is TileConfig =>
+        typeof t?.type === 'string' && typeof t?.name === 'string'
+    );
+
+    if (parsed.length !== tiles.length) {
+      console.warn(
+        `board-tiles.json : ${tiles.length - parsed.length} case(s) ignorée(s), type ou name manquant`
+      );
+    }
+
+    if (parsed.length === 0) throw new Error('aucune case valide');
+
+    TILE_CONFIGS.splice(0, TILE_CONFIGS.length, ...parsed);
+    return TILE_CONFIGS;
+  } catch (error) {
+    console.warn(
+      'Parcours par défaut conservé, board-tiles.json non chargé :',
+      (error as Error).message
+    );
+    return TILE_CONFIGS;
+  }
+}
+
+/**
  * Obtenir la config d'une case par son type
  */
 export function getTileConfig(type: TileType): TileConfig | undefined {

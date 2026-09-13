@@ -1,0 +1,169 @@
+{
+  "_comment": "Parcours par défaut de Schmitt Odyssée, relevé sur le plateau physique.",
+  "_usage": "Pour modifier le plateau : éditer ce fichier, aucune recompilation n'est nécessaire. L'ordre du tableau EST l'ordre de parcours.",
+  "_types": "Types disponibles : start, drink_2, drink_3, drink_4, distribute_2, distribute_3, distribute_4, everyone_drinks, forward_2, chicken, big_chicken, copy, rule, schmitt_call, temple, power, finish",
+  "version": 1,
+  "tiles": [
+    {
+      "type": "start",
+      "icon": "🏁",
+      "name": "START",
+      "description": "Point de départ",
+      "image": "assets/start.png"
+    },
+    {
+      "type": "everyone_drinks",
+      "icon": "🍇",
+      "name": "TOURNÉE GÉNÉRALE",
+      "description": "Tous les joueurs boivent 1 gorgée",
+      "image": "assets/tournerGeneral.png"
+    },
+    {
+      "type": "forward_2",
+      "icon": "⬇️",
+      "name": "AVANCEZ DE 2 CASES",
+      "description": "Avancez de 2 cases",
+      "image": "assets/row.png"
+    },
+    {
+      "type": "drink_2",
+      "icon": "🍺",
+      "name": "BUVEZ 2 GORGÉES",
+      "description": "Buvez 2 gorgées",
+      "image": "assets/drink_2.png"
+    },
+    {
+      "type": "temple",
+      "icon": "🏛️",
+      "name": "TEMPLE",
+      "description": "Entrée du temple",
+      "image": "assets/powerG.png"
+    },
+    {
+      "type": "chicken",
+      "icon": "🐔",
+      "name": "PETIT POULET",
+      "description": "Le joueur devient le Petit Poulet",
+      "image": "assets/petitPoulet.png"
+    },
+    {
+      "type": "distribute_2",
+      "icon": "🎁",
+      "name": "DISTRIBUEZ 2 GORGÉES",
+      "description": "Distribuez 2 gorgées",
+      "image": "assets/donnerDring_2.png"
+    },
+    {
+      "type": "drink_3",
+      "icon": "🍺",
+      "name": "BUVEZ 3 GORGÉES",
+      "description": "Buvez 3 gorgées",
+      "image": "assets/drink_3.png"
+    },
+    {
+      "type": "copy",
+      "icon": "🐑",
+      "name": "MOUTON",
+      "description": "Le joueur devient le Mouton",
+      "image": "assets/mouton.png"
+    },
+    {
+      "type": "forward_2",
+      "icon": "⬆️",
+      "name": "AVANCEZ DE 2 CASES",
+      "description": "Avancez de 2 cases",
+      "image": "assets/row.png"
+    },
+    {
+      "type": "distribute_4",
+      "icon": "🎁",
+      "name": "DISTRIBUEZ 4 GORGÉES",
+      "description": "Distribuez 4 gorgées",
+      "image": "assets/donnerDring_4.png"
+    },
+    {
+      "type": "schmitt_call",
+      "icon": "🦸",
+      "name": "SCHMITT !!!",
+      "description": "Le dernier à crier SCHMITT boit",
+      "image": "assets/schimitt.png"
+    },
+    {
+      "type": "rule",
+      "icon": "📜",
+      "name": "CRÉEZ UNE RÈGLE",
+      "description": "Le joueur crée une règle pour la partie",
+      "image": "assets/rule.png"
+    },
+    {
+      "type": "forward_2",
+      "icon": "⬆️",
+      "name": "AVANCEZ DE 2 CASES",
+      "description": "Avancez de 2 cases",
+      "image": "assets/row.png"
+    },
+    {
+      "type": "copy",
+      "icon": "🐑",
+      "name": "MOUTON",
+      "description": "Le joueur devient le Mouton",
+      "image": "assets/mouton.png"
+    },
+    {
+      "type": "drink_4",
+      "icon": "🍺",
+      "name": "BUVEZ 4 GORGÉES",
+      "description": "Buvez 4 gorgées",
+      "image": "assets/drink_4.png"
+    },
+    {
+      "type": "distribute_3",
+      "icon": "🎁",
+      "name": "DISTRIBUEZ 3 GORGÉES",
+      "description": "Distribuez 3 gorgées",
+      "image": "assets/donnerDrink_3.png"
+    },
+    {
+      "type": "big_chicken",
+      "icon": "🐓",
+      "name": "GRAND POULET",
+      "description": "Le joueur devient le Grand Poulet",
+      "image": "assets/petitPoulet.png"
+    },
+    {
+      "type": "power",
+      "icon": "⚡",
+      "name": "FAVEUR DES DIEUX",
+      "description": "Lancez 2 dés pour connaître la faveur des dieux",
+      "image": "assets/powerG.png"
+    },
+    {
+      "type": "distribute_2",
+      "icon": "🎁",
+      "name": "DISTRIBUEZ 2 GORGÉES",
+      "description": "Distribuez 2 gorgées",
+      "image": "assets/donnerDring_2.png"
+    },
+    {
+      "type": "forward_2",
+      "icon": "⬆️",
+      "name": "AVANCEZ DE 2 CASES",
+      "description": "Avancez de 2 cases",
+      "image": "assets/row.png"
+    },
+    {
+      "type": "everyone_drinks",
+      "icon": "🍇",
+      "name": "TOURNÉE GÉNÉRALE",
+      "description": "Tous les joueurs boivent 1 gorgée",
+      "image": "assets/tournerGeneral.png"
+    },
+    {
+      "type": "finish",
+      "icon": "🏆",
+      "name": "FINISH",
+      "description": "Si le joueur arrive ici avec le bon nombre de cases, il obtient le Pouvoir du Schmitt",
+      "image": "assets/finish.png"
+    }
+  ]
+}
