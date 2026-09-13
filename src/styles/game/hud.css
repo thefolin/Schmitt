@@ -450,6 +450,39 @@
   gap: var(--sp-3);
 }
 
+/* Liste de choix (Jugement Dernier, Apollon, Zeus).
+   Zeus propose 9 faveurs : en colonne unique cela dépasse l'écran d'un
+   téléphone en paysage, d'où la grille auto-ajustée. */
+.choice-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--sp-2);
+}
+
+.choice-list .ds-btn {
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
+  padding: 0 var(--sp-4);
+}
+
+/* Beaucoup de choix (Zeus en propose 9) : deux colonnes dès qu'il y a la
+   place, appliqué par le JS via la classe .choice-list--dense. */
+.choice-list--dense {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+@media (orientation: landscape) and (max-height: 560px) {
+  .choice-list {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .choice-list .ds-btn {
+    min-height: var(--touch-min);
+    font-size: var(--fs-xs);
+  }
+}
+
 .rule-prompt-actions .ds-btn {
   flex: 1;
 }

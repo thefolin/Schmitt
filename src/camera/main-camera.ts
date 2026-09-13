@@ -68,6 +68,8 @@ class SchmittOdysseeCamera {
   private sheepHops = 0; // Sauts de MOUTON dans le tour : borne les rebonds en chaîne
   private diceResults: { normal: number | null; godPower: number | null } = { normal: null, godPower: null };
   private isRollingForGodPower = false; // Flag pour savoir si on lance pour une faveur des dieux
+  /** Valeurs des 2 dés de la dernière Faveur, pour le Jugement Dernier. */
+  private lastFavorDice: { a: number; b: number } = { a: 1, b: 1 };
   // Callback en attente lié au modal d'effet affiché (déclenché par timer OU par le bouton OK)
   private pendingModalAction: { timeoutId: number; callback: () => void } | null = null;
   // Choix retenu pour toute la partie quand Aphrodite tombe avec un seul
@@ -668,6 +670,13 @@ class SchmittOdysseeCamera {
 
         console.log(`⚡ Résultat faveur: ${this.diceResults.normal} + ${this.diceResults.godPower} = ${sum} (double: ${isDouble})`);
 
+        // Conserver les deux valeurs : le Jugement Dernier permet d'en garder
+        // une et de relancer l'autre, il faut donc savoir ce qui est sorti.
+        this.lastFavorDice = {
+          a: this.diceResults.normal,
+          b: this.diceResults.godPower
+        };
+
         // Réinitialiser le flag
         this.isRollingForGodPower = false;
 
@@ -1204,6 +1213,194 @@ class SchmittOdysseeCamera {
   }
 
   /**
+   * JUGEMENT DERNIER — le joueur garde l'un des 2 dés et relance l'autre.
+   *
+   * C'est un choix tactique : selon la faveur visée, on garde le dé qui
+   * approche du total souhaité. Le code tirait deux dés au hasard, ce qui
+   * supprimait toute décision.
+   */
+  private handleLastJudgement(currentPlayer: Player): void {
+    const { a, b } = this.lastFavorDice;
+
+    this.promptChoice(
+      'Jugement Dernier',
+      `Vos dés : ${a} et ${b}. Gardez-en un, l'autre sera relancé.`,
+      [
+        { label: `Garder le ${a}`, value: String(a) },
+        { label: `Garder le ${b}`, value: String(b) }
+      ],
+      (kept) => {
+        // Fermer sans choisir garde le premier dé : on ne bloque pas le tour
+        const keptValue = kept !== null ? parseInt(kept, 10) : a;
+        const reroll = Math.floor(Math.random() * 6) + 1;
+        const sum = keptValue + reroll;
+
+        this.gameLogic.logEvent(
+          `\u{1F3B2} Jugement Dernier : ${currentPlayer.name} garde ${keptValue}, relance ${reroll}`
+        );
+
+        // Un double reste la colère des dieux, même après un Jugement Dernier
+        if (keptValue === reroll) {
+          this.gameRenderer.showNotification(
+            `\u{274C} COLÈRE DES DIEUX ! Double ${reroll} : ${currentPlayer.name} reçoit 1 cul sec !`,
+            3000
+          );
+          this.gameLogic.addDrinks(currentPlayer.index, 1);
+          this.updateUI();
+          this.scheduleNextTurn(3000);
+          return;
+        }
+
+        this.gameRenderer.showNotification(
+          `\u{1F3B2} ${keptValue} + ${reroll} = ${sum}`,
+          2000
+        );
+        setTimeout(() => this.showGodFavorResult(sum), 1800);
+      }
+    );
+  }
+
+  /**
+   * APOLLON — rejouer avec 2 dés, garder celui de son choix pour se déplacer,
+   * et distribuer 1 gorgée à chaque adversaire dépassé.
+   */
+  private handleApollon(currentPlayer: Player): void {
+    const d1 = Math.floor(Math.random() * 6) + 1;
+    const d2 = Math.floor(Math.random() * 6) + 1;
+
+    this.promptChoice(
+      'Apollon',
+      `Vous rejouez ! Dés : ${d1} et ${d2}. Choisissez celui qui vous déplace.`,
+      [
+        { label: `Avancer de ${d1}`, value: String(d1) },
+        { label: `Avancer de ${d2}`, value: String(d2) }
+      ],
+      async (choice) => {
+        const steps = choice !== null ? parseInt(choice, 10) : Math.max(d1, d2);
+        const from = currentPlayer.position;
+
+        const to = this.gameLogic.movePlayer(currentPlayer.index, steps);
+
+        // 1 gorgée à chaque adversaire dépassé, dans le sens du déplacement
+        const low = Math.min(from, to);
+        const high = Math.max(from, to);
+        const passed = this.gameLogic
+          .getPlayers()
+          .filter(p => p.index !== currentPlayer.index && p.position > low && p.position < high);
+
+        passed.forEach(p => this.gameLogic.addDrinks(p.index, 1));
+
+        await this.boardRenderer.animatePawnMove(currentPlayer.index, from, to);
+        this.updateBoard();
+
+        if (passed.length > 0) {
+          const names = passed.map(p => p.name).join(', ');
+          this.gameRenderer.showNotification(
+            `\u{2600}\u{FE0F} ${currentPlayer.name} dépasse ${names} : 1 gorgée chacun !`,
+            2800
+          );
+          this.gameLogic.logEvent(`\u{2600}\u{FE0F} Apollon : ${names} boivent 1 gorgée`);
+        }
+
+        this.updateUI();
+        // La case d'arrivée agit à son tour
+        this.scheduleModalAction(1600, () => this.applyTileEffect(to));
+      }
+    );
+  }
+
+  /**
+   * ZEUS — faveur suprême : le joueur choisit la faveur qu'il veut.
+   * Le code en tirait une au hasard, ce qui en faisait l'inverse d'une faveur
+   * suprême.
+   */
+  private handleZeus(): void {
+    // Toutes les faveurs sauf la colère (2) et Zeus lui-même (12)
+    const choices = [3, 4, 5, 6, 7, 8, 9, 10, 11].map(sum => ({
+      label: `${GOD_FAVORS[sum].icon} ${GOD_FAVORS[sum].name}`,
+      value: String(sum)
+    }));
+
+    this.promptChoice(
+      'Zeus — Faveur suprême',
+      'Choisissez la faveur que vous souhaitez invoquer.',
+      choices,
+      (picked) => {
+        const sum = picked !== null ? parseInt(picked, 10) : 7;
+        this.showGodFavorResult(sum);
+      }
+    );
+  }
+
+  /**
+   * Demande un choix au joueur dans une modale aux couleurs du jeu.
+   *
+   * Plusieurs faveurs reposent sur une décision — garder un dé, choisir une
+   * faveur. Les tirer au hasard, comme le faisait le code, retire au joueur
+   * précisément ce qui fait l'intérêt de la case.
+   */
+  private promptChoice(
+    title: string,
+    hint: string,
+    choices: { label: string; value: string }[],
+    done: (value: string | null) => void
+  ): void {
+    const overlay = document.createElement('div');
+    overlay.className = 'rule-prompt';
+    const content = document.createElement('div');
+    content.className = 'rule-prompt-content ds-surface';
+
+    const h = document.createElement('h2');
+    h.className = 'ds-title';
+    h.textContent = title;
+    content.appendChild(h);
+
+    if (hint) {
+      const p = document.createElement('p');
+      p.className = 'rule-prompt-hint';
+      p.textContent = hint;
+      content.appendChild(p);
+    }
+
+    const list = document.createElement('div');
+    // Au-delà de 4 options (Zeus), deux colonnes évitent une liste à rallonge
+    list.className = choices.length > 4 ? 'choice-list choice-list--dense' : 'choice-list';
+
+    let settled = false;
+    const close = (value: string | null): void => {
+      if (settled) return;
+      settled = true;
+      overlay.remove();
+      done(value);
+    };
+
+    choices.forEach((choice, i) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = i === 0 ? 'ds-btn ds-btn--gold' : 'ds-btn';
+      btn.textContent = choice.label;
+      btn.addEventListener('click', () => close(choice.value));
+      list.appendChild(btn);
+    });
+
+    content.appendChild(list);
+    overlay.appendChild(content);
+    document.body.appendChild(overlay);
+  }
+
+  /**
+   * Affiche une règle qui se joue à la table et attend que les joueurs aient
+   * fini avant de reprendre le tour.
+   *
+   * L'application ne peut ni voir un pouce levé ni savoir quand on arrête de
+   * boire : elle énonce la règle, puis rend la main quand on le lui dit. Un
+   * enchaînement automatique couperait le jeu au milieu.
+   */
+  private promptTableRule(title: string, text: string, done: () => void): void {
+    this.promptChoice(title, text, [{ label: 'C\'est fait', value: 'ok' }], () => done());
+  }
+
+  /**
    * Demande une règle au joueur dans une modale aux couleurs du jeu.
    * `prompt()` est bloqué par certaines WebView Android et casse l'immersion.
    */
@@ -1659,14 +1856,8 @@ class SchmittOdysseeCamera {
         this.scheduleNextTurn(2000);
         break;
 
-      case 3: // Jugement Dernier - relancer un dé
-        this.gameRenderer.showNotification(`${currentPlayer.name} peut relancer un dé !`);
-        // Pour simplifier, on relance automatiquement
-        setTimeout(() => {
-          const newSum = Math.floor(Math.random() * 6) + 1 + Math.floor(Math.random() * 6) + 1;
-          this.gameRenderer.showNotification(`Nouveau résultat : ${newSum}`);
-          setTimeout(() => this.showGodFavorResult(newSum), 1500);
-        }, 2000);
+      case 3: // JUGEMENT DERNIER — garder un dé, relancer l'autre
+        this.handleLastJudgement(currentPlayer);
         break;
 
       case 4: // Athéna - bouclier
@@ -1698,46 +1889,45 @@ class SchmittOdysseeCamera {
         );
         break;
 
-      case 7: // Apollon - rejouer
-        this.gameRenderer.showNotification(`${currentPlayer.name} rejoue !`);
-        setTimeout(() => {
-          // Repasser au joueur actuel
-          this.gameLogic.previousPlayer();
-          this.prepareNextPlayerTurn();
-        }, 2000);
+      case 7: // APOLLON — rejouer avec 2 dés, garder celui de son choix
+        this.handleApollon(currentPlayer);
         break;
 
-      case 8: // Arès - pouce haut/bas
-        this.gameRenderer.showNotification(`Tous les joueurs : pouce haut ou bas ! (effet simulé)`);
-        this.scheduleNextTurn(3000);
+      case 8: // ARÈS — se joue à la table, l'app énonce et attend
+        this.promptTableRule(
+          'Arès',
+          `Tous les joueurs placent leur pouce vers le haut ou vers le bas en même temps. ` +
+          `Ceux qui font l'inverse de ${currentPlayer.name} reçoivent autant de gorgées ` +
+          `que le nombre de joueurs ayant fait comme lui.`,
+          () => this.prepareNextPlayerTurn()
+        );
         break;
 
-      case 9: // Dionysos - tous boivent
-        const allPlayersForDrink = this.gameLogic.getPlayers();
-        allPlayersForDrink.forEach((p) => {
-          this.gameLogic.addDrinks(p.index, 2);
-        });
-        this.gameRenderer.showNotification(`Tous boivent avec ${currentPlayer.name} ! 🍷`);
-        this.updateUI();
-        this.scheduleNextTurn(3000);
+      case 9: // DIONYSOS — se joue à la table : c'est une durée, pas un nombre
+        this.promptTableRule(
+          'Dionysos',
+          `Tous les joueurs trinquent, puis continuent de boire avec ${currentPlayer.name} ` +
+          `jusqu'à ce que lui seul décide d'arrêter.`,
+          () => this.prepareNextPlayerTurn()
+        );
         break;
 
-      case 10: // Héphaïstos - placer shooters
-        this.gameRenderer.showNotification(`${currentPlayer.name} place 2 shooters virtuels ! 🔨`);
-        this.scheduleNextTurn(2000);
+      case 10: // HÉPHAÏSTOS — se joue à la table
+        this.promptTableRule(
+          'Héphaïstos',
+          `${currentPlayer.name} place 2 shooters sur des cases différentes du plateau. ` +
+          `Le premier joueur à tomber sur l'une d'elles boit le shooter immédiatement, ` +
+          `puis applique l'effet de la case.`,
+          () => this.prepareNextPlayerTurn()
+        );
         break;
 
       case 11: // Poséidon - cibler un joueur et ses voisins
         this.handlePoseidonPower(currentPlayer);
         break;
 
-      case 12: // Zeus - choisir une faveur
-        this.gameRenderer.showNotification(`${currentPlayer.name} peut choisir n'importe quelle faveur ! (mode simplifié : faveur aléatoire)`);
-        // Mode simplifié : donner une faveur aléatoire entre 3 et 11
-        setTimeout(() => {
-          const randomFavor = Math.floor(Math.random() * 9) + 3; // 3 à 11
-          this.showGodFavorResult(randomFavor);
-        }, 2000);
+      case 12: // ZEUS — faveur suprême : le joueur CHOISIT
+        this.handleZeus();
         break;
 
       default:
