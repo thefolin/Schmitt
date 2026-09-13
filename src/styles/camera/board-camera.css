@@ -1002,17 +1002,35 @@
 }
 
 /**
- * Rangée du bas : illustrations redressées.
+ * Rangée du bas : plus aucune rotation.
  *
- * Sur le plateau physique ces cases sont imprimées tête-bêche, à destination
- * du joueur assis en face. Un écran n'a qu'un seul point de vue : sans cette
- * rotation, une rangée entière est illisible.
+ * Les anciennes illustrations, scannées du plateau physique, étaient
+ * imprimées tête-bêche pour le joueur d'en face et devaient être redressées.
+ * Les nouvelles sont conçues pour l'écran, lisibles dans un seul sens : les
+ * retourner remettrait les chiffres à l'envers.
  */
-.board-tile--flipped .tile-image {
-  transform: rotate(180deg);
-}
 
-/* Le numéro, lui, ne doit pas repasser à l'envers */
-.board-tile--flipped .tile-number {
-  transform: none;
+/**
+ * Badge de quantité.
+ *
+ * Les illustrations « boire » et « distribuer » portent un « x2 » gravé :
+ * ce badge le recouvre avec le vrai nombre, ce qui permet de servir x2, x3
+ * et x4 avec une seule image au lieu de six.
+ */
+.tile-amount {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  /* Proportionnel à la case : le plateau se met à l'échelle avec le zoom */
+  font-size: 52%;
+  font-weight: 700;
+  color: #f6efe0;
+  /* Contour sombre, comme le lettrage gravé des illustrations */
+  -webkit-text-stroke: 0.09em #2b2b2b;
+  paint-order: stroke fill;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
 }

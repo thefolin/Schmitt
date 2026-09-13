@@ -534,18 +534,17 @@ export class BoardCameraRenderer {
       el.dataset.size = placement.size;
     }
 
-    // Les illustrations ont été scannées depuis le plateau physique : celles
-    // de la rangée du bas y sont imprimées tête-bêche, pour le joueur assis
-    // en face. À l'écran il n'y a qu'un seul point de vue, donc on les
-    // redresse, sinon une case sur deux est illisible.
-    if (this.isFlippedRow(index)) {
-      el.classList.add('board-tile--flipped');
-    }
-
     // Afficher l'image ou l'icône selon ce qui est disponible
     if (tile.image) {
+      // Le badge recouvre le « x2 » gravé dans l'illustration : une seule
+      // image sert ainsi pour x2, x3 et x4.
+      const badge =
+        typeof tile.amount === 'number'
+          ? `<span class="tile-amount">x${tile.amount}</span>`
+          : '';
       el.innerHTML = `
         <img src="${tile.image}" alt="${tile.name}" class="tile-image" />
+        ${badge}
         <span class="tile-number">${index}</span>
       `;
     } else {
@@ -714,22 +713,6 @@ export class BoardCameraRenderer {
    * sur un petit téléphone il débordait. Le zoom est borné pour éviter un
    * plateau géant sur très grand écran ou illisible sur très petit.
    */
-  /**
-   * Indique si la case appartient à la rangée du bas du parcours, dont les
-   * illustrations sont imprimées à l'envers sur le plateau physique.
-   *
-   * On se fie à la géométrie (la rangée la plus basse du layout) plutôt qu'à
-   * une liste d'index en dur, pour qu'un plateau personnalisé reste correct.
-   */
-  private isFlippedRow(index: number): boolean {
-    const placements = this.boardLayout?.placements;
-    if (!placements || placements.length === 0) return false;
-
-    const maxRow = Math.max(...placements.map(p => p.gridRow));
-    const here = placements.find(p => p.tileId === index);
-    return here ? here.gridRow === maxRow : false;
-  }
-
   /**
    * Part de hauteur conservée par la projection isométrique.
    *

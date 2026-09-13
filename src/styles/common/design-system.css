@@ -11,6 +11,26 @@
  * Ne jamais réintroduire de #hexa en dur dans les feuilles de style.
  */
 
+/**
+ * Gelio Greek — S. John Ross (Cumberland Games).
+ * Licence « usage privé uniquement » : le projet est en développement, et les
+ * droits devront être obtenus avant toute publication (voir README).
+ * Tout en capitales, sans minuscules : réservée aux titres et aux chiffres.
+ */
+@font-face {
+  font-family: 'Gelio';
+  src: url('/fonts/Gelio-Pasteli.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Gelio';
+  src: url('/fonts/Gelio-Retsina.ttf') format('truetype');
+  font-weight: 700;
+  font-display: swap;
+}
+
 :root {
   /* ---- Marbre nocturne : les fonds, du plus profond au plus clair ---- */
   --marble-900: #0b0f1a; /* fond d'écran, derrière tout */
@@ -69,7 +89,10 @@
   --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 
   /* ---- Typographie ---- */
-  --font-display: 'Cinzel', 'Trajan Pro', 'Georgia', serif; /* titres, boutons */
+  /* Gelio porte l'identité grecque ; Cinzel prend le relais tant que la
+     police n'est pas chargée, ou si elle venait à être retirée pour des
+     raisons de licence. */
+  --font-display: 'Gelio', 'Cinzel', 'Trajan Pro', 'Georgia', serif;
   --font-body: 'Segoe UI', 'Helvetica Neue', system-ui, sans-serif;
 
   --fs-xs: 12px;

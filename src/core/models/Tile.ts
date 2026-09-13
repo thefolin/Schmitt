@@ -54,6 +54,15 @@ export interface TileConfig {
   name: string;
   description?: string; // Description optionnelle pour l'UI
   image?: string; // Chemin de l'image optionnel
+  /**
+   * Nombre de gorgées, quand la case en porte un.
+   *
+   * Les illustrations « boire » et « distribuer » ont un « x2 » gravé dans
+   * l'image : une seule illustration sert donc pour x2, x3 et x4, et le vrai
+   * chiffre est affiché par-dessus. Sans cela il faudrait six illustrations
+   * là où deux suffisent.
+   */
+  amount?: number;
 }
 
 /**

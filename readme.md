@@ -172,3 +172,31 @@ Règles complètes : [Schmitt Odyssée](https://unoff31.wixsite.com/schmittodyss
 ## Licence
 
 MIT - Libre d'utilisation, modification et partage.
+
+### ⚠️ Droits à obtenir avant toute publication
+
+Le projet est **en cours de développement**, à usage privé. Deux éléments
+devront être régularisés **avant toute publication ou distribution** (store,
+site public, diffusion à une organisation) :
+
+**1. Les polices Gelio Greek**
+
+Famille TrueType de S. John Ross (Cumberland Games & Diversions), utilisée
+pour l'identité visuelle du jeu. Sa licence est explicite :
+
+> *These fonts are free for private use only. Any public or commercial use,
+> or any use by an organization rather than an individual, requires a
+> license.*
+
+Un usage privé est donc couvert, mais **pas** une publication. Il faudra
+soit obtenir une licence auprès de l'auteur (sjohn@cumberlandgames.com,
+www.cumberlandgames.com), soit basculer sur une police libre au rendu
+proche.
+
+**2. Les illustrations des cases**
+
+Les visuels du plateau (cases, divinités) proviennent du jeu physique.
+S'assurer que les droits d'exploitation numérique sont acquis avant
+publication.
+
+**Tant que ces points ne sont pas réglés, le projet reste à usage privé.**
