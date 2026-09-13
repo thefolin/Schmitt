@@ -93,6 +93,8 @@ jobs:
           grep -E "versionCode|versionName" build.gradle
 
       - name: Construire l'APK signé
+        # --stacktrace : sans lui, un échec Gradle ne dit pas grand-chose, et
+        # les logs d'un dépôt privé ne sont pas lisibles sans authentification.
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -102,8 +104,10 @@ jobs:
           cd android
           if [ -n "$KEYSTORE_BASE64" ]; then
             echo "$KEYSTORE_BASE64" | base64 --decode > release.keystore
+            # Chemin ABSOLU : Gradle résout `store.file` depuis android/app/,
+            # pas depuis android/ où le fichier vient d'être écrit.
             ./gradlew assembleRelease \
-              -Pandroid.injected.signing.store.file=release.keystore \
+              -Pandroid.injected.signing.store.file="$PWD/release.keystore" \
               -Pandroid.injected.signing.store.password="$KEYSTORE_PASSWORD" \
               -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
               -Pandroid.injected.signing.key.password="$KEY_PASSWORD"
@@ -122,8 +126,9 @@ jobs:
               -keyalg RSA -keysize 2048 -validity 10000 \
               -storepass schmitt-test -keypass schmitt-test \
               -dname "CN=Schmitt Odyssee Test, OU=Dev, O=Schmitt, L=Paris, C=FR"
-            ./gradlew assembleRelease \
-              -Pandroid.injected.signing.store.file=test.keystore \
+            ls -la test.keystore
+            ./gradlew assembleRelease --stacktrace \
+              -Pandroid.injected.signing.store.file="$PWD/test.keystore" \
               -Pandroid.injected.signing.store.password=schmitt-test \
               -Pandroid.injected.signing.key.alias=schmitt-test \
               -Pandroid.injected.signing.key.password=schmitt-test
