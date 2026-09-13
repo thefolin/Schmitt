@@ -4,14 +4,19 @@
  */
 
 /**
- * Compression de l'axe Y compensant la perspective du plateau (rotateX 40°).
- * sin(40°) ≈ 0,64 : on écrase donc les écarts verticaux à ~65%.
+ * Compression de l'axe Y du plateau, dans le MONDE.
  *
- * Partagé par le placement des cases ET le calcul de la table : les deux
- * doivent employer la même valeur, sinon le tapis ne coïncide plus avec le
- * plateau qu'il est censé porter.
+ * Elle valait 0,65 du temps où chaque case portait son propre `rotateX(40°)`
+ * et pré-écrasait les écarts verticaux pour compenser. Depuis le passage en
+ * projection isométrique, c'est le calque de scène qui incline l'ensemble :
+ * garder cette compression écrasait le plateau une seconde fois, et les
+ * rangées se retrouvaient anormalement tassées.
+ *
+ * On laisse donc la grille carrée (1), et la seule inclinaison vient de la
+ * projection. Le plateau garde ainsi des proportions justes quelle que soit
+ * sa forme — ce qui compte pour les plateaux dessinés par les joueurs.
  */
-export const PERSPECTIVE_COMPRESSION_Y = 0.65;
+export const PERSPECTIVE_COMPRESSION_Y = 1;
 
 export interface TilePlacement {
   tileId: number;           // ID de la case jeu

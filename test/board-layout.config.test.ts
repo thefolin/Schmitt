@@ -32,12 +32,15 @@ describe('calculatePlacementBounds - taille "full"', () => {
     expect(bounds.x).toBe(120 + 15); // step = 135
   });
 
-  it('compresse le pas en Y de 65% pour compenser la perspective 40deg', () => {
-    const placement: TilePlacement = { tileId: 1, gridRow: 1, gridCol: 0, size: 'full' };
+  it('garde une grille carrée : le pas en Y égale le pas en X', () => {
+    const placement: TilePlacement = { tileId: 1, gridRow: 1, gridCol: 1, size: 'full' };
     const bounds = calculatePlacementBounds(placement, baseConfig);
 
     const step = baseConfig.tileSize + baseConfig.tileGap; // 135
-    expect(bounds.y).toBeCloseTo(step * 0.65, 5); // 87.75
+    // L'inclinaison vient de la projection isométrique, appliquée à la scène
+    // entière. Pré-écraser le monde en plus l'aplatissait une seconde fois.
+    expect(bounds.y).toBeCloseTo(step, 5);
+    expect(bounds.y).toBeCloseTo(bounds.x, 5);
   });
 });
 
