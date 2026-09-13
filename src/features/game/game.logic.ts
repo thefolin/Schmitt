@@ -33,6 +33,14 @@ export class GameLogic {
   private chickenRank: number = 0;
 
   /**
+   * Règles inventées par les joueurs sur les cases « CRÉEZ UNE RÈGLE ».
+   * Le jeu ne peut pas les appliquer — elles se jouent à la voix — mais il
+   * les garde affichables pour que personne n'oublie une règle en cours de
+   * soirée, ce qui est exactement ce qui arrive sans trace écrite.
+   */
+  private customRules: { author: string; text: string }[] = [];
+
+  /**
    * Applique la case Poulet à un joueur et renvoie son nouveau rang.
    * 1 = Petit Poulet, 2 = Grand Poulet.
    */
@@ -57,6 +65,30 @@ export class GameLogic {
   }
 
   /**
+   * Enregistre une règle inventée par un joueur.
+   * Le texte est nettoyé et tronqué : il finit affiché dans un bandeau.
+   */
+  public addCustomRule(author: string, text: string): void {
+    const clean = text.trim().slice(0, 140);
+    if (!clean) return;
+    this.customRules.push({ author, text: clean });
+    this.addToHistory(`\u{1F4DC} Nouvelle règle de ${author} : « ${clean} »`);
+  }
+
+  public getCustomRules(): { author: string; text: string }[] {
+    return this.customRules.map(r => ({ ...r }));
+  }
+
+  /**
+   * Ajoute un évènement à l'historique depuis l'extérieur (effets de case).
+   * Les effets vivent dans la couche présentation, mais leur trace appartient
+   * à la partie : sans cela, l'historique ne raconte que les lancers de dé.
+   */
+  public logEvent(message: string): void {
+    this.addToHistory(message);
+  }
+
+  /**
    * Définit la taille du plateau en cours (nombre de cases du parcours).
    * À appeler avant startGame() quand un layout personnalisé est chargé.
    */
@@ -74,6 +106,7 @@ export class GameLogic {
   public startGame(playersConfig: { name: string; color: string }[]): void {
     this.chickenPlayerIndex = null;
     this.chickenRank = 0;
+    this.customRules = [];
 
     this.players = playersConfig.map((config, index) => ({
       name: config.name,
@@ -189,6 +222,7 @@ export class GameLogic {
     this.players = [];
     this.chickenPlayerIndex = null;
     this.chickenRank = 0;
+    this.customRules = [];
     this.currentPlayerIndex = 0;
     this.gameStarted = false;
     this.history = [];

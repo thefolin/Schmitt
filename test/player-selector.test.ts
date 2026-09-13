@@ -169,3 +169,59 @@ describe('PlayerSelector', () => {
     selector.destroy();
   });
 });
+
+describe('PlayerSelector : fermeture sans choix', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('prévient l\'appelant quand on ferme à la croix', () => {
+    const selector = new PlayerSelector();
+    const onCancel = vi.fn();
+    selector.show(players, 1, 0, false, vi.fn(), onCancel);
+
+    document.querySelector<HTMLElement>('.close-player-selector')!.click();
+
+    expect(onCancel).toHaveBeenCalledOnce();
+  });
+
+  it('prévient l\'appelant quand on clique à côté de la modale', () => {
+    const selector = new PlayerSelector();
+    const onCancel = vi.fn();
+    selector.show(players, 1, 0, false, vi.fn(), onCancel);
+
+    // e.target === la modale elle-même : clic sur le fond
+    document.getElementById('playerSelectorModal')!.click();
+
+    expect(onCancel).toHaveBeenCalledOnce();
+  });
+
+  it('ne signale pas d\'annulation quand une sélection est confirmée', () => {
+    vi.useFakeTimers();
+    const selector = new PlayerSelector();
+    const onCancel = vi.fn();
+    const onPick = vi.fn();
+    selector.show(players, 1, 0, false, onPick, onCancel);
+
+    clickCard(0);
+    vi.runAllTimers(); // l'auto-confirmation est différée de 300ms
+    vi.useRealTimers();
+
+    expect(onPick).toHaveBeenCalledOnce();
+    expect(onCancel).not.toHaveBeenCalled();
+  });
+
+  it('n\'appelle pas le rappel d\'annulation d\'un tour précédent', () => {
+    const selector = new PlayerSelector();
+    const firstCancel = vi.fn();
+    selector.show(players, 1, 0, false, vi.fn(), firstCancel);
+    document.querySelector<HTMLElement>('.close-player-selector')!.click();
+    firstCancel.mockClear();
+
+    // Nouveau tour, cette fois sans rappel d'annulation
+    selector.show(players, 1, 0, false, vi.fn());
+    document.querySelector<HTMLElement>('.close-player-selector')!.click();
+
+    expect(firstCancel).not.toHaveBeenCalled();
+  });
+});

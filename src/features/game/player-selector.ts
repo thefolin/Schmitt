@@ -7,6 +7,12 @@ import type { Player } from '@/core/models/Player';
 export class PlayerSelector {
   private modal: HTMLElement | null = null;
   private currentCallback: ((selected: Player[]) => void) | null = null;
+  /**
+   * Appelé quand le joueur referme le sélecteur sans choisir (croix ou clic
+   * à côté). Sans cela le tour reste figé : l'appelant attend un rappel qui
+   * ne vient jamais, et la partie est bloquée pour de bon.
+   */
+  private onCancel: (() => void) | null = null;
   private selectedPlayers: Player[] = [];
   private requiredCount: number = 0;
 
@@ -37,13 +43,13 @@ export class PlayerSelector {
     // Fermer au clic sur la croix
     const closeBtn = this.modal.querySelector('.close-player-selector');
     closeBtn?.addEventListener('click', () => {
-      this.hide();
+      this.hide(true);
     });
 
     // Fermer au clic en dehors
     this.modal.addEventListener('click', (e) => {
       if (e.target === this.modal) {
-        this.hide();
+        this.hide(true);
       }
     });
 
@@ -64,10 +70,12 @@ export class PlayerSelector {
     count: number,
     currentPlayerIndex: number,
     allowSelf: boolean,
-    callback: (selected: Player[]) => void
+    callback: (selected: Player[]) => void,
+    onCancel?: () => void
   ): void {
     this.requiredCount = count;
     this.currentCallback = callback;
+    this.onCancel = onCancel ?? null;
     this.selectedPlayers = [];
 
     // Filtrer les joueurs disponibles
@@ -181,12 +189,16 @@ export class PlayerSelector {
   /**
    * Cache la modal
    */
-  private hide(): void {
+  private hide(cancelled: boolean = false): void {
     if (this.modal) {
       this.modal.style.display = 'none';
     }
+    const cancel = this.onCancel;
     this.selectedPlayers = [];
     this.currentCallback = null;
+    this.onCancel = null;
+
+    if (cancelled && cancel) cancel();
   }
 
   /**

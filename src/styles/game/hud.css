@@ -371,6 +371,101 @@
   text-align: center;
 }
 
+/* ---- Règles inventées ---- */
+
+.drawer-rules {
+  margin-bottom: var(--sp-4);
+}
+
+.rules-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 24vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--gold-700);
+  border-radius: var(--radius-md);
+  /* Liseré doré : une règle inventée fait autorité, elle se distingue
+     de l'historique qui ne fait que raconter. */
+  background: rgba(227, 193, 105, 0.06);
+}
+
+.rules-list li {
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-sm);
+  color: var(--text-base);
+  border-bottom: 1px solid rgba(138, 109, 40, 0.4);
+}
+
+.rules-list li:last-child {
+  border-bottom: none;
+}
+
+.rule-author {
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--gold-300);
+}
+
+.rule-author::after {
+  content: ' :';
+}
+
+/* ---- Modale « Créez une règle » ---- */
+
+.rule-prompt {
+  position: fixed;
+  inset: 0;
+  z-index: 1200; /* au-dessus du tiroir et de la modale d'effet */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-4);
+  background: rgba(5, 8, 15, 0.72);
+  backdrop-filter: blur(3px);
+}
+
+.rule-prompt-content {
+  width: 100%;
+  max-width: var(--panel-max);
+  padding: var(--sp-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  /* Le clavier tactile ampute la hauteur : le contenu doit pouvoir défiler */
+  max-height: 90dvh;
+  overflow-y: auto;
+}
+
+.rule-prompt-hint {
+  margin: 0;
+  text-align: center;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+.rule-prompt-actions {
+  display: flex;
+  gap: var(--sp-3);
+}
+
+.rule-prompt-actions .ds-btn {
+  flex: 1;
+}
+
+/* En paysage sur téléphone, la hauteur est la ressource rare */
+@media (orientation: landscape) and (max-height: 500px) {
+  .rule-prompt-content {
+    padding: var(--sp-4);
+    gap: var(--sp-3);
+  }
+
+  .rule-prompt-hint {
+    display: none;
+  }
+}
+
 /* ================================
    Adaptations
    ================================ */
@@ -447,9 +542,14 @@
     margin-bottom: var(--sp-3);
   }
 
-  /* L'historique, plus long, prend toute la largeur */
-  .drawer-history {
+  /* Historique et règles, plus longs, prennent toute la largeur */
+  .drawer-history,
+  .drawer-rules {
     grid-column: 1 / -1;
+  }
+
+  .rules-list {
+    max-height: 22dvh;
   }
 
   .history-list {

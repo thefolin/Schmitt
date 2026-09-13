@@ -65,6 +65,7 @@ class SchmittOdysseeCamera {
   private selectedLayout: BoardLayoutConfig | null = null;
   private importedLayout: BoardLayoutConfig | null = null;
   private consecutiveForwardMoves = 0; // Compteur pour éviter les boucles infinies
+  private sheepHops = 0; // Sauts de MOUTON dans le tour : borne les rebonds en chaîne
   private diceResults: { normal: number | null; godPower: number | null } = { normal: null, godPower: null };
   private isRollingForGodPower = false; // Flag pour savoir si on lance pour une faveur des dieux
   // Callback en attente lié au modal d'effet affiché (déclenché par timer OU par le bouton OK)
@@ -614,8 +615,9 @@ class SchmittOdysseeCamera {
       return;
     }
 
-    // Réinitialiser le compteur de déplacements consécutifs au début du tour
+    // Réinitialiser les compteurs anti-boucle au début du tour
     this.consecutiveForwardMoves = 0;
+    this.sheepHops = 0;
 
     // Si le joueur a le pouvoir Schmitt, lancer les deux dés
     if (currentPlayer.hasSchmittPower) {
@@ -834,6 +836,19 @@ class SchmittOdysseeCamera {
         );
         break;
       }
+      case 'copy':
+        // MOUTON : le joueur suit un adversaire et vient se poser sur sa case.
+        this.handleSheep(currentPlayer);
+        return; // Attendre le choix de l'adversaire à copier
+      case 'schmitt_call':
+        // SCHMITT !!! : le dernier à crier boit 1 gorgée par joueur présent.
+        // L'application n'entend pas les cris : elle demande qui a perdu.
+        this.handleSchmittCall(currentPlayer);
+        return; // Attendre la désignation du perdant
+      case 'rule':
+        // CRÉEZ UNE RÈGLE : le jeu ne peut pas l'appliquer, mais il la retient.
+        this.handleCustomRule(currentPlayer);
+        return; // Attendre la saisie de la règle
       case 'power':
         // Faveur des dieux : le joueur doit lancer 2 dés immédiatement
         this.handleGodPowerRoll(currentPlayer);
@@ -912,13 +927,19 @@ class SchmittOdysseeCamera {
     // sélecteur de joueurs, pour ne pas laisser les deux superposés
     this.gameRenderer.closeEffectModal();
 
-    // Afficher le sélecteur de joueurs pour choisir qui reçoit les gorgées
-    this.playerSelector.show(
+    // Afficher le sélecteur de joueurs pour choisir qui reçoit les gorgées.
+    // Passe par withPlayerSelection : refermer le sélecteur sans choisir doit
+    // rendre la main au tour suivant, jamais figer la partie.
+    this.withPlayerSelection(
       availablePlayers,
       requiredSelection,
       currentPlayer.index,
-      false, // Ne pas permettre de se sélectionner soi-même
       (selectedPlayers) => {
+        if (selectedPlayers.length === 0) {
+          this.scheduleNextTurn(500);
+          return;
+        }
+
         // Distribuer 1 gorgée à chaque joueur sélectionné
         selectedPlayers.forEach(player => {
           this.gameLogic.addDrinks(player.index, 1);
@@ -940,6 +961,199 @@ class SchmittOdysseeCamera {
         this.scheduleNextTurn(2000);
       }
     );
+  }
+
+  /**
+   * MOUTON — le joueur choisit un adversaire et vient se poser sur sa case.
+   *
+   * « Copier l'effet d'un adversaire » se traduit ici par le suivre sur le
+   * plateau : c'est la seule lecture que le jeu peut appliquer sans ambiguïté,
+   * et elle garde le mordant de la case (on peut y gagner beaucoup de terrain
+   * comme en perdre autant).
+   */
+  private handleSheep(currentPlayer: Player): void {
+    const others = this.gameLogic.getPlayers().filter(p => p.index !== currentPlayer.index);
+
+    // Seul en piste : personne à suivre, la case est sans effet.
+    if (others.length === 0) {
+      this.gameRenderer.showNotification('Aucun adversaire à suivre : le mouton reste sur place.');
+      this.scheduleNextTurn(2000);
+      return;
+    }
+
+    this.gameRenderer.closeEffectModal();
+
+    this.withPlayerSelection(others, 1, currentPlayer.index, async (selected) => {
+      const target = selected[0];
+      if (!target) {
+        // Sélecteur fermé sans choix : on ne bloque pas la partie.
+        this.scheduleNextTurn(500);
+        return;
+      }
+
+      const from = currentPlayer.position;
+      const to = target.position;
+      this.gameLogic.setPlayerPosition(currentPlayer.index, to);
+
+      await this.boardRenderer.animatePawnMove(currentPlayer.index, from, to);
+      this.updateBoard();
+      this.updateUI();
+
+      this.gameLogic.logEvent(`\u{1F411} ${currentPlayer.name} suit ${target.name} case ${to}`);
+      this.gameRenderer.showNotification(
+        `\u{1F411} ${currentPlayer.name} suit ${target.name} sur la case ${to} !`
+      );
+
+      // La case d'arrivée agit à son tour, sauf si le mouton se copie sur
+      // place : sans ce garde-fou, deux moutons face à face bouclent sans fin.
+      if (to !== from && this.sheepHops < 1) {
+        this.sheepHops++;
+        this.scheduleModalAction(1500, () => this.applyTileEffect(to));
+        return;
+      }
+
+      this.scheduleNextTurn(2000);
+    });
+  }
+
+  /**
+   * SCHMITT !!! — tout le monde crie, le dernier boit 1 gorgée par joueur.
+   *
+   * L'application n'entend rien : elle se contente de demander qui a perdu,
+   * puis applique l'arithmétique, que personne n'a envie de faire à voix haute
+   * après quelques tours.
+   */
+  private handleSchmittCall(currentPlayer: Player): void {
+    const players = this.gameLogic.getPlayers();
+    const gulps = players.length;
+
+    this.gameRenderer.closeEffectModal();
+    this.gameRenderer.showNotification(
+      `\u{1F4E2} Tout le monde crie SCHMITT ! Le dernier boit ${gulps} gorgées.`,
+      2500
+    );
+
+    // Le perdant peut être n'importe qui, y compris celui qui est tombé sur
+    // la case : la sélection s'ouvre donc sur la table entière.
+    this.scheduleModalAction(1200, () => {
+      this.withPlayerSelection(players, 1, currentPlayer.index, (selected) => {
+        const loser = selected[0];
+        if (!loser) {
+          this.scheduleNextTurn(500);
+          return;
+        }
+
+        this.gameLogic.addDrinks(loser.index, gulps);
+        this.gameLogic.logEvent(`\u{1F4E2} ${loser.name} crie trop tard : ${gulps} gorgées`);
+        this.gameRenderer.showNotification(
+          `\u{1F4E2} ${loser.name} a crié trop tard : ${gulps} gorgées !`
+        );
+        this.updateUI();
+        this.scheduleNextTurn(2000);
+      }, { allowSelf: true, title: 'Qui a crié en dernier ?' });
+    });
+  }
+
+  /**
+   * CRÉEZ UNE RÈGLE — le joueur invente une règle pour le reste de la partie.
+   *
+   * Le jeu ne peut pas l'appliquer, mais il l'écrit : une règle inventée au
+   * tour 3 est systématiquement oubliée au tour 10 si rien ne la garde.
+   */
+  private handleCustomRule(currentPlayer: Player): void {
+    this.gameRenderer.closeEffectModal();
+
+    this.promptForRule(currentPlayer.name, (text) => {
+      if (text) {
+        this.gameLogic.addCustomRule(currentPlayer.name, text);
+        this.gameRenderer.showNotification(
+          `\u{1F4DC} Nouvelle règle : « ${text} »`,
+          3000
+        );
+        this.renderActiveRules();
+      }
+      this.scheduleNextTurn(1500);
+    });
+  }
+
+  /**
+   * Ouvre le sélecteur de joueurs en garantissant un rappel unique.
+   *
+   * Le sélecteur peut être refermé à la croix ou en cliquant à côté : il
+   * signale alors l'annulation, et l'appelant reçoit une sélection vide.
+   * Sans cela, le tour attendrait un choix qui n'arrive jamais.
+   */
+  private withPlayerSelection(
+    players: Player[],
+    count: number,
+    currentPlayerIndex: number,
+    callback: (selected: Player[]) => void,
+    options: { allowSelf?: boolean; title?: string } = {}
+  ): void {
+    let settled = false;
+    const settle = (selected: Player[]): void => {
+      if (settled) return;
+      settled = true;
+      callback(selected);
+    };
+
+    this.playerSelector.show(
+      players,
+      count,
+      currentPlayerIndex,
+      options.allowSelf ?? false,
+      (selected) => settle(selected),
+      () => settle([])
+    );
+
+    if (options.title) {
+      const titleEl = document
+        .getElementById('playerSelectorModal')
+        ?.querySelector('.player-selector-title');
+      if (titleEl) titleEl.textContent = options.title;
+    }
+  }
+
+  /**
+   * Demande une règle au joueur dans une modale aux couleurs du jeu.
+   * `prompt()` est bloqué par certaines WebView Android et casse l'immersion.
+   */
+  private promptForRule(authorName: string, done: (text: string | null) => void): void {
+    const overlay = document.createElement('div');
+    overlay.className = 'rule-prompt';
+    overlay.innerHTML = `
+      <div class="rule-prompt-content ds-surface">
+        <h2 class="ds-title">Créez une règle</h2>
+        <p class="rule-prompt-hint">${authorName} invente une règle pour le reste de la partie.</p>
+        <input type="text" class="ds-field rule-prompt-input" maxlength="140"
+               placeholder="Interdit de dire « oui »…" />
+        <div class="rule-prompt-actions">
+          <button type="button" class="ds-btn rule-prompt-skip">Passer</button>
+          <button type="button" class="ds-btn ds-btn--gold rule-prompt-ok">Valider</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const input = overlay.querySelector('.rule-prompt-input') as HTMLInputElement;
+    let settled = false;
+    const close = (text: string | null): void => {
+      if (settled) return;
+      settled = true;
+      overlay.remove();
+      done(text);
+    };
+
+    overlay.querySelector('.rule-prompt-ok')?.addEventListener('click', () => {
+      close(input.value.trim() || null);
+    });
+    overlay.querySelector('.rule-prompt-skip')?.addEventListener('click', () => close(null));
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') close(input.value.trim() || null);
+    });
+
+    // Le focus déclenche le clavier tactile sans geste supplémentaire.
+    setTimeout(() => input.focus(), 50);
   }
 
   /**
@@ -1567,6 +1781,28 @@ class SchmittOdysseeCamera {
     const dot = document.getElementById('currentPlayerDot');
     if (name) name.textContent = player.name;
     if (dot) dot.style.background = player.color;
+  }
+
+  /**
+   * Affiche les règles inventées dans le tiroir.
+   * Le bloc disparaît tant qu'aucune règle n'existe, pour ne pas encombrer.
+   */
+  private renderActiveRules(): void {
+    const panel = document.getElementById('rulesPanel');
+    const list = document.getElementById('rulesList');
+    if (!panel || !list) return;
+
+    const rules = this.gameLogic.getCustomRules();
+    panel.hidden = rules.length === 0;
+
+    list.innerHTML = '';
+    rules.forEach((rule) => {
+      const li = document.createElement('li');
+      li.innerHTML = `<span class="rule-author"></span> <span class="rule-text"></span>`;
+      (li.querySelector('.rule-author') as HTMLElement).textContent = rule.author;
+      (li.querySelector('.rule-text') as HTMLElement).textContent = rule.text;
+      list.appendChild(li);
+    });
   }
 
   private renderHistory(history: string[]): void {
