@@ -459,18 +459,28 @@ class SchmittOdysseeCamera {
    * Gère la sélection d'une map dans le dropdown
    */
   private onMapSelected(value: string): void {
-    if (value === 'default') {
-      this.selectedLayout = null;
-    } else if (value === 'imported' && this.importedLayout) {
-      this.selectedLayout = this.importedLayout;
+    // Chaque branche DOIT conclure sur une valeur. Auparavant, un choix qui
+    // ne correspondait à rien (entrée sauvegardée disparue, 'imported' sans
+    // import en mémoire) laissait selectedLayout sur sa valeur précédente
+    // pendant que le menu affichait autre chose : on croyait jouer sur un
+    // plateau, et on jouait sur un autre.
+    let resolved: BoardLayoutConfig | null = null;
+
+    if (value === 'imported') {
+      resolved = this.importedLayout;
     } else if (value.startsWith('saved-')) {
-      const index = parseInt(value.replace('saved-', ''));
-      const layout = this.savedLayouts[index];
-      if (layout) {
-        this.selectedLayout = layout.config;
-      }
+      const index = parseInt(value.replace('saved-', ''), 10);
+      resolved = this.savedLayouts[index]?.config ?? null;
     }
 
+    // 'default', comme tout choix devenu introuvable, ramène au plateau de base
+    if (!resolved && value !== 'default') {
+      console.warn(`Plateau « ${value} » introuvable, retour au plateau par défaut.`);
+      const select = document.getElementById('mapSelect') as HTMLSelectElement | null;
+      if (select) select.value = 'default';
+    }
+
+    this.selectedLayout = resolved;
     this.updateBoardLabel();
   }
 

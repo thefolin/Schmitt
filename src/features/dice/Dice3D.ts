@@ -116,6 +116,11 @@ export class Dice3D {
     // la face affichée ne peut plus diverger de la valeur calculée.
     const halfSize = this.config.size / 2;
 
+    // Coins franchement arrondis, comme un dé en résine : 8px fixes donnaient
+    // un cube trop anguleux, très loin de la référence. Le rayon suit la
+    // taille pour rester juste quel que soit le dé.
+    const faceRadius = Math.round(this.config.size * 0.22);
+
     for (const { value, cssRotation } of DICE_FACES) {
       const face = document.createElement('div');
       face.className = `dice-face face-${value}`;
@@ -126,15 +131,15 @@ export class Dice3D {
         left: 0;
         top: 0;
         background: ${this.visualConfig.faceColor};
-        border: 2px solid ${this.visualConfig.faceBorderColor};
-        border-radius: 8px;
+        border: 1px solid ${this.visualConfig.faceBorderColor};
+        border-radius: ${faceRadius}px;
         display: flex;
         align-items: center;
         justify-content: center;
         box-shadow:
-          inset 0 0 10px rgba(0, 0, 0, 0.15),
-          inset -2px -2px 8px rgba(0, 0, 0, 0.1),
-          inset 2px 2px 8px rgba(255, 255, 255, 0.3);
+          inset 0 0 ${Math.round(this.config.size * 0.16)}px rgba(0, 0, 0, 0.13),
+          inset -3px -3px ${Math.round(this.config.size * 0.14)}px rgba(0, 0, 0, 0.09),
+          inset 3px 3px ${Math.round(this.config.size * 0.14)}px rgba(255, 255, 255, 0.3);
         backface-visibility: hidden;
         -webkit-backface-visibility: hidden;
       `;
@@ -164,9 +169,9 @@ export class Dice3D {
     container.style.cssText = `
       display: grid;
       grid-template: repeat(3, 1fr) / repeat(3, 1fr);
-      gap: 4px;
-      width: 80%;
-      height: 80%;
+      gap: ${Math.round(this.config.size * 0.04)}px;
+      width: 74%;
+      height: 74%;
     `;
 
     // Patterns de points pour chaque valeur
@@ -181,7 +186,7 @@ export class Dice3D {
 
     // Les points suivent la taille du dé plutôt qu'une valeur fixe : sur un
     // grand dé, des points figés à 8px seraient perdus au milieu de la face.
-    const dotSize = Math.max(this.visualConfig.dotSize, Math.round(this.config.size * 0.17));
+    const dotSize = Math.max(this.visualConfig.dotSize, Math.round(this.config.size * 0.21));
 
     const pattern = patterns[value - 1];
     pattern.forEach((hasDot) => {
@@ -193,9 +198,10 @@ export class Dice3D {
           background: ${this.visualConfig.dotColor};
           border-radius: 50%;
           margin: auto;
+          /* Points creusés dans la face plutôt que posés dessus */
           box-shadow:
-            0 2px 4px rgba(0, 0, 0, 0.3),
-            inset 0 -1px 2px rgba(0, 0, 0, 0.5);
+            inset 0 1px 2px rgba(0, 0, 0, 0.6),
+            0 1px 1px rgba(255, 255, 255, 0.5);
         `;
       }
       container.appendChild(cell);

@@ -73,9 +73,12 @@ export const DEFAULT_DICE_CONFIG: DicePhysicsConfig = {
  * Configuration visuelle par défaut
  */
 export const DEFAULT_VISUAL_CONFIG: DiceVisualConfig = {
-  faceColor: '#ffffff',
-  faceBorderColor: '#dddddd',
-  dotColor: '#333333',
+  // Blanc très légèrement cassé, comme un vrai dé en résine : le blanc pur
+  // paraît plat et découpé sur le tapis vert.
+  faceColor: '#f7f7f5',
+  // La bordure sert d'arête, pas de contour : à peine plus foncée que la face
+  faceBorderColor: '#e2e2dd',
+  dotColor: '#1f1f1f',
   dotSize: 8,
   shadowBlur: 15,
   shadowColor: 'rgba(0, 0, 0, 0.4)',

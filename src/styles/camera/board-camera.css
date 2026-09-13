@@ -589,10 +589,13 @@
   transform-origin: center center;
 }
 
-/* Amélioration visuelle des points du dé */
-.dice-face div div {
+/* Amélioration visuelle des points du dé.
+   `.dice-face div div` frappait les 9 cellules de la grille, y compris les
+   vides : elles recevaient une ombre et dessinaient un damier de carrés
+   clairs sur la face. On ne vise que les cellules réellement peintes, et
+   l'ombre est laissée au rendu inline, qui la calcule selon la taille. */
+.dice-face div div[style*='border-radius'] {
   transition: transform 0.1s ease;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 /* ================================

@@ -1,19 +1,19 @@
 # Reprise du travail — Schmitt Odyssée
 
-Document d'arrêt de session, écrit le 2026-09-13.
-État : **arbre de travail propre, 13 commits en avance sur `origin/main`, rien de poussé.**
+Document d'arrêt de session, écrit le 2026-09-13, mis à jour à la reprise.
+État : **arbre propre, 15 commits en avance sur `origin/main`, rien de poussé.**
 
 ---
 
 ## 0. À faire en premier
 
-### 0.1 Pousser les 13 commits
+### 0.1 Pousser les commits
 
 C'est la seule action réellement bloquante : tout le travail des dernières
 sessions n'existe que en local.
 
 ```bash
-git log --oneline origin/main..HEAD   # relire les 13 commits
+git log --oneline origin/main..HEAD   # relire les commits
 git push origin main
 ```
 
@@ -81,11 +81,19 @@ depuis l'index du pion. Mais le plateau importé reste amputé d'une case.
 si on abandonne ce fichier au profit de `board-tiles.json`, qui est désormais
 la source de vérité du parcours.
 
-### 2.2 `onMapSelected('default')` annule le plateau chargé
+### 2.2 ~~`onMapSelected` laissait un plateau fantôme~~ — CORRIGÉ
 
-`src/camera/main-camera.ts:461` — choisir « Plateau par défaut » met
-`this.selectedLayout = null`, ce qui écrase un layout précédemment importé
-sans prévenir l'utilisateur. Signalé de longue date, jamais corrigé.
+Corrigé à la reprise. Le diagnostic initial était imprécis : `importedLayout`
+n'était jamais effacé, l'import n'était donc pas perdu.
+
+Le vrai défaut était plus grave : si une branche échouait (entrée sauvegardée
+disparue, `'imported'` sans import en mémoire), `selectedLayout` **gardait sa
+valeur précédente** pendant que le menu affichait autre chose — on croyait
+jouer sur un plateau, on jouait sur un autre.
+
+Chaque branche conclut désormais sur une valeur, et un choix introuvable
+ramène explicitement au plateau par défaut. Vérifié par
+`tools/test-drive/check-map.mjs`.
 
 ### 2.3 L'ordre du parcours vient de l'ordre d'ajout, pas de la géométrie
 
@@ -101,14 +109,19 @@ un glisser-déposer dans une liste ordonnée.
 
 ## 3. Demandes de l'utilisateur en attente
 
-### 3.1 Le dé blanc à coins arrondis
+### 3.1 ~~Le dé blanc à coins arrondis~~ — FAIT
 
-L'utilisateur a fourni `proposition/des/dees.png` (une vidéo de référence)
-montrant le dé souhaité : **blanc, coins arrondis**. Jamais appliqué.
+Appliqué à la reprise. Note : `proposition/des/dees.png` est en réalité une
+**image AVIF** malgré son extension `.png` (et non une vidéo, comme noté par
+erreur précédemment) ; `sips -s format png` permet de la lire.
 
-Le dé vient d'être réduit de 80 à 52px (commit `874f59c`), donc la taille est
-réglée — il reste l'aspect. Voir `src/features/dice/DiceConfig.ts`
-(`DEFAULT_VISUAL_CONFIG`) et `src/features/dice/Dice3D.ts`.
+Coins arrondis proportionnels à la taille (22 %), blanc légèrement cassé,
+points noirs plus gros et creusés dans la face.
+
+Un défaut d'affichage a été découvert au passage : le sélecteur
+`.dice-face div div` (board-camera.css) frappait les **9 cellules** de la
+grille, y compris les vides, qui recevaient une ombre et dessinaient un
+damier de carrés clairs sur chaque face. Corrigé.
 
 Rappel : `proposition/` est gitignoré et **ne doit jamais être commité**.
 
@@ -158,18 +171,17 @@ npm run build          # build de production
 Pour une vérification en navigateur réel (c'est là que vivent les bugs
 d'affichage, invisibles en test unitaire) :
 
+Les scripts sont désormais **dans le dépôt**, sous `tools/test-drive/`
+(ils vivaient dans `/tmp` et auraient été perdus au redémarrage).
+Voir `tools/test-drive/README.md` pour le détail.
+
 ```bash
-npx vite --port 5179
-# puis des scripts Playwright dans /tmp/schmitt-test-drive/
+npx vite --port 5179                  # dans un terminal
+node tools/test-drive/full2.mjs       # dans un autre
 ```
 
-Scripts utiles déjà écrits : `full2.mjs` (partie complète jusqu'à la
-victoire), `measure2.mjs` (tailles réelles dé/pion/case), `crowd.mjs`
-(6 joueurs sur la même case), `shot-modal.mjs` (modale en paysage).
-
-**Important** : ces scripts vivent dans `/tmp` et seront perdus au
-redémarrage de la machine. Si on veut les garder, il faut les déplacer dans
-le dépôt.
+Playwright n'est pas une dépendance du projet ; l'installer une fois avec
+`npm install --no-save playwright && npx playwright install chromium`.
 
 ### Piège à connaître
 
