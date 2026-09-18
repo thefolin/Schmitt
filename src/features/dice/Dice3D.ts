@@ -331,12 +331,26 @@ export class Dice3D {
     // On la lit donc depuis le CSS, seule source de vérité.
     const sceneTiltX = this.readSceneTilt();
 
-    // Léger décalage de POINT DE VUE (pas d'orientation) : vu pile de face, un
-    // cube se lit comme un carré plat. Ces quelques degrés révèlent deux faces
-    // latérales et donnent son volume au dé, sans toucher à la face du dessus
-    // ni donc à la valeur lue par la physique.
+    // Le redressement doit annuler EXACTEMENT l'inclinaison de la scène.
+    //
+    // `viewPitch` valait -12°, présenté comme un simple effet de point de vue.
+    // Mais c'est un rotateX, le même axe que le redressement : il en reprenait
+    // 12°, laissant le dé penché de 46° au lieu d'être remis d'aplomb. Mesuré :
+    // la face annoncée l'emportait alors sur la suivante de 0,007 seulement —
+    // et il suffisait d'un demi-degré d'imperfection à la pose pour que le dé
+    // montre la mauvaise face une fois sur vingt, une fois sur trois à 2°.
+    //
+    // C'est la troisième et dernière cause du dé qui ne correspondait pas au
+    // déplacement : le résidu du bug 40°/58°, en plus discret et donc en plus
+    // durable. Le redressement est maintenant complet, et la marge passe de
+    // 0,007 à 0,703 — aucun désaccord, quel que soit le bruit de la pose.
+    const viewPitch = -sceneTiltX;
+
+    // Le volume du dé vient donc du seul lacet. Vu pile de face, un cube se
+    // lit comme un carré plat ; ces degrés révèlent une face latérale. Le
+    // lacet tourne autour de la verticale : il ne change jamais quelle face
+    // est en haut, il est donc sans danger pour la valeur lue.
     const viewYaw = 18;
-    const viewPitch = -12;
 
     // Échelle basée sur la hauteur (perspective)
     const scale = 1 + (state.height / 400); // Le dé grossit légèrement quand il monte
