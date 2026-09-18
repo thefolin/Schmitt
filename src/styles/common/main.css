@@ -405,6 +405,35 @@ body {
   margin-bottom: 20px;
 }
 
+/* La vignette de la case concernée, à la place de l'emoji générique (SCH-08).
+   C'est la même image que sur le plateau : le joueur reconnaît la case qu'il
+   vient de voir, au lieu d'avoir à déduire de quoi on lui parle. */
+.tile-effect-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  /* L'illustration porte déjà son propre cadre : pas de bordure ajoutée, on
+     se contente de la détacher du fond du panneau. */
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.45));
+}
+
+/* Enveloppe la vignette et son badge de multiplicateur : c'est elle qui donne
+   la taille, et qui sert de repère au badge posé en absolu. */
+.tile-effect-figure {
+  position: relative;
+  display: block;
+  width: clamp(88px, 26vw, 132px);
+  margin: 0 auto var(--sp-3, 12px);
+  /* Le badge est dimensionné en pourcentage de la police : on la fixe ici
+     pour qu'il suive la vignette, comme sur le plateau. */
+  font-size: clamp(88px, 26vw, 132px);
+}
+
+/* La vignette d'un écran d'action n'a pas de numéro de case à afficher */
+.tile-effect-figure .tile-number {
+  display: none;
+}
+
 .player-selector {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));

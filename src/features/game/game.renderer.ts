@@ -144,14 +144,20 @@ export class GameRenderer {
   /**
    * Affiche une modale d'effet
    */
-  public showEffectModal(icon: string, title: string, description: string): void {
+  public showEffectModal(
+    icon: string,
+    title: string,
+    description: string,
+    image?: string,
+    amount?: number
+  ): void {
     const modal = document.getElementById('effectModal');
     const modalIcon = document.getElementById('effectIcon') || document.getElementById('modalIcon');
     const modalTitle = document.getElementById('effectTitle') || document.getElementById('modalTitle');
     const modalDescription = document.getElementById('effectDescription') || document.getElementById('modalDescription');
 
     if (modal && modalIcon && modalTitle && modalDescription) {
-      modalIcon.textContent = icon;
+      this.setEffectIcon(modalIcon, icon, image, amount);
       modalTitle.textContent = title;
       modalDescription.textContent = description;
       modal.classList.add('show');
@@ -192,6 +198,49 @@ export class GameRenderer {
       const hasMessage = modal?.classList.contains('show') ?? false;
       restore.hidden = !(peeking && hasMessage);
     }
+  }
+
+  /**
+   * Remplit la vignette d'un écran d'action.
+   *
+   * Bastien (SCH-08) : chaque message doit montrer L'IMAGE de la case
+   * concernée, celle qu'il vient de voir sur le plateau, et non un emoji
+   * générique — un 🎁 pour une case « distribuez ×2 » ne ressemble à rien de
+   * ce qui est posé sur le plateau.
+   *
+   * L'emoji reste le repli : les cases d'un plateau composé dans l'éditeur
+   * n'ont pas toutes une illustration, et une image manquante ne doit pas
+   * laisser un vide à la place du titre.
+   */
+  private setEffectIcon(
+    slot: HTMLElement,
+    icon: string,
+    image?: string,
+    amount?: number
+  ): void {
+    if (!image) {
+      slot.textContent = icon;
+      return;
+    }
+
+    // Le « ×2 » est gravé dans l'illustration : le même badge que sur le
+    // plateau recouvre le chiffre pour afficher le vrai facteur (SCH-01).
+    // Sans lui, l'écran d'une case ×4 montrerait une vignette « ×2 ».
+    const badge =
+      typeof amount === 'number'
+        ? `<span class="tile-amount"><span class="tile-amount-sign">×</span>` +
+          `<span class="tile-amount-value">${amount}</span></span>`
+        : '';
+
+    // `onerror` : une illustration absente (plateau importé, fichier renommé)
+    // bascule sur l'emoji au lieu d'afficher une image cassée.
+    slot.innerHTML = `
+      <span class="tile-effect-figure">
+        <img src="${image}" alt="" class="tile-effect-image"
+             onerror="this.closest('.tile-effect-figure').replaceWith(document.createTextNode('${icon}'))" />
+        ${badge}
+      </span>
+    `;
   }
 
   /** Le message est-il replié pour laisser voir le plateau ? */

@@ -813,7 +813,11 @@ class SchmittOdysseeCamera {
     this.gameRenderer.showEffectModal(
       tile.icon,
       actionText ?? withGulpSymbol(tile.name),
-      buildSubtitle(tile, actionText)
+      buildSubtitle(tile, actionText),
+      // La vignette de la case, celle-là même que le joueur vient de voir sur
+      // le plateau (SCH-08). Un emoji générique — un 🎁 pour « distribuez ×2 »
+      // — ne ressemblait à rien de ce qui est posé devant lui.
+      tile.image
     );
 
     switch (tile.type) {
@@ -1040,7 +1044,8 @@ class SchmittOdysseeCamera {
         '1',
         `${GULP} à boire`,
         `${verdict.name} est le Petit Poulet : un ${roll} est sorti, il boit 1 ${GULP}.`,
-        () => this.updateUI()
+        () => this.updateUI(),
+        this.tileImageOfType('chicken')
       );
       return;
     }
@@ -1052,7 +1057,8 @@ class SchmittOdysseeCamera {
       `${GULP} à distribuer`,
       `${verdict.name} est le GROS POULET : un ${roll} est sorti, ` +
         `il distribue 1 ${GULP} au joueur de son choix.`,
-      () => this.updateUI()
+      () => this.updateUI(),
+      this.tileImageOfType('chicken')
     );
   }
 
@@ -1185,14 +1191,17 @@ class SchmittOdysseeCamera {
     this.promptBigAnnounce(
       '📢',
       'SCHMITT !!!',
-      `${gulps}`,
-      `${GULP} pour le dernier à crier`,
+      // Le 🍺 colle au chiffre : « 1 🍺 » se lit d'un bloc, là où le symbole
+      // renvoyé à la ligne suivante se détachait de sa quantité (SCH-09).
+      `${gulps} ${GULP}`,
+      'pour le dernier à crier',
       `Tout le monde crie « SCHMITT ! » et place son pouce sur le front. ` +
         `${onTile.length} joueur${onTile.length > 1 ? 's' : ''} sur la case : ${names}.`,
       () => {
         this.gameLogic.logEvent(`\u{1F4E2} SCHMITT ! Le dernier boit ${gulps} ${GULP}`);
         this.prepareNextPlayerTurn();
-      }
+      },
+      this.tileImageAt(currentPlayer.position)
     );
   }
 
@@ -1383,13 +1392,36 @@ class SchmittOdysseeCamera {
    * compte dans une soirée, et elle doit se lire d'un coup d'œil, sans que
    * personne ait à s'approcher de l'écran. La fenêtre attend un clic.
    */
+  /**
+   * L'illustration de la case posée à une position du parcours.
+   *
+   * Passe par le layout, comme `applyTileEffect` : sur un plateau composé
+   * dans l'éditeur, la case posée à une position n'est pas celle du catalogue
+   * au même rang.
+   */
+  private tileImageAt(position: number): string | undefined {
+    const tileId = this.boardRenderer.getTileIdAtPosition(position);
+    return tileId !== null ? TILE_CONFIGS[tileId]?.image : undefined;
+  }
+
+  /**
+   * L'illustration de la première case d'un type donné sur le plateau.
+   *
+   * Sert aux écrans qui parlent d'une case sans qu'un pion s'y trouve — la
+   * sentence du Poulet tombe sur un 3 ou un 6, où que soient les joueurs.
+   */
+  private tileImageOfType(type: string): string | undefined {
+    return TILE_CONFIGS.find(t => t.type === type)?.image;
+  }
+
   private promptBigAnnounce(
     icon: string,
     title: string,
     bigValue: string,
     bigLabel: string,
     hint: string,
-    done: () => void
+    done: () => void,
+    image?: string
   ): void {
     const overlay = document.createElement('div');
     overlay.className = 'rule-prompt';
@@ -1397,9 +1429,24 @@ class SchmittOdysseeCamera {
     const content = document.createElement('div');
     content.className = 'rule-prompt-content ds-surface announce';
 
+    // La vignette de la case, au-dessus du titre (SCH-08, SCH-09). Le joueur
+    // reconnaît la case qu'il vient de voir sur le plateau.
+    if (image) {
+      const img = document.createElement('img');
+      img.className = 'tile-effect-image announce-image';
+      img.src = image;
+      img.alt = '';
+      // Une illustration absente ne doit pas laisser de trou : l'emoji du
+      // titre suffit alors.
+      img.addEventListener('error', () => img.remove());
+      content.appendChild(img);
+    }
+
     const h = document.createElement('h2');
     h.className = 'ds-title';
-    h.textContent = `${icon} ${title}`;
+    // Quand la vignette porte déjà l'identité de la case, l'emoji ferait
+    // doublon devant le titre.
+    h.textContent = image ? title : `${icon} ${title}`;
     content.appendChild(h);
 
     const big = document.createElement('div');
@@ -1945,6 +1992,10 @@ class SchmittOdysseeCamera {
       favor.icon,
       favor.name,
       withGulpSymbol(favor.description)
+      // Pas de vignette ici : les faveurs des dieux n'ont pas d'illustration
+      // rattachée. Les fichiers god_3…god_11 existent dans les assets mais
+      // rien ne dit à quelle faveur chacun correspond — le deviner reviendrait
+      // à afficher le mauvais dieu. Voir le compte rendu du lot 2.
     );
 
     // Exécuter l'effet de la faveur (le bouton OK du modal peut avancer immédiatement)
