@@ -214,6 +214,36 @@ export class GameLogic {
   }
 
   /**
+   * Déplace un joueur dans un sens IMPOSÉ, sans tenir compte de son sens de
+   * marche — c'est ce que fait une case flèche.
+   *
+   * La flèche est dessinée sur le plateau : elle envoie toujours du même
+   * côté. Passer par `movePlayer` inversait son effet en phase de retour, et
+   * le joueur ratait la case visée par la règle.
+   *
+   * Le rebond de `movePlayer` ne s'applique pas ici : une flèche ne fait pas
+   * rebondir, elle pousse jusqu'au bord et s'arrête. Arriver sur FINISH par
+   * une flèche donne donc bien le pouvoir du Schmitt.
+   */
+  public movePlayerInDirection(
+    playerIndex: number,
+    steps: number,
+    direction: 'forward' | 'backward'
+  ): number {
+    const player = this.players[playerIndex];
+    if (!player) return 0;
+
+    const delta = direction === 'forward' ? steps : -steps;
+    player.position = Math.max(0, Math.min(player.position + delta, this.lastPosition));
+
+    if (player.isReturning && player.position !== 0) {
+      player.hasLeftStartOnReturn = true;
+    }
+
+    return player.position;
+  }
+
+  /**
    * Donne le pouvoir du Schmitt au joueur et fait basculer la partie en
    * phase de retour : tous les pions font demi-tour vers START.
    *

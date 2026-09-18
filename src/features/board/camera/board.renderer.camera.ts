@@ -506,7 +506,63 @@ export class BoardCameraRenderer {
       // Positionner
       tileEl.style.left = `${pos.x}px`;
       tileEl.style.top = `${pos.y}px`;
+
+      // La flèche doit montrer où elle envoie (SCH-03). L'angle se déduit de
+      // la géométrie du parcours, pas d'une valeur écrite dans les données :
+      // un plateau créé dans l'éditeur (U, cercle, T) s'oriente donc seul.
+      this.orientArrow(tileEl, tile, index);
     });
+  }
+
+  /**
+   * Nombre de cases dont une case flèche déplace.
+   *
+   * La règle est « avancez de 2 cases » et le type de case le dit déjà.
+   * Sorti en constante pour que l'image et le déplacement ne puissent pas
+   * diverger si la valeur change un jour.
+   */
+  private static readonly ARROW_STEPS = 2;
+
+  /**
+   * Fait pointer l'illustration d'une case flèche vers sa destination réelle.
+   *
+   * L'image source pointe vers le haut. On mesure l'angle entre la case et
+   * celle où elle envoie, puis on tourne l'image d'autant.
+   *
+   * L'angle est calculé sur les coordonnées du plateau, avant la projection
+   * isométrique : la scène entière étant inclinée ensuite, la flèche subit la
+   * même déformation que les cases et reste cohérente avec elles.
+   */
+  private orientArrow(tileEl: HTMLElement, tile: TileConfig, index: number): void {
+    const img = tileEl.querySelector('.tile-image') as HTMLElement | null;
+    if (!img) return;
+
+    if (tile.type !== 'forward_2') {
+      // Une case peut changer de type entre deux rendus (plateau personnalisé) :
+      // sans cela, une ancienne rotation resterait collée à l'image.
+      img.style.removeProperty('transform');
+      return;
+    }
+
+    const steps = BoardCameraRenderer.ARROW_STEPS;
+    const delta = tile.direction === 'backward' ? -steps : steps;
+
+    const from = this.tilePositions[index];
+    // Faute de destination (flèche en bout de parcours), on vise la case
+    // voisine dans le même sens : l'orientation reste juste.
+    const to =
+      this.tilePositions[index + delta] ??
+      this.tilePositions[index + Math.sign(delta)];
+    if (!from || !to) return;
+
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    if (dx === 0 && dy === 0) return;
+
+    // atan2 donne l'angle depuis l'axe X ; l'image pointe vers le haut,
+    // soit 90° plus tôt.
+    const angle = (Math.atan2(dy, dx) * 180) / Math.PI + 90;
+    img.style.transform = `rotate(${angle.toFixed(1)}deg)`;
   }
 
   /**

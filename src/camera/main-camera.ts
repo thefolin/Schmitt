@@ -819,8 +819,17 @@ class SchmittOdysseeCamera {
         // Limiter à 2 déplacements consécutifs pour éviter les boucles infinies
         if (this.consecutiveForwardMoves < 2) {
           this.consecutiveForwardMoves++;
-          const newPos = this.gameLogic.movePlayer(currentPlayer.index, 2);
-          this.gameRenderer.showNotification(`${currentPlayer.name} avance de 2 cases !`);
+          // La flèche impose SON sens, pas celui de marche du joueur : elle est
+          // dessinée sur la case et envoie toujours du même côté. Sans cela un
+          // joueur en phase de retour partait à l'opposé de ce qu'elle montre.
+          const arrowDirection = tile.direction ?? 'forward';
+          const newPos = this.gameLogic.movePlayerInDirection(
+            currentPlayer.index,
+            2,
+            arrowDirection
+          );
+          const verb = arrowDirection === 'forward' ? 'avance' : 'recule';
+          this.gameRenderer.showNotification(`${currentPlayer.name} ${verb} de 2 cases !`);
 
           // Animation et application de l'effet de la nouvelle case
           setTimeout(async () => {

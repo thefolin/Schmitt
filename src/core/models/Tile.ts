@@ -63,6 +63,18 @@ export interface TileConfig {
    * là où deux suffisent.
    */
   amount?: number;
+  /**
+   * Sens imposé par une case flèche, indépendant du sens de marche du joueur.
+   *
+   * Sur le plateau physique, la flèche est dessinée sur la case : elle envoie
+   * toujours du même côté, qu'on soit à l'aller ou au retour. Sans ce champ
+   * le déplacement suivait le sens de marche, et un joueur en phase de retour
+   * était envoyé à l'opposé de ce que la case indique.
+   *
+   * `forward` = vers la case FINISH, `backward` = vers START. Absent, la case
+   * se comporte comme avant (sens de marche) pour ne rien casser.
+   */
+  direction?: 'forward' | 'backward';
 }
 
 /**

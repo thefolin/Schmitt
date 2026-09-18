@@ -23,7 +23,8 @@
       "icon": "⬆️",
       "name": "AVANCEZ DE 2 CASES",
       "description": "Avancez de 2 cases",
-      "image": "assets/cells/jump.png"
+      "image": "assets/cells/jump.png",
+      "direction": "forward"
     },
     {
       "type": "drink_2",
@@ -75,7 +76,8 @@
       "icon": "⬆️",
       "name": "AVANCEZ DE 2 CASES",
       "description": "Avancez de 2 cases",
-      "image": "assets/cells/jump.png"
+      "image": "assets/cells/jump.png",
+      "direction": "forward"
     },
     {
       "type": "distribute_4",
@@ -104,7 +106,8 @@
       "icon": "⬆️",
       "name": "AVANCEZ DE 2 CASES",
       "description": "Avancez de 2 cases",
-      "image": "assets/cells/jump.png"
+      "image": "assets/cells/jump.png",
+      "direction": "forward"
     },
     {
       "type": "copy",
@@ -156,7 +159,8 @@
       "icon": "⬆️",
       "name": "AVANCEZ DE 2 CASES",
       "description": "Avancez de 2 cases",
-      "image": "assets/cells/jump.png"
+      "image": "assets/cells/jump.png",
+      "direction": "forward"
     },
     {
       "type": "everyone_drinks",
