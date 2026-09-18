@@ -85,7 +85,7 @@ function visibleFaces(m: M3): number {
 }
 
 const TILT = 58;
-const YAW = 18;
+const YAW = 35;
 
 /** La chaîne livrée : redressement complet, puis lacet. */
 const CURRENT = mul(mul(RX(TILT), RX(-TILT)), RY(YAW));

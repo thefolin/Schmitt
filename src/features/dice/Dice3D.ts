@@ -307,6 +307,19 @@ export class Dice3D {
   }
 
   /**
+   * Écrasement vertical de la scène, lu depuis le CSS.
+   *
+   * Le plateau n'est pas seulement incliné : `--iso` lui applique aussi un
+   * `scaleY(1 / --iso-squash)`. Sans lui, le dé vit dans un espace plus haut
+   * que les cases et paraît posé à côté du plateau plutôt que dessus.
+   */
+  private readSceneSquash(): number {
+    const raw = getComputedStyle(document.documentElement).getPropertyValue('--iso-squash');
+    const parsed = parseFloat(raw);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 1.25;
+  }
+
+  /**
    * Met à jour la position et la rotation du dé dans le DOM
    */
   private updatePosition(): void {
@@ -330,6 +343,11 @@ export class Dice3D {
     // annoncée — d'où un dé qui ne correspondait jamais au déplacement.
     // On la lit donc depuis le CSS, seule source de vérité.
     const sceneTiltX = this.readSceneTilt();
+
+    // Le plateau applique `rotateX(--iso-tilt) scaleY(1 / --iso-squash)`. Le
+    // dé ne reprenait que l'inclinaison : il vivait dans un espace plus haut
+    // que les cases et se lisait comme posé À CÔTÉ du plateau, pas dessus.
+    const sceneSquash = this.readSceneSquash();
 
     // Le redressement doit annuler EXACTEMENT l'inclinaison de la scène.
     //
@@ -355,7 +373,13 @@ export class Dice3D {
     // les 6 faces avec ±2° de bruit de pose. Placé après, l'axe est bien la
     // verticale, il ne peut plus toucher à la valeur — 0 %, et le dé garde
     // ses deux faces visibles.
-    const viewYaw = 18;
+    //
+    // Le redressement ayant retiré au dé l'inclinaison qui lui donnait du
+    // relief, le lacet est le SEUL levier de volume qui reste. Il est sûr à
+    // n'importe quel angle : mesuré de 18° à 60°, toujours 0 % de désaccord
+    // et une marge de 1,000. 35° redonne son épaisseur au dé sans le faire
+    // paraître tourné de travers.
+    const viewYaw = 35;
 
     // Échelle basée sur la hauteur (perspective)
     const scale = 1 + (state.height / 400); // Le dé grossit légèrement quand il monte
@@ -364,6 +388,7 @@ export class Dice3D {
     // qui sert à lire la valeur, donc l'affichage ne peut plus la contredire.
     this.cubeElement.style.transform = `
       scale(${scale})
+      scaleY(${1 / sceneSquash})
       rotateX(${sceneTiltX}deg)
       rotateX(${viewPitch}deg)
       rotateY(${viewYaw}deg)
