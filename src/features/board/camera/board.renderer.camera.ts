@@ -312,26 +312,50 @@ export class BoardCameraRenderer {
   private calculatePositionsFromLayout(): TilePosition[] {
     const positions: TilePosition[] = [];
 
-    for (const placement of this.boardLayout.placements) {
+    // Indexé par POSITION DE PARCOURS (l'ordre des placements), pas par
+    // `tileId`. Le tileId est le numéro de la case dans le catalogue, et sur
+    // un plateau composé dans l'éditeur il est quelconque et troué
+    // (0, 3, 6, 15, 19, 22…) : s'en servir comme index laissait des vides que
+    // le pion traversait sans jamais trouver de case.
+    this.boardLayout.placements.forEach((placement, position) => {
       const bounds = calculatePlacementBounds(placement, this.boardLayout);
 
-      positions[placement.tileId] = {
+      positions[position] = {
         x: bounds.x,
         y: bounds.y,
         row: placement.gridRow,
         col: placement.gridCol
       };
-    }
+    });
 
     return positions;
   }
 
   /**
+   * Les cases du parcours, dans l'ordre, telles qu'elles doivent être jouées.
+   *
+   * Chaque placement désigne une case du catalogue par son `tileId` ; c'est
+   * cette case-là qu'il faut dessiner et dont l'effet s'applique. Rendre le
+   * catalogue entier, comme on le faisait, revenait à jouer le plateau
+   * officiel quel que soit le plateau composé dans l'éditeur.
+   */
+  private resolvePathTiles(catalog: TileConfig[]): TileConfig[] {
+    return this.boardLayout.placements
+      .map(placement => catalog[placement.tileId])
+      .filter((tile): tile is TileConfig => Boolean(tile));
+  }
+
+  /**
    * Dessine le plateau complet
    */
-  public render(tiles: TileConfig[], players: Player[]): void {
+  public render(catalog: TileConfig[], players: Player[]): void {
     // Calculer les positions à partir du layout
     this.tilePositions = this.calculatePositionsFromLayout();
+
+    // `catalog` est le répertoire des cases disponibles ; le parcours réel est
+    // la suite des placements du layout. Sur le plateau officiel les deux
+    // coïncident, sur un plateau composé dans l'éditeur non.
+    const tiles = this.resolvePathTiles(catalog);
     this.boardSlots = calculateBoardSlots(tiles.length, this.config);
 
     // Ne calculer les pouvoirs des dieux que si godPowersZone est défini dans le layout
@@ -574,8 +598,10 @@ export class BoardCameraRenderer {
     el.dataset.index = index.toString();
     el.dataset.type = tile.type;
 
-    // Trouver le placement pour cette case
-    const placement = this.boardLayout.placements.find(p => p.tileId === index);
+    // `index` est la position dans le parcours : le placement est celui de
+    // même rang. Chercher par `tileId` échouait dès qu'un plateau réutilisait
+    // deux fois la même case du catalogue — ce que l'éditeur permet.
+    const placement = this.boardLayout.placements[index];
 
     // Calculer la taille selon le placement
     let width = this.config.tileSize;
