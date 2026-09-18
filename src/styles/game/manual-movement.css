@@ -458,3 +458,87 @@
     flex-direction: column;
   }
 }
+
+/* ── Pouvoir d'Aphrodite ─────────────────────────────────────────────────
+   L'écran débordait de tous les côtés sur téléphone (capture 00000045) :
+   titre coupé, consigne tronquée à gauche ET à droite, une carte joueur
+   coupée, la seconde hors écran, et le nom du joueur chevauchant sa
+   position.
+
+   Trois causes, toutes corrigées ici :
+   - un `max-width: 800px` sans largeur fluide, donc jamais réduit ;
+   - une grille `repeat(N, 1fr)` imposant deux cartes côte à côte ;
+   - la carte héritait du `flex: space-between` des cartes de déplacement,
+     qui poussait le nom et la position sur une même ligne.          */
+
+.aphrodite-content {
+  width: 100%;
+  max-width: 800px;
+  /* Le rembourrage de 30px prenait à lui seul un sixième d'un écran
+     de téléphone : il s'ouvre avec la place disponible. */
+  padding: clamp(16px, 4vw, 30px);
+}
+
+/* Les cartes passent d'elles-mêmes sur une colonne quand la largeur ne suffit
+   plus. `minmax(0, 1fr)` est indispensable : sans le 0, une carte refuse de
+   descendre sous la largeur de son contenu et déborde à nouveau. */
+.aphrodite-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+  gap: clamp(12px, 3vw, 20px);
+  margin-top: 20px;
+}
+
+/* La carte d'Aphrodite empile ses blocs, contrairement à la carte de
+   déplacement manuel dont elle hérite le style. */
+.aphrodite-card {
+  display: block;
+  padding: clamp(14px, 3vw, 20px);
+  margin-bottom: 0;
+  cursor: default;
+  min-width: 0;
+}
+
+/* Elle ne se déplace pas au survol : ce n'est pas un élément cliquable, et le
+   décalage la faisait sortir de l'écran. */
+.aphrodite-card:hover {
+  transform: none;
+}
+
+.aphrodite-card:hover::before {
+  opacity: 0;
+}
+
+.aphrodite-card .player-movement-name {
+  margin-bottom: 6px;
+}
+
+.aphrodite-position {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 15px;
+}
+
+/* Le titre et la consigne débordaient : ils se replient au lieu d'être
+   rognés. */
+.aphrodite-content .manual-movement-title,
+.aphrodite-content .manual-movement-subtitle {
+  overflow-wrap: anywhere;
+  hyphens: auto;
+}
+
+.aphrodite-content .manual-movement-title {
+  font-size: clamp(18px, 5vw, 28px);
+  padding-right: 40px; /* place pour la croix de fermeture */
+}
+
+/* Les boutons « Dé 3 » / « Avant » / « Arrière » : sur un écran étroit, deux
+   par ligne valent mieux qu'une rangée illisible. La cible tactile ne
+   descend jamais sous 48px. */
+.aphrodite-card .direction-btn {
+  min-height: 48px;
+  min-width: 0;
+  padding: 8px 6px;
+  font-size: clamp(13px, 3.4vw, 16px);
+  overflow-wrap: anywhere;
+}

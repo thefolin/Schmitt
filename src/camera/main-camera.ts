@@ -1615,9 +1615,9 @@ class SchmittOdysseeCamera {
   private showAphroditeDiceAssignment(dice1: number, dice2: number, players: any[]): void {
     // Supporte 1 joueur (partie à 2, cf. aphroditeSoloMode) ou 2 joueurs (cas normal)
     const cardsHtml = players.map((player, idx) => `
-          <div class="player-movement-card" style="border-color: ${player.color}; padding: 20px;">
-            <div class="player-movement-name" style="margin-bottom: 15px;">${player.name}</div>
-            <div style="font-size: 14px; color: #666; margin-bottom: 15px;">Position actuelle : ${player.position}</div>
+          <div class="player-movement-card aphrodite-card" style="border-color: ${player.color};">
+            <div class="player-movement-name">${player.name}</div>
+            <div class="aphrodite-position">Position actuelle : ${player.position}</div>
 
             <div style="margin-bottom: 15px;">
               <label style="display: block; margin-bottom: 10px; font-weight: bold;">Choisissez le dé :</label>
@@ -1650,14 +1650,14 @@ class SchmittOdysseeCamera {
     modal.className = 'manual-movement-modal';
     modal.style.display = 'flex';
     modal.innerHTML = `
-      <div class="manual-movement-content" style="max-width: 800px;">
+      <div class="manual-movement-content aphrodite-content">
         <button class="close-manual-movement">&times;</button>
         <h2 class="manual-movement-title">💕 Pouvoir d'Aphrodite</h2>
         <p class="manual-movement-subtitle">${players.length > 1
         ? 'Associez chaque dé à un joueur et choisissez la direction'
         : `Attribuez les 2 dés à ${players[0].name} et choisissez une direction par dé`}</p>
 
-        <div style="display: grid; grid-template-columns: repeat(${players.length}, 1fr); gap: 20px; margin-top: 20px;">
+        <div class="aphrodite-cards">
           ${cardsHtml}
         </div>
 
