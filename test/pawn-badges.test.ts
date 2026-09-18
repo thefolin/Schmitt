@@ -6,6 +6,7 @@ import {
   SCHMITT_POWER_BADGE,
   ZEUS_POWER_BADGE,
   CHICKEN_BADGES,
+  ATHENA_SHIELD_BADGE,
 } from '@/features/board/camera/pawn-badges';
 import { GameLogic } from '@/features/game/game.logic';
 import type { Player } from '@/core/models/Player';
@@ -89,6 +90,28 @@ describe('SCH-19 — le Schmitt et Zeus ne portent pas le même symbole', () => 
   });
 });
 
+describe('SCH-18 — badges des pouvoirs divins', () => {
+  it('le bouclier d\'Athéna se voit sur le pion', () => {
+    const badges = getPawnBadges(player({ hasAthenaShield: true }));
+    expect(badges).toEqual([ATHENA_SHIELD_BADGE]);
+  });
+
+  it('il disparaît quand le bouclier est consommé', () => {
+    expect(getPawnBadges(player({ hasAthenaShield: false }))).toEqual([]);
+  });
+
+  it('il porte un symbole distinct des autres statuts', () => {
+    const icons = [
+      ATHENA_SHIELD_BADGE.icon,
+      SCHMITT_POWER_BADGE.icon,
+      ZEUS_POWER_BADGE.icon,
+      CHICKEN_BADGES[1].icon,
+      CHICKEN_BADGES[2].icon,
+    ];
+    expect(new Set(icons).size).toBe(icons.length);
+  });
+});
+
 describe('badges cumulés', () => {
   it('un Poulet qui détient le pouvoir porte les deux badges', () => {
     const badges = getPawnBadges(player({ hasSchmittPower: true, chickenRank: 1 }));
@@ -101,6 +124,16 @@ describe('badges cumulés', () => {
 
     expect(html.match(/pawn-badges/g)).toHaveLength(1);
     expect(html.match(/pawn-badge"/g)).toHaveLength(2);
+  });
+
+  it('trois statuts simultanés restent affichables', () => {
+    // Cas extrême mais atteignable : Poulet, pouvoir du Schmitt et bouclier.
+    const html = renderPawnBadges(
+      player({ hasSchmittPower: true, hasAthenaShield: true, chickenRank: 1 })
+    );
+
+    expect(html.match(/pawn-badge"/g)).toHaveLength(3);
+    expect(html.match(/pawn-badges/g)).toHaveLength(1);
   });
 });
 

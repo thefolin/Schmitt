@@ -30,6 +30,23 @@ export const ZEUS_POWER_BADGE = {
   label: 'Pouvoir de Zeus',
 } as const;
 
+/**
+ * Le bouclier d'Athéna, seule faveur divine qui DURE.
+ *
+ * Les autres faveurs se résolvent dans le tour où elles tombent : elles n'ont
+ * rien à afficher en permanence. Le bouclier, lui, se garde jusqu'à ce qu'on
+ * s'en serve, et il empêche de gagner tant qu'on le possède — un statut de
+ * cette portée doit se voir sur le plateau.
+ *
+ * ⚠️ La faveur n'est pas encore implémentée : `hasAthenaShield` existe dans le
+ * modèle mais rien ne le met jamais à vrai. Le badge est donc branché et
+ * testé, mais reste invisible en partie tant qu'Athéna n'est pas codée.
+ */
+export const ATHENA_SHIELD_BADGE = {
+  icon: '\u{1F6E1}\u{FE0F}', // 🛡️
+  label: "Bouclier d'Athéna",
+} as const;
+
 /** Les deux rangs de Poulet, visuellement distincts. */
 export const CHICKEN_BADGES = {
   1: { icon: '\u{1F424}', label: 'Petit Poulet' }, // 🐤
@@ -51,6 +68,7 @@ export function getPawnBadges(player: Player): PawnBadge[] {
   const badges: PawnBadge[] = [];
 
   if (player.hasSchmittPower) badges.push(SCHMITT_POWER_BADGE);
+  if (player.hasAthenaShield) badges.push(ATHENA_SHIELD_BADGE);
 
   const chicken = CHICKEN_BADGES[player.chickenRank as 1 | 2];
   if (chicken) badges.push(chicken);
