@@ -79,10 +79,14 @@ mais 8 cases sur 23 restaient visibles en portrait. C'est le risque n°1.
 **La forme du parcours.** L'éditeur permet des plateaux en U, en cercle, en T.
 Le rendu ne doit rien supposer de leur géométrie.
 
-**Les cibles.** Android est la cible réelle (Bastien teste sur APK,
-`minSdk 22` = Android 5.1). iOS n'a **pas** de projet dans le dépôt.
-⚠️ **Apple TV n'est pas atteignable avec Capacitor** — à trancher avant de
-dimensionner le chantier.
+**La cible.** ✅ Tranché le 19/09/2026 : **Android uniquement** (APK,
+`minSdk 22` = Android 5.1). iOS, Android TV et Apple TV sont abandonnés.
+Le chantier se dimensionne donc sur un téléphone Android tactile — pas de
+navigation à la télécommande, pas de seconde pile de rendu.
+
+⚠️ Reste le point technique propre à Android : le contexte WebGL peut être
+**perdu** au retour d'arrière-plan. À détecter et rétablir, sans quoi le
+joueur retrouve un écran noir.
 
 ---
 

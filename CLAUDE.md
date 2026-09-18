@@ -52,8 +52,9 @@ Champs du projet : `Status` (Todo / In Progress / Done) et `Priority`
 
 - **Le rendu ne suppose rien de la forme du parcours.** L'éditeur permet des
   plateaux en U, en cercle, en T : tous doivent se rendre correctement.
-- **Cibles** : Android (APK, `minSdk 22`), et selon décision iOS / Android TV.
-  ⚠️ Apple TV n'est pas atteignable avec Capacitor.
+- **Cible unique : Android** (APK, `minSdk 22` = Android 5.1), tranché le
+  19/09/2026. iOS, Android TV et Apple TV sont abandonnés — inutile de
+  prévoir une navigation sans tactile ni une seconde pile de rendu.
 - **Le cadrage en portrait** a déjà fait échouer une tentative de vue diagonale
   (voir `TODO.md §2`) : 8 cases visibles sur 23. À traiter en premier, jamais
   en dernier.
