@@ -347,9 +347,14 @@ export class Dice3D {
     const viewPitch = -sceneTiltX;
 
     // Le volume du dé vient donc du seul lacet. Vu pile de face, un cube se
-    // lit comme un carré plat ; ces degrés révèlent une face latérale. Le
-    // lacet tourne autour de la verticale : il ne change jamais quelle face
-    // est en haut, il est donc sans danger pour la valeur lue.
+    // lit comme un carré plat ; ces degrés révèlent une face latérale.
+    //
+    // Il doit être appliqué APRÈS le redressement, jamais entre les deux
+    // rotateX. Coincé au milieu, il tournait autour d'un axe encore incliné
+    // de 58° et changeait alors la face du dessus : 6,2 % de désaccord sur
+    // les 6 faces avec ±2° de bruit de pose. Placé après, l'axe est bien la
+    // verticale, il ne peut plus toucher à la valeur — 0 %, et le dé garde
+    // ses deux faces visibles.
     const viewYaw = 18;
 
     // Échelle basée sur la hauteur (perspective)
@@ -360,8 +365,8 @@ export class Dice3D {
     this.cubeElement.style.transform = `
       scale(${scale})
       rotateX(${sceneTiltX}deg)
-      rotateY(${viewYaw}deg)
       rotateX(${viewPitch}deg)
+      rotateY(${viewYaw}deg)
       ${toCssMatrix3d(state.orientation)}
     `;
 
