@@ -27,6 +27,14 @@
                 </span>
             </div>
 
+            <!-- Journal de partie, visible en permanence sous le bandeau.
+                 Les notifications s'effaçaient au bout de 2 s : quand on
+                 sert à boire au lieu de regarder l'écran, on ratait ce qui
+                 venait de se passer. Ici, les derniers coups restent lisibles.
+                 Il est placé APRÈS le bandeau et décalé vers le bas : il ne
+                 doit jamais le recouvrir. -->
+            <div class="turn-log" id="turnLog" aria-live="polite" aria-label="Derniers évènements"></div>
+
             <!-- Barre d'action : le lancer de dé est le cœur du jeu, il occupe
                  la place principale. Le reste vit dans le tiroir « ⋯ ». -->
             <div class="action-bar">

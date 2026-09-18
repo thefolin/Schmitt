@@ -667,3 +667,76 @@
     font-size: var(--fs-xs);
   }
 }
+
+/* ── Journal de partie ───────────────────────────────────────────────────
+   Bastien (SCH-06) : l'historique n'apparaissait qu'une seconde, et il
+   recouvrait le bandeau « JOUEUR X — À vous de jouer ».
+
+   Les deux défauts se corrigent ici : le journal est permanent, et il est
+   positionné SOUS le bandeau au lieu de se superposer à lui. Sa position
+   verticale se déduit de celle du bandeau, pour que les deux ne puissent
+   pas se recouvrir même si le bandeau change de taille.                */
+.turn-log {
+  position: absolute;
+  /* Même origine que le bandeau, décalée de sa hauteur. Les deux valeurs
+     viennent du même calcul : ils ne peuvent pas se chevaucher. */
+  top: calc(var(--sp-3) + env(safe-area-inset-top, 0px) + var(--turn-banner-height, 58px));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 240; /* Sous le bandeau (250) : en cas de doute, c'est lui qui prime */
+
+  display: none;
+  flex-direction: column;
+  gap: 2px;
+  width: max-content;
+  max-width: min(92vw, 520px);
+
+  padding: var(--sp-2) var(--sp-3);
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  line-height: 1.25;
+  text-align: center;
+  color: var(--marble-200, #d7dced);
+
+  background: rgba(19, 26, 43, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md, 12px);
+  backdrop-filter: blur(8px);
+
+  /* Comme le bandeau : un affichage, pas un contrôle. Il ne doit pas voler
+     les gestes de caméra. */
+  pointer-events: none;
+}
+
+.turn-log.is-visible {
+  display: flex;
+}
+
+.turn-log-line {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  /* Les lignes plus anciennes s'effacent : l'œil va au dernier évènement
+     sans qu'on ait besoin de le dire. */
+  opacity: 0.45;
+}
+
+.turn-log-line.is-latest {
+  opacity: 1;
+  font-weight: 600;
+  color: var(--gold-200, #f3e2ae);
+}
+
+/* En paysage, la hauteur est la ressource rare : une seule ligne, la plus
+   récente. Le plateau reprend la place. */
+@media (orientation: landscape) and (max-height: 460px) {
+  .turn-log-line:not(.is-latest) {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .turn-log {
+    backdrop-filter: none;
+  }
+}

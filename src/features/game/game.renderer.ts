@@ -75,13 +75,70 @@ export class GameRenderer {
    */
   public updateHistory(history: string[]): void {
     const historyList = document.getElementById('historyList');
-    if (!historyList) return;
+    if (historyList) {
+      historyList.innerHTML = history
+        .slice(-10) // 10 derniers messages
+        .reverse()
+        .map(msg => `<div class="history-item">${msg}</div>`)
+        .join('');
+    }
 
-    historyList.innerHTML = history
-      .slice(-10) // 10 derniers messages
+    this.updateTurnLog(history);
+  }
+
+  /**
+   * Journal de partie affiché en permanence sur le plateau.
+   *
+   * Les notifications disparaissaient au bout de deux secondes : quand on
+   * sert à boire au lieu de fixer l'écran, on ratait ce qui venait de se
+   * passer, et plus rien ne permettait de le retrouver sans ouvrir le tiroir.
+   *
+   * Trois lignes suffisent : assez pour rattraper un tour manqué, assez peu
+   * pour ne pas manger le plateau. L'historique complet reste dans le tiroir.
+   */
+  private updateTurnLog(history: string[]): void {
+    const log = document.getElementById('turnLog');
+    if (!log) return;
+
+    this.syncTurnBannerHeight();
+
+    const recent = history.slice(-3);
+    if (recent.length === 0) {
+      log.innerHTML = '';
+      log.classList.remove('is-visible');
+      return;
+    }
+
+    // Le plus récent en premier : c'est celui qu'on cherche du regard.
+    log.innerHTML = recent
       .reverse()
-      .map(msg => `<div class="history-item">${msg}</div>`)
+      .map(
+        (msg, i) =>
+          `<div class="turn-log-line${i === 0 ? ' is-latest' : ''}">${msg}</div>`
+      )
       .join('');
+    log.classList.add('is-visible');
+  }
+
+  /**
+   * Reporte la hauteur réelle du bandeau dans une variable CSS.
+   *
+   * Le journal se place juste en dessous. Une hauteur écrite en dur finirait
+   * par diverger — un nom de joueur long passe sur deux lignes, et le journal
+   * recouvrirait le bandeau, ce qui est précisément le défaut signalé.
+   */
+  private syncTurnBannerHeight(): void {
+    const banner = document.getElementById('currentPlayerIndicator');
+    if (!banner) return;
+
+    const height = banner.getBoundingClientRect().height;
+    // jsdom (et un bandeau masqué) renvoient 0 : on garde alors le repli CSS.
+    if (height > 0) {
+      document.documentElement.style.setProperty(
+        '--turn-banner-height',
+        `${Math.round(height) + 6}px`
+      );
+    }
   }
 
   /**
