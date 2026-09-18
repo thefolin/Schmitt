@@ -57,6 +57,32 @@ describe('règle du Poulet', () => {
     expect(g.getChickenRank()).toBe(2);
   });
 
+  /**
+   * SCH-16 — verrouillage d'un comportement déclaré correct.
+   *
+   * Bastien a signalé le 18/09 qu'un Petit Poulet retombant sur la case ne
+   * devenait jamais Gros Poulet (capture 00000039). Vérification faite, la
+   * règle était bien appliquée : c'est l'ABSENCE de marque sur le pion qui
+   * rendait la promotion invisible (corrigé par SCH-17). L'issue a été fermée
+   * en « not planned », et ce test empêche une régression silencieuse.
+   */
+  it('le cas signalé par Bastien : promotion sur la seconde case Poulet', () => {
+    const g = new GameLogic();
+    g.startGame(players);
+
+    // Le plateau officiel porte deux cases Poulet, en positions 5 et 17 :
+    // un même joueur peut donc y passer deux fois dans une partie.
+    expect(g.setChicken(0)).toBe(1);
+    expect(g.getPlayers()[0].chickenRank).toBe(1);
+
+    expect(g.setChicken(0)).toBe(2);
+    expect(g.getPlayers()[0].chickenRank).toBe(2);
+
+    // Et la promotion change bien la sentence : il distribue au lieu de boire.
+    expect(g.applyChickenPenalty(6)?.distributes).toBe(true);
+    expect(g.getPlayers()[0].drinks).toBe(0);
+  });
+
   it('une nouvelle partie remet le poulet à zéro', () => {
     const g = new GameLogic();
     g.startGame(players);
