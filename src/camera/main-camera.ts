@@ -10,6 +10,7 @@ import { DiceManager } from '../features/dice';
 import { PlayerSelector } from '../features/game/player-selector';
 import { ManualMovement } from '../features/game/manual-movement';
 import { GOD_FAVORS, findNeighbors as findPlayerNeighbors } from '../features/game/god-favors';
+import { buildActionText, buildSubtitle, withGulpSymbol, GULP } from '../features/game/action-text';
 // Les tokens du design system doivent précéder toute feuille qui les consomme
 import '../styles/common/design-system.css';
 import '../styles/common/main.css';
@@ -729,7 +730,7 @@ class SchmittOdysseeCamera {
     let message = `❌ Le dé est tombé de la table !`;
     if (penalty > 0) {
       this.gameLogic.addDrinks(currentPlayer.index, penalty);
-      message += ` Pénalité : ${penalty} gorgée${penalty > 1 ? 's' : ''} pour ${currentPlayer.name}.`;
+      message += ` Pénalité : ${penalty} ${GULP} pour ${currentPlayer.name}.`;
     }
     message += ` Glissez le dé pour le relancer...`;
 
@@ -795,7 +796,15 @@ class SchmittOdysseeCamera {
     const tile = tileId !== null ? TILE_CONFIGS[tileId] : undefined;
     if (!tile) return;
 
-    this.gameRenderer.showEffectModal(tile.icon, tile.name, tile.description || '');
+    // Un seul texte, qui nomme le joueur et écrit les gorgées en 🍺
+    // (SCH-11, SCH-12, SCH-13). Le sous-titre disparaît quand il ne fait que
+    // répéter le titre, ce qui était le cas de la moitié des cases.
+    const actionText = buildActionText(tile, currentPlayer.name);
+    this.gameRenderer.showEffectModal(
+      tile.icon,
+      actionText ?? withGulpSymbol(tile.name),
+      buildSubtitle(tile, actionText)
+    );
 
     switch (tile.type) {
       case 'drink_2':
@@ -962,10 +971,10 @@ class SchmittOdysseeCamera {
     // combien de gorgées sont à distribuer ; le décompte exact n'a pas besoin
     // d'être saisi, il se règle entre joueurs.
     this.gameRenderer.showNotification(
-      `\u{1F381} ${currentPlayer.name} distribue ${gulpsCount} gorgées !`,
+      `\u{1F381} ${currentPlayer.name} distribue ${gulpsCount} ${GULP} !`,
       3000
     );
-    this.gameLogic.logEvent(`\u{1F381} ${currentPlayer.name} distribue ${gulpsCount} gorgées`);
+    this.gameLogic.logEvent(`\u{1F381} ${currentPlayer.name} distribue ${gulpsCount} ${GULP}`);
     this.updateUI();
 
     this.scheduleNextTurn(2500);
@@ -995,10 +1004,10 @@ class SchmittOdysseeCamera {
 
     const names = hit.map(p => p.name).join(', ');
     this.gameLogic.logEvent(
-      `\u{26A1} Pouvoir du Schmitt : ${names} ${hit.length > 1 ? 'boivent' : 'boit'} ${diceValue} gorgées`
+      `\u{26A1} Pouvoir du Schmitt : ${names} ${hit.length > 1 ? 'boivent' : 'boit'} ${diceValue} ${GULP}`
     );
     this.gameRenderer.showNotification(
-      `\u{26A1} ${holder.name} croise ${names} : ${diceValue} gorgées chacun !`,
+      `\u{26A1} ${holder.name} croise ${names} : ${diceValue} ${GULP} chacun !`,
       3000
     );
     this.updateUI();
@@ -1019,8 +1028,8 @@ class SchmittOdysseeCamera {
         '🐔',
         'PETIT POULET',
         '1',
-        'gorgée à boire',
-        `${verdict.name} est le Petit Poulet : un ${roll} est sorti, il boit 1 gorgée.`,
+        `${GULP} à boire`,
+        `${verdict.name} est le Petit Poulet : un ${roll} est sorti, il boit 1 ${GULP}.`,
         () => this.updateUI()
       );
       return;
@@ -1030,9 +1039,9 @@ class SchmittOdysseeCamera {
       '🐔',
       'GROS POULET',
       '1',
-      'gorgée à distribuer',
+      `${GULP} à distribuer`,
       `${verdict.name} est le GROS POULET : un ${roll} est sorti, ` +
-        `il distribue 1 gorgée au joueur de son choix.`,
+        `il distribue 1 ${GULP} au joueur de son choix.`,
       () => this.updateUI()
     );
   }
@@ -1167,11 +1176,11 @@ class SchmittOdysseeCamera {
       '📢',
       'SCHMITT !!!',
       `${gulps}`,
-      `gorgée${gulps > 1 ? 's' : ''} pour le dernier à crier`,
+      `${GULP} pour le dernier à crier`,
       `Tout le monde crie « SCHMITT ! » et place son pouce sur le front. ` +
         `${onTile.length} joueur${onTile.length > 1 ? 's' : ''} sur la case : ${names}.`,
       () => {
-        this.gameLogic.logEvent(`\u{1F4E2} SCHMITT ! Le dernier boit ${gulps} gorgées`);
+        this.gameLogic.logEvent(`\u{1F4E2} SCHMITT ! Le dernier boit ${gulps} ${GULP}`);
         this.prepareNextPlayerTurn();
       }
     );
@@ -1321,10 +1330,10 @@ class SchmittOdysseeCamera {
         if (passed.length > 0) {
           const names = passed.map(p => p.name).join(', ');
           this.gameRenderer.showNotification(
-            `\u{2600}\u{FE0F} ${currentPlayer.name} dépasse ${names} : 1 gorgée chacun !`,
+            `\u{2600}\u{FE0F} ${currentPlayer.name} dépasse ${names} : 1 ${GULP} chacun !`,
             2800
           );
-          this.gameLogic.logEvent(`\u{2600}\u{FE0F} Apollon : ${names} boivent 1 gorgée`);
+          this.gameLogic.logEvent(`\u{2600}\u{FE0F} Apollon : ${names} boivent 1 ${GULP}`);
         }
 
         this.updateUI();
@@ -1816,7 +1825,7 @@ class SchmittOdysseeCamera {
         }
 
         // Construire le message de notification
-        let message = `🔱 ${target.name} boit ${maxDice} gorgée${maxDice > 1 ? 's' : ''} !`;
+        let message = `🔱 ${target.name} boit ${maxDice} ${GULP} !`;
 
         const neighborNames: string[] = [];
         if (neighbors.left !== null) {
@@ -1829,7 +1838,7 @@ class SchmittOdysseeCamera {
         }
 
         if (neighborNames.length > 0) {
-          message += ` Ses voisins (${neighborNames.join(' et ')}) boivent ${minDice} gorgée${minDice > 1 ? 's' : ''} chacun !`;
+          message += ` Ses voisins (${neighborNames.join(' et ')}) boivent ${minDice} ${GULP} chacun !`;
         }
 
         setTimeout(() => {
@@ -1920,7 +1929,13 @@ class SchmittOdysseeCamera {
     console.log(`✨ Faveur obtenue: ${favor.name} (somme: ${sum})`);
 
     // Afficher le modal avec la faveur
-    this.gameRenderer.showEffectModal(favor.icon, favor.name, favor.description);
+    // Les descriptions des faveurs reprennent le texte des règles officielles :
+    // on y substitue 🍺 à l'affichage plutôt que de les réécrire (SCH-12).
+    this.gameRenderer.showEffectModal(
+      favor.icon,
+      favor.name,
+      withGulpSymbol(favor.description)
+    );
 
     // Exécuter l'effet de la faveur (le bouton OK du modal peut avancer immédiatement)
     this.scheduleModalAction(3000, () => this.executeGodFavor(sum));
@@ -1983,7 +1998,7 @@ class SchmittOdysseeCamera {
         this.promptTableRule(
           'Arès',
           `Tous les joueurs placent leur pouce vers le haut ou vers le bas en même temps. ` +
-          `Ceux qui font l'inverse de ${currentPlayer.name} reçoivent autant de gorgées ` +
+          `Ceux qui font l'inverse de ${currentPlayer.name} reçoivent autant de ${GULP} ` +
           `que le nombre de joueurs ayant fait comme lui.`,
           () => this.prepareNextPlayerTurn()
         );

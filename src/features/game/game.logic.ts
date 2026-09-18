@@ -94,9 +94,9 @@ export class GameLogic {
     const distributes = this.chickenRank >= 2;
     if (!distributes) {
       chicken.drinks += 1;
-      this.addToHistory(`\u{1F414} ${chicken.name} (Poulet) boit 1 gorgée sur un ${roll}`);
+      this.addToHistory(`\u{1F414} ${chicken.name} (Poulet) boit 1 \u{1F37A} sur un ${roll}`);
     } else {
-      this.addToHistory(`\u{1F414} ${chicken.name} (GROS POULET) distribue 1 gorgée sur un ${roll}`);
+      this.addToHistory(`\u{1F414} ${chicken.name} (GROS POULET) distribue 1 \u{1F37A} sur un ${roll}`);
     }
 
     return { playerIndex: this.chickenPlayerIndex, name: chicken.name, distributes };

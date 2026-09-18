@@ -107,7 +107,7 @@ export class PlayerSelector {
         <div class="player-selector-name">${player.name}</div>
         <div class="player-selector-stats">
           <span>📍 Case ${player.position}</span>
-          <span>🍺 ${player.drinks} gorgées</span>
+          <span>🍺 ${player.drinks}</span>
         </div>
       `;
 

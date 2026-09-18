@@ -1,5 +1,6 @@
 import type { Player } from '@/core/models/Player';
 import type { TileConfig } from '@/core/models/Tile';
+import { withGulpSymbol } from '@/features/game/action-text';
 import { Camera } from './camera';
 import {
   calculateSerpentineLayout,
@@ -1003,8 +1004,8 @@ export class BoardCameraRenderer {
     const numberEl = modal.querySelector('.tile-info-number') as HTMLElement;
 
     if (iconEl) iconEl.textContent = tile.icon;
-    if (titleEl) titleEl.textContent = tile.name;
-    if (descEl) descEl.textContent = tile.description || '';
+    if (titleEl) titleEl.textContent = withGulpSymbol(tile.name);
+    if (descEl) descEl.textContent = withGulpSymbol(tile.description || '');
     if (numberEl) numberEl.textContent = `Case ${index}`;
 
     // Afficher la modal

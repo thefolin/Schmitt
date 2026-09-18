@@ -10,6 +10,7 @@ import { TILE_CONFIGS, loadTileConfigs } from '@/features/tiles/tile.config';
 import type { BoardLayoutConfig, TilePlacement } from '@/features/board/camera/board-layout.config';
 import '../styles/common/design-system.css';
 import '../styles/editor/editor-theme.css';
+import { withGulpSymbol } from '@/features/game/action-text';
 
 // Configuration des pouvoirs des dieux pour l'éditeur
 const GOD_POWERS = [
@@ -247,7 +248,7 @@ class BoardEditor {
       tileItem.dataset.tileId = index.toString();
 
       // Tooltip avec description de la règle
-      tileItem.title = `${tile.name}\n${tile.description || ''}`;
+      tileItem.title = withGulpSymbol(`${tile.name}\n${tile.description || ''}`);
 
       tileItem.innerHTML = `
         ${tile.image
@@ -256,7 +257,7 @@ class BoardEditor {
           : `<span style="font-size: 24px;">${tile.icon}</span>`
         }
         <div class="tile-info">
-          <div class="tile-name">${tile.name}</div>
+          <div class="tile-name">${withGulpSymbol(tile.name)}</div>
           <div class="tile-id">#${index}</div>
         </div>
       `;
@@ -286,7 +287,7 @@ class BoardEditor {
       tileItem.dataset.tileId = power.id.toString();
 
       // Tooltip avec description
-      tileItem.title = `${power.name}\n${power.description}`;
+      tileItem.title = withGulpSymbol(`${power.name}\n${power.description}`);
 
       tileItem.innerHTML = `
         ${power.image
@@ -295,7 +296,7 @@ class BoardEditor {
           : `<span style="font-size: 24px;">${power.icon}</span>`
         }
         <div class="tile-info">
-          <div class="tile-name">${power.name}</div>
+          <div class="tile-name">${withGulpSymbol(power.name)}</div>
           <div class="tile-id">Faveur</div>
         </div>
       `;
@@ -645,7 +646,7 @@ class BoardEditor {
 
       // Tooltip avec description de la règle
       const tooltipText = isGodPower
-        ? `${godPower!.name}\n${godPower!.description}`
+        ? withGulpSymbol(`${godPower!.name}\n${godPower!.description}`)
         : `${tileConfig!.name}\n${tileConfig!.description || ''}`;
       el.title = tooltipText;
 
