@@ -268,6 +268,12 @@ export class Dice3D {
       if (hasFallen && this.onFallCallback) {
         // Arrêter l'animation
         this.animationFrameId = null;
+
+        // La boucle s'arrête ici, en pleine culbute. Un dernier rendu fige
+        // le dé dans une position cohérente avec sa physique, en attendant
+        // que `resetFall()` le repose à plat.
+        this.updatePosition();
+
         // Notifier de la chute
         this.onFallCallback({ diceType: this.type });
         return;
@@ -545,6 +551,11 @@ export class Dice3D {
    */
   public resetFall(): void {
     this.physics.resetFall();
+
+    // La boucle d'animation s'est arrêtée à la chute : plus personne ne
+    // redessine le dé. Sans ce rendu, il resterait affiché sur l'arête où il
+    // s'était figé, alors que la physique l'a remis à plat.
+    this.updatePosition();
   }
 
   /**

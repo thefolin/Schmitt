@@ -265,3 +265,86 @@ describe('DicePhysics - orientation 3D du cube', () => {
     }
   });
 });
+
+/**
+ * SCH-05 — le dé doit toujours présenter une face lisible.
+ *
+ * Bastien (18/09) : « la phase du dé qui s'affiche au joueur ne donne pas le
+ * vrai déplacement ». Sur les captures 00000035 et 00000047, le dé est figé
+ * en pleine culbute, posé sur une arête, aucune face vers le haut.
+ *
+ * Une première cause avait été corrigée le 13/09 (inclinaison de scène codée
+ * en dur à 40° alors que le plateau était passé à 58°), mais elle était DÉJÀ
+ * dans l'APK testé : il en restait une seconde.
+ *
+ * Celle-ci : quand le dé sort de la table, la boucle d'animation s'arrête net
+ * et la physique reste en plein vol. `resetFall()` n'effaçait que le drapeau
+ * de chute, laissant le dé de travers jusqu'au lancer suivant.
+ */
+describe('SCH-05 — le dé tombé de la table revient à plat', () => {
+  /** Met le dé en pleine culbute, puis le pousse hors de la table. */
+  function throwOffTable(): DicePhysics {
+    const physics = new DicePhysics(DEFAULT_DICE_CONFIG, initialPosition, bounds);
+    physics.setTableBounds(
+      { minX: 350, maxX: 450, minY: 250, maxY: 350 },
+      { left: true, right: false, top: true, bottom: true }
+    );
+    physics.throw();
+
+    // Quelques images suffisent pour que le dé soit franchement de travers
+    for (let i = 0; i < 6; i++) physics.update(16.67);
+
+    // @ts-expect-error — on force la sortie de table, que le hasard du lancer
+    // ne garantit pas.
+    physics.state.position.x = 500;
+    expect(physics.checkFall()).toBe(true);
+
+    return physics;
+  }
+
+  it('le dé est bien de travers au moment de la chute', () => {
+    // Garantit que le test suivant vérifie quelque chose : sans cela, un dé
+    // qui tomberait déjà à plat rendrait l'assertion triviale.
+    const physics = throwOffTable();
+    expect(faceAlignment(physics.getState().orientation)).toBeLessThan(0.999);
+  });
+
+  it('se repose à plat une fois la chute traitée', () => {
+    const physics = throwOffTable();
+    physics.resetFall();
+
+    expect(faceAlignment(physics.getState().orientation)).toBeCloseTo(1, 3);
+  });
+
+  it('cesse de rouler : la physique ne reste pas en plein vol', () => {
+    const physics = throwOffTable();
+    physics.resetFall();
+
+    expect(physics.isRolling()).toBe(false);
+  });
+
+  it('affiche la face correspondant à sa valeur', () => {
+    // C'est le défaut signalé : la valeur jouée et la face montrée divergeaient.
+    const physics = throwOffTable();
+    physics.resetFall();
+
+    const state = physics.getState();
+    expect(readTopFace(state.orientation)).toBe(state.currentValue);
+  });
+
+  it('retombe au sol, sans vitesse verticale résiduelle', () => {
+    const physics = throwOffTable();
+    physics.resetFall();
+
+    const state = physics.getState();
+    expect(state.height).toBe(0);
+    expect(state.verticalVelocity).toBe(0);
+  });
+
+  it('efface le drapeau de chute', () => {
+    const physics = throwOffTable();
+    physics.resetFall();
+
+    expect(physics.getState().hasFallen).toBe(false);
+  });
+});

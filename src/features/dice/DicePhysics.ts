@@ -446,9 +446,21 @@ export class DicePhysics {
   }
 
   /**
-   * Réinitialise l'état de chute
+   * Réinitialise l'état de chute et repose le dé à plat.
+   *
+   * Quand le dé sort de la table, la boucle d'animation s'arrête net : la
+   * physique reste en plein vol, le dé figé sur une arête, aucune face
+   * lisible. Effacer le seul drapeau `hasFallen` laissait cette orientation
+   * en place, et le dé restait de travers jusqu'au lancer suivant — c'est ce
+   * que montrent les captures 00000035 et 00000047.
+   *
+   * On termine donc la chute proprement : le dé s'immobilise et se pose sur
+   * la face qu'il présentait, comme s'il avait fini sa course sur la table.
    */
   public resetFall(): void {
     this.state.hasFallen = false;
+    this.state.height = 0;
+    this.state.verticalVelocity = 0;
+    this.stop();
   }
 }
