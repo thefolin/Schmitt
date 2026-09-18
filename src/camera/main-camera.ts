@@ -918,6 +918,17 @@ class SchmittOdysseeCamera {
       return;
     }
 
+    // Revenu sur START mais retenu par son bouclier : sans ce message, le
+    // joueur verrait la partie continuer sans comprendre pourquoi il n'a pas
+    // gagné.
+    if (this.gameLogic.isBlockedByShield(currentPlayer.index)) {
+      this.gameRenderer.showNotification(
+        `\u{1F6E1}\u{FE0F} ${currentPlayer.name} est de retour sur START, ` +
+          `mais le bouclier d'Athéna l'empêche de gagner : il doit d'abord s'en servir !`,
+        4000
+      );
+    }
+
     // Attendre que l'utilisateur ferme le modal de l'effet avant de passer au suivant
     // (le bouton OK du modal peut déclencher ceci immédiatement, voir scheduleNextTurn)
     this.scheduleNextTurn(3000);
@@ -1317,6 +1328,87 @@ class SchmittOdysseeCamera {
    * APOLLON — rejouer avec 2 dés, garder celui de son choix pour se déplacer,
    * et distribuer 1 gorgée à chaque adversaire dépassé.
    */
+  /**
+   * ATHÉNA — le bouclier qui renvoie une fois, et interdit de gagner.
+   *
+   * Règle : « Choisissez un objet bouclier. Ce bouclier renvoie 1 seule fois
+   * toutes les gorgées/cul-sec sur le joueur de votre choix. Tant que vous
+   * possédez le bouclier, vous ne pouvez pas gagner. »
+   *
+   * Le renvoi est automatique : dès que le porteur reçoit une sanction, elle
+   * est retenue et l'interface demande sur qui la renvoyer. Le bouclier ne se
+   * garde donc pas « pour plus tard » — la règle ne prévoit aucun choix de
+   * ce genre, et laisser passer une sanction reviendrait à le gâcher sans que
+   * le joueur l'ait décidé.
+   */
+  private handleAthenaShield(currentPlayer: Player): void {
+    this.gameLogic.grantAthenaShield(currentPlayer.index);
+    this.updateBoard();
+
+    this.promptBigAnnounce(
+      '\u{1F6E1}\u{FE0F}',
+      "BOUCLIER D'ATHÉNA",
+      '1',
+      'renvoi, une seule fois',
+      `${currentPlayer.name} prend un objet qui servira de bouclier. ` +
+        `La prochaine sanction qu'il reçoit part sur le joueur de son choix. ` +
+        `Tant qu'il le garde, il ne peut pas gagner.`,
+      () => {
+        this.updateUI();
+        this.scheduleNextTurn(500);
+      }
+    );
+  }
+
+  /**
+   * Propose au porteur du bouclier de renvoyer la sanction qu'il vient de
+   * recevoir, et consomme le bouclier.
+   *
+   * Appelée après chaque source de gorgées : c'est `GameLogic` qui a retenu
+   * la sanction, encore faut-il demander la cible. Renvoie `true` si un
+   * renvoi est en cours, pour que l'appelant n'enchaîne pas le tour.
+   */
+  private resolvePendingShield(onDone?: () => void): boolean {
+    const pending = this.gameLogic.getPendingShield();
+    if (!pending) return false;
+
+    const players = this.gameLogic.getPlayers();
+    const holder = players[pending.playerIndex];
+    const targets = players.filter(p => p.index !== pending.playerIndex);
+
+    // Seul à la table : le bouclier n'a personne à viser. La sanction retombe
+    // sur son porteur plutôt que de disparaître.
+    if (targets.length === 0) {
+      this.gameLogic.cancelPendingShield();
+      this.updateUI();
+      onDone?.();
+      return false;
+    }
+
+    this.gameRenderer.closeEffectModal();
+
+    this.promptChoice(
+      `\u{1F6E1}\u{FE0F} Bouclier d'Athéna`,
+      `${holder?.name} renvoie ${pending.amount} ${GULP} sur le joueur de son choix. ` +
+        `Le bouclier est consommé.`,
+      targets.map(p => ({ label: `${p.name}`, value: String(p.index) })),
+      picked => {
+        if (picked === null) {
+          // Refuser de choisir ne doit pas effacer la sanction : elle
+          // retombe sur le porteur, bouclier conservé.
+          this.gameLogic.cancelPendingShield();
+        } else {
+          this.gameLogic.useAthenaShield(parseInt(picked, 10));
+        }
+        this.updateUI();
+        this.updateBoard();
+        onDone?.();
+      }
+    );
+
+    return true;
+  }
+
   private handleApollon(currentPlayer: Player): void {
     const d1 = Math.floor(Math.random() * 6) + 1;
     const d2 = Math.floor(Math.random() * 6) + 1;
@@ -2022,10 +2114,8 @@ class SchmittOdysseeCamera {
         this.handleLastJudgement(currentPlayer);
         break;
 
-      case 4: // Athéna - bouclier
-        // TODO: Implémenter le système de bouclier
-        this.gameRenderer.showNotification(`${currentPlayer.name} obtient le bouclier d'Athéna !`);
-        this.scheduleNextTurn(2000);
+      case 4: // ATHÉNA — le bouclier qui renvoie une fois, et interdit de gagner
+        this.handleAthenaShield(currentPlayer);
         break;
 
       case 5: // Aphrodite - lancer 2 dés et déplacer 2 adversaires
@@ -2138,6 +2228,12 @@ class SchmittOdysseeCamera {
    * Prépare le tour du joueur suivant
    */
   private prepareNextPlayerTurn(): void {
+    // Un bouclier a-t-il retenu une sanction pendant ce tour ? Il faut la
+    // renvoyer avant de passer la main. Ce point de passage unique évite
+    // d'avoir à brancher le bouclier sur chaque source de gorgées — case,
+    // faveur, Poulet, pouvoir du Schmitt — et d'en oublier une.
+    if (this.resolvePendingShield(() => this.prepareNextPlayerTurn())) return;
+
     console.log('🔄 Passage au joueur suivant');
 
     // Passer au joueur suivant

@@ -288,13 +288,101 @@ export class GameLogic {
   }
 
   /**
-   * Ajoute des boissons à un joueur
+   * Ajoute des boissons à un joueur.
+   *
+   * Passage OBLIGÉ de toutes les gorgées du jeu : c'est ici que le bouclier
+   * d'Athéna intercepte. Le faire ailleurs laisserait passer les sources
+   * qu'on aurait oubliées.
    */
   public addDrinks(playerIndex: number, amount: number): void {
     const player = this.players[playerIndex];
-    if (player) {
-      player.drinks += amount;
+    if (!player) return;
+
+    // Le bouclier renvoie la sanction au lieu de la subir. `shieldRedirect`
+    // est posé par `useAthenaShield` le temps du renvoi : sans lui, rediriger
+    // vers la cible rappellerait addDrinks et le bouclier s'auto-déclencherait
+    // en boucle.
+    if (player.hasAthenaShield && this.shieldRedirect === null && amount > 0) {
+      this.pendingShield = { playerIndex, amount };
+      return;
     }
+
+    player.drinks += amount;
+  }
+
+  /**
+   * Sanction en attente d'être renvoyée par un bouclier.
+   *
+   * Le porteur choisit sa cible : la logique retient donc la sanction le
+   * temps que l'interface pose la question, plutôt que de la faire disparaître.
+   */
+  private pendingShield: { playerIndex: number; amount: number } | null = null;
+
+  /** Empêche le bouclier de se redéclencher sur son propre renvoi. */
+  private shieldRedirect: number | null = null;
+
+  /** Donne le bouclier d'Athéna à un joueur. */
+  public grantAthenaShield(playerIndex: number): boolean {
+    const player = this.players[playerIndex];
+    if (!player || player.hasAthenaShield) return false;
+
+    player.hasAthenaShield = true;
+    this.addToHistory(`\u{1F6E1}\u{FE0F} ${player.name} obtient le bouclier d'Athéna`);
+    return true;
+  }
+
+  /**
+   * La sanction qu'un bouclier retient, en attente d'une cible.
+   * `null` si aucun renvoi n'est en cours.
+   */
+  public getPendingShield(): { playerIndex: number; amount: number } | null {
+    return this.pendingShield;
+  }
+
+  /**
+   * Renvoie la sanction retenue sur la cible choisie, et consomme le bouclier.
+   *
+   * « Renvoie 1 SEULE FOIS » : le bouclier disparaît au premier usage, et son
+   * porteur redevient capable de gagner.
+   */
+  public useAthenaShield(targetIndex: number): boolean {
+    const pending = this.pendingShield;
+    if (!pending) return false;
+
+    const holder = this.players[pending.playerIndex];
+    const target = this.players[targetIndex];
+    if (!holder || !target) return false;
+
+    this.pendingShield = null;
+    holder.hasAthenaShield = false;
+
+    // Le drapeau évite que la cible, si elle porte elle aussi un bouclier,
+    // renvoie à son tour dans la foulée : un renvoi est un renvoi, pas une
+    // réaction en chaîne. Elle garde son bouclier pour plus tard.
+    this.shieldRedirect = targetIndex;
+    this.addDrinks(targetIndex, pending.amount);
+    this.shieldRedirect = null;
+
+    this.addToHistory(
+      `\u{1F6E1}\u{FE0F} ${holder.name} renvoie ${pending.amount} sur ${target.name} — le bouclier est consommé`
+    );
+    return true;
+  }
+
+  /**
+   * Abandonne la sanction retenue sans consommer le bouclier.
+   *
+   * Filet de sécurité : si l'interface se ferme sans qu'une cible soit
+   * choisie, la sanction doit retomber sur son destinataire d'origine plutôt
+   * que de s'évaporer.
+   */
+  public cancelPendingShield(): void {
+    const pending = this.pendingShield;
+    if (!pending) return;
+
+    this.pendingShield = null;
+    const player = this.players[pending.playerIndex];
+    if (player) player.drinks += pending.amount;
   }
 
   /**
@@ -350,9 +438,35 @@ export class GameLogic {
     if (!this.schmittPowerClaimed) return null;
 
     const winner = this.players.find(
-      p => p.isReturning && p.position === 0 && p.hasLeftStartOnReturn
+      p =>
+        p.isReturning &&
+        p.position === 0 &&
+        p.hasLeftStartOnReturn &&
+        // « Tant que vous possédez le bouclier, vous ne pouvez pas gagner. »
+        // Le porteur revient donc sur START sans l'emporter : il lui faut
+        // d'abord se défaire du bouclier en l'utilisant.
+        !p.hasAthenaShield
     );
     return winner || null;
+  }
+
+  /**
+   * Le joueur est-il revenu sur START mais retenu par son bouclier ?
+   *
+   * Sans cette distinction, un porteur de bouclier posé sur START verrait la
+   * partie continuer sans que rien ne lui dise pourquoi il ne gagne pas.
+   */
+  public isBlockedByShield(playerIndex: number): boolean {
+    const player = this.players[playerIndex];
+    if (!player) return false;
+
+    return (
+      this.schmittPowerClaimed &&
+      player.hasAthenaShield &&
+      player.isReturning &&
+      player.position === 0 &&
+      player.hasLeftStartOnReturn
+    );
   }
 
   /**
