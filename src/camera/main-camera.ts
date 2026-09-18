@@ -239,6 +239,16 @@ class SchmittOdysseeCamera {
       }
     });
 
+    // Voir le plateau sans perdre le message (SCH-07). Le message est replié,
+    // pas fermé : le tour n'avance pas tant que le joueur n'a pas validé.
+    document.getElementById('peekBoardBtn')?.addEventListener('click', () => {
+      this.gameRenderer.setBoardPeek(!this.gameRenderer.isPeekingBoard());
+    });
+
+    document.getElementById('peekRestoreBtn')?.addEventListener('click', () => {
+      this.gameRenderer.setBoardPeek(false);
+    });
+
     document.getElementById('effectOkBtn')?.addEventListener('click', () => {
       this.gameRenderer.closeEffectModal();
       // Si une action est programmée après ce modal, la déclencher tout de suite

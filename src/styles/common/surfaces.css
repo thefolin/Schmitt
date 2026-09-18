@@ -430,3 +430,85 @@
     transform: translate(-50%, 0) scale(1);
   }
 }
+
+/* ============================================================
+   Voir le plateau sans perdre le message (SCH-07)
+   ============================================================
+   Bastien : « Il faudrait pouvoir passer du message au plateau ». Les
+   messages recouvrent le plateau et le floutent : impossible de vérifier où
+   sont les pions sans fermer la fenêtre, donc sans perdre la consigne.
+
+   Le message est REPLIÉ, jamais fermé : le tour n'avance pas, et une pastille
+   permanente le ramène. Fermer reviendrait à valider l'effet, ce qui n'est
+   pas ce que demande un joueur qui veut juste regarder. */
+
+.modal.is-peeking {
+  /* Le voile et le flou disparaissent : c'est eux qui cachaient le plateau */
+  background: transparent;
+  backdrop-filter: none;
+  /* Et la modale rend la main aux gestes de caméra */
+  pointer-events: none;
+}
+
+.modal.is-peeking .modal-content {
+  /* Le panneau s'efface vers le bas plutôt que de disparaître : on garde le
+     fil de ce qui se passe, et le retour est moins brutal. */
+  opacity: 0;
+  transform: translateY(12px) scale(0.98);
+  pointer-events: none;
+}
+
+.modal-content {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+/* La pastille de retour. Posée en bas, au-dessus de la barre d'action, là où
+   le pouce la trouve sans couvrir le plateau. */
+.peek-restore {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--sp-3, 12px) + 84px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  z-index: 3400;
+
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2, 8px);
+  /* Cible tactile : jamais sous 48px, contrainte du projet */
+  min-height: 48px;
+  padding: 0 var(--sp-4, 16px);
+
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-base, #f3f5fb);
+  cursor: pointer;
+
+  background: rgba(19, 26, 43, 0.92);
+  border: 1px solid var(--marble-500, #3a4361);
+  border-radius: var(--radius-pill, 999px);
+  box-shadow: var(--shadow-raised, 0 6px 18px rgba(0, 0, 0, 0.45));
+  backdrop-filter: blur(8px);
+}
+
+.peek-restore:hover {
+  border-color: var(--gold-400, #d4af37);
+}
+
+/* Le bouton « Voir le plateau » : secondaire, il ne doit pas concurrencer OK */
+.btn-ghost {
+  background: transparent;
+  border: 1px solid var(--marble-500, #3a4361);
+  color: var(--text-muted, #aab3cc);
+}
+
+.btn-ghost:hover {
+  border-color: var(--gold-400, #d4af37);
+  color: var(--text-base, #f3f5fb);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal-content {
+    transition: none;
+  }
+}

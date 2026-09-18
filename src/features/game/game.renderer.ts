@@ -155,6 +155,8 @@ export class GameRenderer {
       modalTitle.textContent = title;
       modalDescription.textContent = description;
       modal.classList.add('show');
+      // Un message replié ne doit pas le rester pour le suivant.
+      this.setBoardPeek(false);
     }
   }
 
@@ -164,6 +166,37 @@ export class GameRenderer {
   public closeEffectModal(): void {
     const modal = document.getElementById('effectModal');
     modal?.classList.remove('show');
+    this.setBoardPeek(false);
+  }
+
+  /**
+   * Replie ou déplie le message pour laisser voir le plateau (SCH-07).
+   *
+   * Les messages recouvrent le plateau et le floutent : impossible de vérifier
+   * où sont les pions sans fermer la fenêtre, donc sans perdre la consigne.
+   *
+   * Le message est REPLIÉ, jamais fermé : le tour n'avance pas, et une
+   * pastille permanente le ramène. Fermer reviendrait à valider l'effet, ce
+   * qui n'est pas ce que demande un joueur qui veut juste regarder.
+   */
+  public setBoardPeek(peeking: boolean): void {
+    const modal = document.getElementById('effectModal');
+    const restore = document.getElementById('peekRestoreBtn');
+    const toggle = document.getElementById('peekBoardBtn');
+
+    modal?.classList.toggle('is-peeking', peeking);
+    toggle?.setAttribute('aria-expanded', String(!peeking));
+
+    if (restore) {
+      // La pastille n'a de sens que si un message est effectivement ouvert.
+      const hasMessage = modal?.classList.contains('show') ?? false;
+      restore.hidden = !(peeking && hasMessage);
+    }
+  }
+
+  /** Le message est-il replié pour laisser voir le plateau ? */
+  public isPeekingBoard(): boolean {
+    return document.getElementById('effectModal')?.classList.contains('is-peeking') ?? false;
   }
 
   /**

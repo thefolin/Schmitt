@@ -186,10 +186,22 @@
             <p id="effectDescription"></p>
             <div id="effectInteraction"></div>
             <div class="modal-actions">
+                <!-- Voir le plateau sans perdre le message : il est replié,
+                     pas fermé, et une pastille permet de le rouvrir. -->
+                <button class="btn btn-ghost" id="peekBoardBtn" type="button"
+                        aria-controls="effectModal" aria-expanded="true">
+                    <span aria-hidden="true">👁</span> Voir le plateau
+                </button>
                 <button class="btn btn-primary" id="effectOkBtn">OK</button>
             </div>
         </div>
     </div>
+
+    <!-- Pastille de retour au message, visible seulement quand la modale est
+         repliée. Hors de la modale, pour survivre à son repli. -->
+    <button class="peek-restore" id="peekRestoreBtn" type="button" hidden>
+        <span aria-hidden="true">💬</span> Revoir le message
+    </button>
 
     <!-- Notification -->
     <div class="notification" id="notification"></div>
