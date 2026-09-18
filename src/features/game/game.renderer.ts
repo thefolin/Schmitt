@@ -1,4 +1,5 @@
 import type { Player } from '@/core/models/Player';
+import { describePlayerStatuses } from '@/features/board/camera/pawn-badges';
 
 /**
  * Rendu visuel du jeu
@@ -44,7 +45,7 @@ export class GameRenderer {
         <div class="player-info">
           <div class="player-name">${player.name}</div>
           <div class="player-stats">
-            ${player.hasSchmittPower ? '⚡ Schmitt' : ''}
+            ${describePlayerStatuses(player).join(' ')}
             ${player.drinks > 0 ? `🍺 ${player.drinks}` : ''}
           </div>
         </div>

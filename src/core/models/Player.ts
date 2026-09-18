@@ -16,6 +16,14 @@ export interface Player {
   drinks: number;
   hasAthenaShield: boolean;
   canReplay: boolean; // Permet de rejouer (case replay)
+  /**
+   * Rang de Poulet : 0 = aucun, 1 = Petit Poulet 🐤, 2 = Gros Poulet 🐔.
+   *
+   * Le statut dure plusieurs tours et décide qui boit sur chaque 3 ou 6 : il
+   * doit donc se voir sur le pion. `GameLogic` en reste la source de vérité,
+   * ce champ n'est que son reflet pour l'affichage.
+   */
+  chickenRank: 0 | 1 | 2;
   index: number;
 }
 
@@ -32,6 +40,7 @@ export class PlayerModel implements Player {
   drinks: number;
   hasAthenaShield: boolean;
   canReplay: boolean;
+  chickenRank: 0 | 1 | 2;
   index: number;
 
   constructor(name: string, color: string, index: number) {
@@ -45,6 +54,7 @@ export class PlayerModel implements Player {
     this.drinks = 0;
     this.hasAthenaShield = false;
     this.canReplay = false;
+    this.chickenRank = 0;
   }
 
   /**
@@ -83,5 +93,6 @@ export class PlayerModel implements Player {
     this.drinks = 0;
     this.hasAthenaShield = false;
     this.canReplay = false;
+    this.chickenRank = 0;
   }
 }

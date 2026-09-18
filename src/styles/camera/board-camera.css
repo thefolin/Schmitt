@@ -436,18 +436,52 @@
     inset 3px 3px 8px rgba(255, 255, 255, 0.4);
 }
 
-.pawn-power {
+/* Badges de statut durable (pouvoir, Poulet).
+
+   Ils sont posés AU-DESSUS du pion, débordant vers le haut : la case reste
+   entièrement visible sous le pion, et deux badges tiennent côte à côte sans
+   se marcher dessus.
+
+   Le pion subit un redressement vertical (--pawn-unsquash) pour compenser la
+   projection isométrique ; les badges en héritent et n'ont donc rien à
+   corriger eux-mêmes. */
+.pawn-badges {
   position: absolute;
-  top: -10px;
+  bottom: 100%;
   left: 50%;
   transform: translateX(-50%);
-  font-size: 16px;
+  display: flex;
+  gap: 1px;
+  margin-bottom: 1px;
+  pointer-events: none;
+  white-space: nowrap;
   animation: powerBounce 1s ease-in-out infinite;
+}
+
+/* Sur un téléphone le pion mesure une vingtaine de pixels : le badge est
+   dimensionné en proportion, avec un plancher qui le garde lisible. Le fond
+   clair et le contour le détachent des illustrations de cases, souvent
+   colorées et chargées. */
+.pawn-badge {
+  font-size: clamp(11px, calc(var(--pawn-size, 46px) * 0.34), 18px);
+  line-height: 1;
+  padding: 1px 2px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
 }
 
 @keyframes powerBounce {
   0%, 100% { transform: translateX(-50%) translateY(0); }
-  50% { transform: translateX(-50%) translateY(-5px); }
+  50% { transform: translateX(-50%) translateY(-4px); }
+}
+
+/* Les animations décoratives gênent qui y est sensible, et le badge doit
+   rester lisible : on garde la marque, on retire le mouvement. */
+@media (prefers-reduced-motion: reduce) {
+  .pawn-badges {
+    animation: none;
+  }
 }
 
 /* Animation de déplacement : le saut dit « c'est moi qui bouge ».

@@ -161,7 +161,10 @@ export class AssetManager {
 
     // Assets des pouvoirs
     const defaultPowerAssets: AssetConfig[] = [
-      { id: 'power-schmitt', type: 'power', source: 'emoji', value: '⚡' },
+      // ⚡ appartient à Zeus. Le pouvoir du Schmitt le portait aussi, et un
+      // testeur a lu « Zeus » sur le pion qui l'affichait, puis signalé comme
+      // un bug l'absence de l'effet de Zeus. Deux pouvoirs, deux symboles.
+      { id: 'power-schmitt', type: 'power', source: 'emoji', value: '🏆' },
       { id: 'power-zeus', type: 'power', source: 'emoji', value: '⚡' },
       { id: 'power-poseidon', type: 'power', source: 'emoji', value: '🔱' },
       { id: 'power-athena', type: 'power', source: 'emoji', value: '🛡️' }

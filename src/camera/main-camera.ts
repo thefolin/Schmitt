@@ -1004,10 +1004,10 @@ class SchmittOdysseeCamera {
 
     const names = hit.map(p => p.name).join(', ');
     this.gameLogic.logEvent(
-      `\u{26A1} Pouvoir du Schmitt : ${names} ${hit.length > 1 ? 'boivent' : 'boit'} ${diceValue} ${GULP}`
+      `\u{1F3C6} Pouvoir du Schmitt : ${names} ${hit.length > 1 ? 'boivent' : 'boit'} ${diceValue} ${GULP}`
     );
     this.gameRenderer.showNotification(
-      `\u{26A1} ${holder.name} croise ${names} : ${diceValue} ${GULP} chacun !`,
+      `\u{1F3C6} ${holder.name} croise ${names} : ${diceValue} ${GULP} chacun !`,
       3000
     );
     this.updateUI();
@@ -1059,7 +1059,7 @@ class SchmittOdysseeCamera {
 
     if (claimed) {
       this.gameRenderer.showNotification(
-        `\u{26A1} ${currentPlayer.name} s'empare du POUVOIR DU SCHMITT ! Demi-tour, retour au START !`,
+        `\u{1F3C6} ${currentPlayer.name} s'empare du POUVOIR DU SCHMITT ! Demi-tour, retour au START !`,
         3500
       );
       // Le joueur rejoue immédiatement, comme le veut la règle

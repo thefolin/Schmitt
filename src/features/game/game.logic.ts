@@ -59,6 +59,14 @@ export class GameLogic {
       this.chickenPlayerIndex = playerIndex;
       this.chickenRank = 1;
     }
+
+    // Le rang est reporté sur les pions : un seul joueur porte le statut à la
+    // fois, et il doit se voir sur le plateau (SCH-17). Sans cette marque, la
+    // promotion en Gros Poulet passait totalement inaperçue.
+    this.players.forEach((p, i) => {
+      p.chickenRank = i === playerIndex ? (this.chickenRank as 0 | 1 | 2) : 0;
+    });
+
     return this.chickenRank;
   }
 
@@ -157,7 +165,8 @@ export class GameLogic {
       hasLeftStartOnReturn: false,
       drinks: 0,
       hasAthenaShield: false,
-      canReplay: false
+      canReplay: false,
+      chickenRank: 0 as const
     }));
 
     this.currentPlayerIndex = 0;

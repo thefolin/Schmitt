@@ -1,6 +1,7 @@
 import type { Player } from '@/core/models/Player';
 import type { TileConfig } from '@/core/models/Tile';
 import { withGulpSymbol } from '@/features/game/action-text';
+import { renderPawnBadges } from './pawn-badges';
 import { Camera } from './camera';
 import {
   calculateSerpentineLayout,
@@ -717,7 +718,7 @@ export class BoardCameraRenderer {
 
     el.innerHTML = `
       <div class="pawn-body"></div>
-      ${player.hasSchmittPower ? '<div class="pawn-power">⚡</div>' : ''}
+      ${renderPawnBadges(player)}
     `;
 
     return el;
@@ -779,13 +780,25 @@ export class BoardCameraRenderer {
       pawnEl.style.top = `${slot.y + stackOffset}px`;
     }
 
-    // Mettre à jour le pouvoir Schmitt
-    const powerEl = pawnEl.querySelector('.pawn-power');
-    if (player.hasSchmittPower && !powerEl) {
-      pawnEl.insertAdjacentHTML('beforeend', '<div class="pawn-power">⚡</div>');
-    } else if (!player.hasSchmittPower && powerEl) {
-      powerEl.remove();
-    }
+    // Les statuts durables (pouvoir, Poulet) sont redessinés à chaque mise à
+    // jour : ils changent en cours de partie et doivent suivre le pion.
+    this.updatePawnBadges(pawnEl, player);
+  }
+
+  /**
+   * Redessine les badges d'un pion quand ils ont changé.
+   *
+   * Comparer avant d'écrire évite de relancer les animations CSS à chaque
+   * déplacement — un badge qui rebondit en permanence attire l'œil pour rien.
+   */
+  private updatePawnBadges(pawnEl: HTMLElement, player: Player): void {
+    const wanted = renderPawnBadges(player);
+    const current = pawnEl.querySelector('.pawn-badges');
+
+    if (current && current.outerHTML === wanted) return;
+
+    current?.remove();
+    if (wanted) pawnEl.insertAdjacentHTML('beforeend', wanted);
   }
 
   /**
