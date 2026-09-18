@@ -186,3 +186,68 @@ describe('SCH-22 — la logique de jeu suit la taille du plateau édité', () =>
     expect(g.checkVictory()?.name).toBe('A');
   });
 });
+
+/**
+ * SCH-01 — le vrai multiplicateur doit dominer.
+ *
+ * Bastien (capture 00000009) : « Les cases rouge et vert affichent pas le bon
+ * multiplicateur. » La case 16 est ×3 et la case 15 est ×4, mais les deux se
+ * lisent « ×2 » à distance.
+ *
+ * Le « ×2 » est GRAVÉ dans l'illustration — une seule image sert pour x2, x3
+ * et x4 — et le badge du vrai facteur se posait à côté, en plus petit. La
+ * case annonçait donc deux facteurs, le faux étant le plus lisible.
+ */
+describe('SCH-01 — le multiplicateur affiché est celui de la case', () => {
+  function renderTile(tile: Partial<TileConfig>): HTMLElement {
+    document.body.innerHTML = '<div id="boardCamera"></div>';
+    const renderer = new BoardCameraRenderer('boardCamera');
+    // @ts-expect-error — injection directe du layout
+    renderer.boardLayout = {
+      gridRows: 1,
+      gridCols: 1,
+      tileSize: 120,
+      tileGap: 15,
+      placements: [{ tileId: 0, gridRow: 0, gridCol: 0, size: 'full' as const }],
+    };
+
+    renderer.render(
+      [
+        {
+          type: 'drink_4' as TileConfig['type'],
+          icon: '🍺',
+          name: 'BUVEZ 4',
+          image: 'assets/cells/take_sip.png',
+          ...tile,
+        } as TileConfig,
+      ],
+      []
+    );
+
+    return document.querySelector('.board-tile') as HTMLElement;
+  }
+
+  it('affiche le facteur réel de la case, pas celui gravé dans l\'image', () => {
+    const amount = renderTile({ amount: 4 })?.querySelector('.tile-amount-value');
+    expect(amount?.textContent).toBe('4');
+  });
+
+  it('sépare le signe du chiffre, pour que le chiffre domine', () => {
+    // Les deux sont dans un <span> : un nœud de texte nu ne pourrait pas être
+    // remonté au-dessus du voile qui masque le chiffre gravé, et le vrai
+    // facteur disparaîtrait derrière.
+    const badge = renderTile({ amount: 3 })?.querySelector('.tile-amount');
+
+    expect(badge?.querySelector('.tile-amount-sign')?.textContent).toBe('×');
+    expect(badge?.querySelector('.tile-amount-value')?.textContent).toBe('3');
+  });
+
+  it('n\'affiche aucun badge sur une case sans multiplicateur', () => {
+    const tile = renderTile({
+      type: 'start' as TileConfig['type'],
+      name: 'START',
+      amount: undefined,
+    });
+    expect(tile?.querySelector('.tile-amount')).toBeNull();
+  });
+});

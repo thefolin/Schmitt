@@ -1051,20 +1051,63 @@
  * ce badge le recouvre avec le vrai nombre, ce qui permet de servir x2, x3
  * et x4 avec une seule image au lieu de six.
  */
+/* Le vrai multiplicateur d'une case.
+
+   Le « ×2 » est gravé dans l'illustration, la même image servant pour x2, x3
+   et x4 : ce badge doit RECOUVRIR ce chiffre, pas le compléter. Posé à côté,
+   la case affichait deux facteurs, et le faux était le plus gros — une case
+   ×3 et une case ×4 se lisaient toutes deux « ×2 ».
+
+   Il reprend donc le lettrage de l'illustration : même taille, même graisse,
+   même contour, avec un voile derrière lui pour effacer ce qu'il masque. */
 .tile-amount {
   position: absolute;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 0.04em;
   font-family: var(--font-display);
-  /* Proportionnel à la case : le plateau se met à l'échelle avec le zoom */
-  font-size: 52%;
+  /* À la taille du chiffre gravé, qu'il remplace */
+  font-size: 74%;
   font-weight: 700;
+  line-height: 1;
   color: #f6efe0;
   /* Contour sombre, comme le lettrage gravé des illustrations */
-  -webkit-text-stroke: 0.09em #2b2b2b;
+  -webkit-text-stroke: 0.07em #2b2b2b;
   paint-order: stroke fill;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.45);
   pointer-events: none;
+}
+
+/* Le voile qui efface le chiffre gravé. Un dégradé radial : opaque au centre,
+   fondu sur les bords, pour ne pas dessiner un rectangle visible par-dessus
+   la pierre de la case. Il s'assombrit au lieu de se teinter, ce qui marche
+   aussi bien sur le rouge que sur le vert. */
+.tile-amount::before {
+  content: '';
+  position: absolute;
+  inset: 12%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(0, 0, 0, 0.55) 0%,
+    rgba(0, 0, 0, 0.45) 45%,
+    rgba(0, 0, 0, 0) 72%
+  );
+}
+
+/* Le « × » reste plus petit que le chiffre : c'est le facteur qui doit se
+   lire à bout de bras, pas le signe. */
+.tile-amount-sign {
+  font-size: 0.62em;
+  opacity: 0.92;
+}
+
+/* Le signe et le chiffre passent au-dessus du voile. Ils sont tous deux
+   dans un <span> : un nœud de texte nu ne peut pas être remonté, et le
+   chiffre serait resté sous le voile. */
+.tile-amount-sign,
+.tile-amount-value {
+  position: relative;
 }

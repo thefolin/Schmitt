@@ -622,9 +622,14 @@ export class BoardCameraRenderer {
     if (tile.image) {
       // Le badge recouvre le « x2 » gravé dans l'illustration : une seule
       // image sert ainsi pour x2, x3 et x4.
+      // Le « ×2 » est GRAVÉ dans l'illustration : une seule image sert pour
+      // x2, x3 et x4. Le badge doit donc le recouvrir entièrement, et non se
+      // poser à côté — sinon la case annonce deux facteurs différents, le
+      // faux étant le plus gros. C'est ce qu'a lu Bastien sur la capture
+      // 00000009 : une case ×3 et une case ×4 se lisant toutes deux « ×2 ».
       const badge =
         typeof tile.amount === 'number'
-          ? `<span class="tile-amount">x${tile.amount}</span>`
+          ? `<span class="tile-amount"><span class="tile-amount-sign">×</span><span class="tile-amount-value">${tile.amount}</span></span>`
           : '';
       el.innerHTML = `
         <img src="${tile.image}" alt="${tile.name}" class="tile-image" />
