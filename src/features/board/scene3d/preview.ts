@@ -1,4 +1,5 @@
 import { BoardScene } from './board-scene';
+import { buildJourneyProgress } from './journey-progress';
 import { BoardTiles3D } from './board-tiles-3d';
 import { loadTileConfigs, TILE_CONFIGS } from '@/features/tiles/tile.config';
 import { fetchBoardLayout } from '../camera/board-layout.config';
@@ -53,14 +54,39 @@ async function main(): Promise<void> {
   ]);
 
   scene.setBoardExtent(positions, layout.tileSize);
+
+  // La vue suit le pion : c'est l'arbitrage de Quentin pour la lisibilité
+  // (#45). Une case fait alors 54 px sur un 5 pouces, contre 40 en montrant
+  // tout le parcours — au-dessus des 48 px de la cible tactile.
+  let followed = 0;
+  scene.followTile(followed);
+
   scene.start();
 
-  report(status, scene, positions.length);
+  const refresh = () => {
+    report(status, scene, positions.length);
+    renderProgress(followed, positions.length);
+  };
+
+  attachFollowControls(
+    () => positions.length,
+    next => {
+      followed = next;
+      scene.followTile(followed);
+      refresh();
+    },
+    () => {
+      scene.showWholeBoard();
+      refresh();
+    }
+  );
+
+  refresh();
 
   // Déplacement, zoom et rotation : l'acquis #15 plus la rotation de #43.
-  attachControls(container, scene, () => report(status, scene, positions.length));
+  attachControls(container, scene, refresh);
 
-  window.addEventListener('resize', () => report(status, scene, positions.length));
+  window.addEventListener('resize', refresh);
 }
 
 /** Affiche ce que le cadrage a décidé, pour pouvoir en juger. */
@@ -80,8 +106,58 @@ function report(status: HTMLElement | null, scene: BoardScene, count: number): v
   // pas de combien il l'est.
   const orbit = scene.getOrbit();
   const angle = `vue ${Math.round(orbit.yawDeg)}° / ${Math.round(orbit.tiltDeg)}°`;
+  const mode = scene.isFollowing() ? 'suivi' : 'tout le plateau';
 
-  status.textContent = `${count} cases · ${turned} · ${angle} · case ≈ ${tilePx} px`;
+  status.textContent = `${count} cases · ${mode} · ${turned} · ${angle} · case ≈ ${tilePx} px`;
+}
+
+/**
+ * Montre où l'on en est dans le parcours.
+ *
+ * Cadrer une fenêtre règle la lisibilité mais retire la vue d'ensemble, qui
+ * disait implicitement où l'on en était. Une barre fine et une case comptée
+ * rendent cette information sans manger l'écran.
+ */
+function renderProgress(position: number, total: number): void {
+  const bar = document.getElementById('progress-fill');
+  const label = document.getElementById('progress-label');
+  const wrap = document.getElementById('progress');
+
+  const progress = buildJourneyProgress(position, total);
+  if (!wrap) return;
+
+  if (!progress) {
+    wrap.hidden = true;
+    return;
+  }
+
+  wrap.hidden = false;
+  if (bar) bar.style.width = `${progress.ratio * 100}%`;
+  if (label) label.textContent = progress.label;
+}
+
+/** Avancer, reculer, et voir tout le plateau. */
+function attachFollowControls(
+  total: () => number,
+  goTo: (index: number) => void,
+  whole: () => void
+): void {
+  let current = 0;
+
+  const step = (delta: number) => {
+    current = Math.max(0, Math.min(current + delta, total() - 1));
+    goTo(current);
+  };
+
+  document.getElementById('prev')?.addEventListener('click', () => step(-1));
+  document.getElementById('next')?.addEventListener('click', () => step(1));
+  document.getElementById('whole')?.addEventListener('click', () => whole());
+
+  // Les flèches du clavier : commode pour parcourir vite en aperçu.
+  window.addEventListener('keydown', event => {
+    if (event.key === 'ArrowRight') step(1);
+    else if (event.key === 'ArrowLeft') step(-1);
+  });
 }
 
 /**

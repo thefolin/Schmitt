@@ -62,6 +62,22 @@ const CAMERA_FOV_DEG = 38;
  * Le LACET, lui, n'est pas borné : un plateau se regarde de tous les côtés,
  * et une butée au milieu d'un geste continu se sentirait comme un défaut.
  */
+/**
+ * Côté de la fenêtre suivie, en cases (#45).
+ *
+ * Le paramètre est une EMPRISE, pas un nombre de cases, et la distinction
+ * décide de tout. Mesuré sur le plateau officiel — deux rangées de dix —
+ * cadrer 12 cases donne exactement la même taille que d'en cadrer 23 :
+ * les douze premières couvrent déjà toute la largeur, et c'est elle qui
+ * contraint. Un nombre de cases ne voudrait d'ailleurs rien dire sur un
+ * plateau en U ou en cercle.
+ *
+ * 7 tient le critère de Quentin sur tous les appareils visés, avec de la
+ * marge : 53,8 px sur un 5 pouces (360 × 640, HUD de 210) là où le seuil de
+ * cible tactile est à 48. À 8, le 5 pouces retombe à 47,0 px.
+ */
+const FOLLOW_SPAN_TILES = 7;
+
 const MIN_TILT_DEG = 12;
 const MAX_TILT_DEG = 78;
 
@@ -116,6 +132,15 @@ export class BoardScene {
    */
   private orbitYaw = 0;
   private orbitTilt = CAMERA_TILT_DEG;
+
+  /** Emprise et centre du parcours ENTIER, pour la vue d'ensemble. */
+  private wholeExtent: BoardExtent = { width: 1, depth: 1 };
+  private wholeCenter = { x: 0, z: 0 };
+  /** Les cases telles qu'elles sont posées, pour cadrer autour de l'une. */
+  private tiles: { x: number; z: number }[] = [];
+  private tileSize = 120;
+  /** Case suivie, ou `null` en vue d'ensemble. */
+  private followed: number | null = null;
   /** Distance courante de la caméra, calculée par le cadrage. */
   private cameraDistance = 1000;
 
@@ -190,8 +215,60 @@ export class BoardScene {
    * La scène ne présume donc rien de leur disposition.
    */
   public setBoardExtent(tiles: { x: number; z: number }[], tileSize: number): void {
-    this.extent = measureExtent(tiles, tileSize);
-    this.center = measureCenter(tiles);
+    this.tiles = tiles;
+    this.tileSize = tileSize;
+    this.wholeExtent = measureExtent(tiles, tileSize);
+    this.wholeCenter = measureCenter(tiles);
+
+    this.applyView();
+  }
+
+  /**
+   * Cadre une portion autour d'une case, et y reste (#45).
+   *
+   * Quentin a tranché pour la lisibilité : plutôt que de montrer tout le
+   * parcours avec des cases de 40 px, on cadre une fenêtre autour du joueur.
+   */
+  public followTile(index: number): void {
+    this.followed = index;
+    this.applyView();
+  }
+
+  /** Montre tout le parcours, à la demande (#45). */
+  public showWholeBoard(): void {
+    this.followed = null;
+    this.applyView();
+  }
+
+  /** Suit-on un pion, ou voit-on tout le plateau ? */
+  public isFollowing(): boolean {
+    return this.followed !== null;
+  }
+
+  /**
+   * Choisit ce que la caméra doit cadrer : la fenêtre suivie ou tout le
+   * parcours.
+   *
+   * La fenêtre garde une taille FIXE même près des extrémités, où elle
+   * déborde du plateau. La rogner sur ce qui reste donnerait des cases plus
+   * grosses au départ qu'au milieu, et la vue changerait d'échelle en
+   * jouant — un défaut qu'on remarque immédiatement et qu'on ne s'explique
+   * pas.
+   */
+  private applyView(): void {
+    const tile = this.followed === null ? undefined : this.tiles[this.followed];
+
+    if (!tile) {
+      this.extent = this.wholeExtent;
+      this.center = this.wholeCenter;
+      this.layout();
+      return;
+    }
+
+    const span = FOLLOW_SPAN_TILES * this.tileSize;
+    this.extent = { width: span, depth: span };
+    this.center = { x: tile.x, z: tile.z };
+
     this.layout();
   }
 
