@@ -85,12 +85,18 @@ function report(status: HTMLElement | null, scene: BoardScene, count: number): v
 }
 
 /**
- * Glisser pour TOURNER, deux doigts (ou Maj) pour déplacer, pincer pour zoomer.
+ * Tourner et déplacer, à la souris comme au doigt.
  *
- * La rotation prend le geste simple parce que c'est elle que Quentin a
- * demandée et qu'elle est le geste qu'on essaie en premier sur une scène 3D.
- * Le déplacement reste accessible, mais il sert moins souvent : le cadrage
- * automatique montre déjà tout le parcours.
+ * Les deux voies sont SÉPARÉES à dessein. Le tactile n'a pas encore été
+ * vérifié sur un vrai téléphone : réparer la souris ne doit pas risquer de
+ * casser un geste tactile qu'on n'a pas pu tester.
+ *
+ * À la souris, le déplacement passait par Maj+glisser — que personne ne
+ * devine — et par « deux doigts », qui sur un trackpad Mac est déjà le geste
+ * de défilement du système et n'arrive donc jamais à la page. D'où le retour
+ * de Quentin : « je n'arrive pas à bien me déplacer avec le PC. » Le clic
+ * DROIT prend le relais : c'est la convention des outils 3D, et il ne
+ * demande aucune touche.
  */
 function attachControls(
   container: HTMLElement,
@@ -119,10 +125,23 @@ function attachControls(
     onChange();
   };
 
-  container.addEventListener('mousedown', e => start(e.clientX, e.clientY));
-  window.addEventListener('mousemove', e => move(e.clientX, e.clientY, e.shiftKey));
+  // Le bouton enfoncé décide du geste, et il est retenu au début plutôt que
+  // relu à chaque déplacement : sur certaines souris `buttons` se vide en
+  // cours de glissement, et le geste changerait de nature en plein mouvement.
+  let panning = false;
+
+  container.addEventListener('mousedown', e => {
+    panning = e.button === 2 || e.button === 1 || e.shiftKey;
+    start(e.clientX, e.clientY);
+  });
+
+  // Sans cela, le clic droit ouvre le menu contextuel au lieu de déplacer.
+  container.addEventListener('contextmenu', e => e.preventDefault());
+
+  window.addEventListener('mousemove', e => move(e.clientX, e.clientY, panning));
   window.addEventListener('mouseup', () => {
     dragging = false;
+    panning = false;
   });
 
   container.addEventListener(

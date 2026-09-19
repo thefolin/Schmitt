@@ -8,6 +8,7 @@ import {
   AmbientLight,
   DirectionalLight,
 } from 'three';
+import { readSafeArea, disposeSafeAreaProbe } from './safe-area';
 import {
   computeFraming,
   measureExtent,
@@ -88,6 +89,8 @@ export class BoardScene {
   private canvas: HTMLCanvasElement | null = null;
   private readonly container: HTMLElement;
   private hudInsets: { top: number; bottom: number };
+  /** Encoches système mesurées au dernier cadrage. */
+  private safeArea = { top: 0, bottom: 0, left: 0, right: 0 };
 
   private frameId: number | null = null;
   private running = false;
@@ -290,33 +293,57 @@ export class BoardScene {
       this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     }
 
+    // Les encoches système s'ajoutent au HUD applicatif. Avec
+    // `viewport-fit=cover` le canvas s'étend SOUS l'encoche et sous la barre
+    // de gestes : cadrer sur le canvas entier centre le plateau par rapport à
+    // un rectangle dont le système masque une partie. Invisible sur un
+    // navigateur de bureau, où ces valeurs sont nulles ; bien visible sur un
+    // Pixel, où l'encoche fait une quarantaine de pixels.
+    const safe = readSafeArea();
+    this.safeArea = safe;
+
+    const insetTop = this.hudInsets.top + safe.top;
+    const insetBottom = this.hudInsets.bottom + safe.bottom;
+
     const usable = {
-      width,
-      height: Math.max(1, height - this.hudInsets.top - this.hudInsets.bottom),
+      width: Math.max(1, width - safe.left - safe.right),
+      height: Math.max(1, height - insetTop - insetBottom),
     };
 
     this.framing = computeFraming(this.extent, usable);
+
+    // La rotation de cadrage tourne le plateau AUTOUR DE SON CENTRE, et non
+    // autour de l'origine du monde. Un parcours composé dans l'éditeur n'est
+    // pas centré sur l'origine : le tourner autour d'elle l'envoie ailleurs,
+    // et la caméra, qui vise son centre, cadre alors à côté.
     this.world.rotation.y = MathUtils.degToRad(this.framing.yawDeg);
+    this.world.position.set(0, 0, 0);
+    this.world.updateMatrixWorld(true);
+
+    const spun = new Vector3(this.center.x, 0, this.center.z).applyMatrix4(this.world.matrixWorld);
+    this.world.position.set(this.center.x - spun.x, 0, this.center.z - spun.z);
+    this.world.updateMatrixWorld(true);
 
     // En perspective, cadrer ne consiste plus à fixer des bornes mais à
     // RECULER la caméra jusqu'à ce que le plateau tienne dans le cône de
     // vision. Le choix d'orientation, lui, ne change pas : vérifié, le quart
     // de tour reste gagnant sur le plateau officiel (35 → 59 px) et perdant
     // sur un parcours en colonne, exactement comme en projection parallèle.
+    // Le rapport d'image est celui de la SOUS-FENÊTRE, celle où le plateau
+    // doit tenir. C'est elle qu'on cadre ; le canvas entier n'est que le
+    // support sur lequel elle est découpée.
     this.camera.aspect = usable.width / usable.height;
     this.cameraDistance = this.distanceToFit(usable) / this.userZoom;
 
-    // La fenêtre est décalée verticalement pour que le plateau se centre
-    // dans la surface laissée libre par le HUD, et non derrière lui.
-    const hudShift = (this.hudInsets.top - this.hudInsets.bottom) / 2;
-    this.camera.setViewOffset(
-      usable.width,
-      usable.height,
-      0,
-      -hudShift,
-      usable.width,
-      usable.height
-    );
+    // PAS de `setViewOffset` ici, et c'est un enseignement payé par la
+    // mesure : cette méthode DÉCOUPE une sous-région d'un cône existant, elle
+    // ne RÉSERVE pas une bande. Trois variantes essayées, aucune ne place le
+    // haut de la zone libre là où il faut — le plateau finissait plus haut
+    // que sans elle. Ce qu'on veut n'est pas un découpage mais un décalage de
+    // la VISÉE, obtenu dans `placeCamera` : on cadre le cône sur la
+    // sous-fenêtre, puis on décale ce que la caméra regarde pour que le
+    // plateau tombe au milieu de la bande libre.
+    this.camera.clearViewOffset();
 
     this.placeCamera();
     this.camera.updateProjectionMatrix();
@@ -330,39 +357,61 @@ export class BoardScene {
    * n'occupe plus que cos(52°) de sa hauteur à l'écran. Sans en tenir
    * compte, on recule trop et le plateau devient minuscule.
    */
+  /**
+   * Distance à laquelle tout le parcours tient dans le champ.
+   *
+   * On ne la DÉDUIT pas d'une formule : on la MESURE. La formule précédente
+   * modélisait le plateau comme une carte plate face à l'objectif, et
+   * calculait la largeur visible à la distance de la caméra. Le plateau est
+   * un plan INCLINÉ : son bord proche est bien plus près de la caméra que
+   * son centre, et le cône y est d'autant plus étroit. La formule donnait
+   * donc systématiquement une distance trop courte, et le plateau débordait
+   * — ses coins tombaient à -72 px et 532 px sur un écran de 390 px.
+   *
+   * On place donc la caméra, on projette les quatre coins de l'emprise, et
+   * on recule tant qu'ils dépassent. Le débordement décroît quand on recule,
+   * ce qui rend la recherche sûre : quelques itérations suffisent, et le
+   * résultat est vrai par construction plutôt que par confiance dans un
+   * modèle qui s'est révélé faux.
+   */
   private distanceToFit(usable: Viewport): number {
     const fov = MathUtils.degToRad(CAMERA_FOV_DEG);
-    const aspect = usable.width / usable.height;
-
     const { width, depth } = this.framing.rotated;
 
-    // L'encombrement VU DEPUIS LA CAMÉRA, et non l'encombrement du plateau.
-    // La distinction n'existait pas tant que la caméra était fixe : la
-    // largeur du plateau faisait alors toujours face à l'objectif. Dès que
-    // la caméra orbite, c'est faux — à 90° de lacet, c'est la profondeur qui
-    // occupe l'horizontale, et sur un plateau deux fois plus large que
-    // profond l'écart est du simple au double. Le plateau serait coupé.
-    const yaw = MathUtils.degToRad(this.orbitYaw);
-    const cos = Math.abs(Math.cos(yaw));
-    const sin = Math.abs(Math.sin(yaw));
+    /**
+     * Emprise visée, en coordonnées normalisées.
+     *
+     * 1 serait le cadrage au ras du bord. La marge laisse respirer
+     * l'épaisseur des cases et les pions, qui dépassent du plan du plateau.
+     */
+    const TARGET = 1 / 1.06;
 
-    // Un rectangle tourné dans son plan occupe, sur chaque axe, la somme des
-    // projections de ses deux côtés : c'est son encombrement réel, celui qui
-    // doit tenir dans le champ.
-    const facingWidth = width * cos + depth * sin;
-    const facingDepth = depth * cos + width * sin;
+    const span = Math.max(width, depth);
+    let distance = Math.max(span / (2 * Math.tan(fov / 2)), 200);
 
-    // L'inclinaison écrase la profondeur vue : à 52° le plateau n'occupe plus
-    // que cos(52°) de sa profondeur à l'écran. Une vue rasante le déploie au
-    // contraire devant l'objectif et demande plus de recul.
-    const projectedDepth = facingDepth * Math.cos(MathUtils.degToRad(this.orbitTilt));
+    // On converge dans LES DEUX SENS. Une boucle qui ne sait que reculer
+    // dépend entièrement de la justesse de son point de départ : si celui-ci
+    // est trop loin, elle s'arrête aussitôt et le plateau reste minuscule,
+    // cadré par une estimation grossière plutôt que par la mesure. C'est ce
+    // qui arrivait avec un HUD encombrant, là où la sous-fenêtre devient
+    // presque carrée.
+    for (let i = 0; i < 40; i++) {
+      const overflow = this.measureOverflow(distance);
+      if (!Number.isFinite(overflow)) {
+        distance *= 1.5;
+        continue;
+      }
 
-    // Une marge sur la hauteur : l'épaisseur des cases et les pions dépassent
-    // du plan du plateau, et seraient coupés par un cadrage au ras.
-    const byHeight = (projectedDepth / 2) * 1.12 / Math.tan(fov / 2);
-    const byWidth = (facingWidth / 2) / (Math.tan(fov / 2) * aspect);
+      const correction = overflow / TARGET;
+      if (Math.abs(correction - 1) < 0.002) break;
 
-    return Math.max(byHeight, byWidth, 200);
+      // L'emprise décroît à peu près comme l'inverse de la distance : on
+      // vise directement le bon facteur plutôt que de tâtonner par pas fixes.
+      distance *= MathUtils.clamp(correction, 0.5, 2);
+      distance = Math.max(distance, 200);
+    }
+
+    return distance;
   }
 
   /** Pose la caméra sur son orbite autour du centre du plateau. */
@@ -393,6 +442,90 @@ export class BoardScene {
       target.z + Math.cos(yaw) * ground
     );
     this.camera.lookAt(target);
+
+    // Le décalage du HUD se fait APRÈS l'orientation, dans le repère de
+    // l'écran : « vers le bas de l'image » ne correspond à aucun axe fixe du
+    // monde dès que la caméra tourne. On déplace la caméra le long de son
+    // propre axe vertical, ce qui fait glisser l'image sans changer l'angle.
+    const hudShift = this.hudShiftWorld(this.cameraDistance);
+    if (hudShift !== 0) {
+      const up = new Vector3(0, 1, 0).applyQuaternion(this.camera.quaternion);
+      this.camera.position.addScaledVector(up, hudShift);
+    }
+
+    this.camera.updateMatrixWorld(true);
+  }
+
+  /**
+   * Plus grande coordonnée normalisée atteinte par les coins du parcours.
+   *
+   * Au-delà de 1, le plateau sort du cadre.
+   *
+   * La mesure se fait avec la VRAIE caméra, placée pour de bon puis remise
+   * en place : un modèle parallèle rejouant le calcul à la main a déjà
+   * divergé de la projection réelle, parce que le cône est dimensionné sur
+   * la sous-fenêtre tandis que la projection se lit sur le canvas. Interroger
+   * la caméra elle-même supprime la question au lieu d'essayer de la
+   * reproduire fidèlement.
+   */
+  private measureOverflow(distance: number): number {
+    // L'emprise NON TOURNÉE, et c'est le point délicat : `framing.rotated`
+    // décrit le plateau après le quart de tour, mais cette rotation vit dans
+    // `world.rotation` et non dans les coordonnées. Sonder les coins de
+    // `rotated` revient à mesurer un rectangle qui n'existe nulle part —
+    // 795 × 1335 alors que le plateau occupe réellement 1215 × 675. La
+    // mesure annonçait alors que tout tenait pendant que les coins sortaient
+    // à 450 px sur un écran de 390.
+    const { width, depth } = this.extent;
+
+    const saved = this.cameraDistance;
+    this.cameraDistance = distance;
+    this.placeCamera();
+    this.camera.updateProjectionMatrix();
+
+    const hw = width / 2;
+    const hd = depth / 2;
+    let worst = 0;
+
+    for (const sx of [-1, 1]) {
+      for (const sz of [-1, 1]) {
+        // Les coins de l'emprise, exprimés autour du centre visé.
+        // Les coins sont donnés DIRECTEMENT en monde, sans repasser par la
+        // matrice : `extent` décrit déjà l'emprise telle qu'elle est posée,
+        // et la rotation de cadrage tourne le plateau autour de son centre
+        // sans déplacer ce centre. Appliquer la matrice en plus tournerait
+        // le rectangle une seconde fois, et la mesure porterait sur une
+        // emprise qui n'existe nulle part.
+        const corner = new Vector3(
+          this.center.x + sx * hw,
+          0,
+          this.center.z + sz * hd
+        ).project(this.camera);
+
+        worst = Math.max(worst, Math.abs(corner.x), Math.abs(corner.y));
+      }
+    }
+
+    this.cameraDistance = saved;
+
+    return worst;
+  }
+
+  /**
+   * Décalage de visée dû au HUD, en unités monde à la distance donnée.
+   *
+   * Le plateau doit se centrer dans la bande LIBRE. Quand le HUD mange le
+   * haut de l'écran, le centre de cette bande est plus bas que celui du
+   * canvas, et la caméra doit viser d'autant plus haut pour l'y amener.
+   */
+  private hudShiftWorld(distance: number): number {
+    // Encoches comprises : c'est la bande RÉELLEMENT visible qu'on centre.
+    const shiftPx =
+      (this.hudInsets.top + this.safeArea.top - this.hudInsets.bottom - this.safeArea.bottom) / 2;
+    const screenHeight = Math.max(1, this.container.clientHeight);
+    const visibleHeight = 2 * distance * Math.tan(MathUtils.degToRad(CAMERA_FOV_DEG) / 2);
+
+    return (shiftPx / screenHeight) * visibleHeight;
   }
 
   /**
@@ -511,6 +644,8 @@ export class BoardScene {
     // nombre : quelques parties suffisent à ne plus pouvoir en créer.
     this.renderer?.dispose();
     this.renderer = null;
+
+    disposeSafeAreaProbe();
   }
 }
 

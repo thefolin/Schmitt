@@ -179,49 +179,44 @@ describe('3D-43 — le plateau reste au centre de la rotation', () => {
 });
 
 describe('3D-43 — le cadrage tient compte de l\'angle de vue', () => {
-  it('recule quand la rotation présente la grande dimension du plateau', () => {
-    // Le cadrage reculait la caméra d'après la LARGEUR du plateau, en
-    // supposant que c'est elle qui fait face à l'objectif. C'était vrai d'une
-    // caméra fixe ; ça ne l'est plus d'une caméra qui orbite.
+  it('cadre au plus près selon l\'angle, sans jamais couper le plateau', () => {
+    // Le cadrage ne se DÉDUIT plus d'une formule, il se MESURE : on projette
+    // les coins de l'emprise et on recule jusqu'à ce qu'ils tiennent. La
+    // formule précédente modélisait le plateau comme une carte plate face à
+    // l'objectif, alors que c'est un plan incliné dont le bord proche est
+    // bien plus près de la caméra — elle annonçait que tout tenait pendant
+    // que les coins sortaient à 450 px sur un écran de 390.
     //
-    // Après le quart de tour de #41, le plateau officiel mesure 795 de large
-    // pour 1335 de profondeur. Vu de face, c'est le 795 qui occupe
-    // l'horizontale ; vu de côté, c'est le 1335. Il faut donc reculer
-    // davantage, et les cases rapetissent — mesuré : 59 px → 35 px.
+    // Conséquence mesurée : le plateau officiel se cadre au plus large vu de
+    // côté (46 px contre 31 de face), parce qu'il présente alors sa petite
+    // dimension à l'horizontale. L'assertion porte sur ce qui compte — que
+    // la taille dépende bien de l'angle — plutôt que sur un chiffre.
     scene.resetView();
     const front = scene.worldToScreenPixels(120);
 
     scene.orbitBy(90, 0);
     const side = scene.worldToScreenPixels(120);
 
-    // Sans la correction, la distance ne bougeait pas d'un pouce et le
-    // plateau débordait de l'écran sur toute sa profondeur.
-    expect(side).toBeLessThan(front);
+    expect(side).toBeGreaterThan(front);
   });
 
   it('recule le plus en diagonale, où le plateau est le plus encombrant', () => {
     // Un rectangle vu en biais occupe, sur l'horizontale, la somme des
-    // projections de ses deux côtés : c'est là qu'il est le plus large.
+    // projections de ses deux côtés : c'est là qu'il est le plus large, donc
+    // là où il faut le plus reculer.
     scene.resetView();
     const front = scene.worldToScreenPixels(120);
     scene.resetView();
     scene.orbitBy(45, 0);
     const diagonal = scene.worldToScreenPixels(120);
-    scene.resetView();
-    scene.orbitBy(90, 0);
-    const side = scene.worldToScreenPixels(120);
 
-    expect(diagonal).toBeLessThan(side);
     expect(diagonal).toBeLessThan(front);
   });
 
-  it('cadre sur la dimension contraignante, pas sur l\'inclinaison', () => {
-    // Constat de mesure, contre-intuitif et qui mérite d'être fixé : sur le
-    // plateau officiel en portrait, c'est la LARGEUR qui contraint à tous
-    // les angles. L'inclinaison ne change donc pas la distance — elle
-    // changerait le cadrage d'un plateau large et peu profond, pas de
-    // celui-ci. Le test dit ce qui est vrai ici plutôt qu'une règle générale
-    // qui ne s'y vérifie pas.
+  it('tient compte de l\'inclinaison', () => {
+    // Une vue plongeante replie le plateau en profondeur et permet de s'en
+    // approcher ; une vue rasante le déploie devant l'objectif. L'ancienne
+    // formule ignorait l'effet sur ce plateau — la mesure, elle, le voit.
     scene.resetView();
     scene.orbitBy(0, -100);
     const high = scene.worldToScreenPixels(120);
@@ -230,6 +225,6 @@ describe('3D-43 — le cadrage tient compte de l\'angle de vue', () => {
     scene.orbitBy(0, 100);
     const low = scene.worldToScreenPixels(120);
 
-    expect(low).toBeCloseTo(high, 5);
+    expect(low).toBeLessThan(high);
   });
 });
