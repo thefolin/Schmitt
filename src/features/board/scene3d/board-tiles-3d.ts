@@ -5,7 +5,10 @@ import {
   PlaneGeometry,
   BoxGeometry,
   CylinderGeometry,
+  TextureLoader,
+  SRGBColorSpace,
   Color,
+  type Texture,
 } from 'three';
 import type { TileConfig } from '@/core/models/Tile';
 import {
@@ -88,6 +91,11 @@ export class BoardTiles3D {
   private positions: TilePosition[] = [];
   private table: Mesh | null = null;
   private readonly pawns = new Group();
+  /** L'illustration de chaque case POSÉE, dans l'ordre du parcours. */
+  private images: (string | undefined)[] = [];
+  private readonly loader = new TextureLoader();
+  /** Les textures chargées, pour pouvoir les libérer. */
+  private readonly textures: Texture[] = [];
 
   /**
    * Dessine le parcours et renvoie la position de chaque case.
@@ -117,6 +125,7 @@ export class BoardTiles3D {
       const z = bounds.y + bounds.height / 2;
 
       this.positions[index] = { x, z };
+      this.images[index] = tile.image;
       this.group.add(this.createTile(tile, bounds, index));
     });
 
@@ -128,6 +137,17 @@ export class BoardTiles3D {
 
   public getPositions(): TilePosition[] {
     return this.positions;
+  }
+
+  /**
+   * L'illustration de la case posée au rang donné.
+   *
+   * Exposée pour être vérifiable : c'est ici que se jouait le défaut #30, où
+   * les bonnes images se retrouvaient aux mauvais endroits parce qu'on lisait
+   * le catalogue dans son ordre au lieu de suivre les placements.
+   */
+  public imageAt(index: number): string | undefined {
+    return this.images[index];
   }
 
   /** Une case : un pavé épais, éclairé, dont on distingue dessus et tranche. */
@@ -151,19 +171,65 @@ export class BoardTiles3D {
       new MeshLambertMaterial({ color })
     );
     body.position.y = TILE_THICKNESS / 2;
+    body.name = 'tile-body';
     holder.add(body);
 
-    // Un liseré clair sur le dessus, légèrement débordant : il souligne
-    // l'arête supérieure, là où la lumière accroche sur une vraie pièce.
-    const rim = new Mesh(
-      new PlaneGeometry(bounds.width * 0.88, bounds.height * 0.88),
-      new MeshLambertMaterial({ color: color.clone().lerp(new Color(0xffffff), 0.28) })
+    // LA FACE DU DESSUS porte l'illustration. Elle est séparée du corps à
+    // dessein : une texture appliquée au pavé entier habillerait les six
+    // faces, et une case deviendrait un cube d'affiches. Une case est une
+    // pièce posée sur la table — sa tranche est de la matière.
+    const face = new Mesh(
+      new PlaneGeometry(bounds.width * 0.94, bounds.height * 0.94),
+      new MeshLambertMaterial({
+        // La couleur reste SOUS l'illustration : pendant le chargement, et
+        // si l'image n'arrive jamais, la case se lit quand même. Sur un
+        // téléphone, quinze images en retard ne doivent pas donner un
+        // plateau vide.
+        color: color.clone().lerp(new Color(0xffffff), 0.28),
+        transparent: true,
+      })
     );
-    rim.rotation.x = -Math.PI / 2;
-    rim.position.y = TILE_THICKNESS + 0.6;
-    holder.add(rim);
+    face.rotation.x = -Math.PI / 2;
+    face.position.y = TILE_THICKNESS + 0.6;
+    face.name = 'tile-face';
+    holder.add(face);
+
+    this.paint(face, tile.image);
 
     return holder;
+  }
+
+  /**
+   * Charge l'illustration et la pose sur la face, quand elle arrive.
+   *
+   * Le chargement est asynchrone et peut échouer : la case est déjà dessinée
+   * avec sa couleur de fond, et l'image ne fait que s'ajouter par-dessus. Un
+   * échec ne retire donc rien — il laisse la case telle qu'elle était.
+   */
+  private paint(face: Mesh, image: string | undefined): void {
+    if (!image) return;
+
+    this.loader.load(
+      image.startsWith('/') ? image : `/${image}`,
+      texture => {
+        // Sans cet espace colorimétrique, les illustrations ressortent
+        // délavées : Three.js les traiterait comme des données brutes.
+        texture.colorSpace = SRGBColorSpace;
+
+        const material = face.material as MeshLambertMaterial;
+        material.map = texture;
+        // La couleur de fond teinterait l'illustration : une fois l'image
+        // là, on la laisse parler.
+        material.color.set(0xffffff);
+        material.needsUpdate = true;
+
+        this.textures.push(texture);
+      },
+      undefined,
+      () => {
+        // Rien à faire : la case garde sa couleur, qui reste lisible.
+      }
+    );
   }
 
   /**
@@ -239,6 +305,7 @@ export class BoardTiles3D {
     this.group.clear();
     this.table = null;
     this.positions = [];
+    this.images = [];
   }
 
   /**
@@ -255,6 +322,11 @@ export class BoardTiles3D {
       if (Array.isArray(material)) material.forEach(m => m.dispose());
       else material.dispose();
     });
+
+    // Three.js ne libère pas les textures tout seul : sans cela, recommencer
+    // une partie en accumule dans la mémoire graphique jusqu'à saturation.
+    for (const texture of this.textures) texture.dispose();
+    this.textures.length = 0;
 
     this.clear();
   }
