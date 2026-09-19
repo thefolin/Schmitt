@@ -20,9 +20,12 @@ async function main(): Promise<void> {
 
   const scene = new BoardScene({
     container,
-    // Le bandeau d'information occupe le haut de l'écran : le plateau se
-    // cadre dans ce qui reste.
-    hudInsets: { top: 64, bottom: 0 },
+    // Les bandeaux sont MESURÉS, jamais devinés. Une constante en dur ignore
+    // que le bandeau du haut passe à trois lignes sur un écran étroit, et que
+    // la barre de progression occupe le bas — le plateau se cadrait alors
+    // dans une surface qui n'existe pas. Invisible sur un écran large, où le
+    // bandeau tient sur une ligne.
+    hudInsets: measureHudInsets(),
   });
 
   if (!scene.isAvailable()) {
@@ -86,7 +89,55 @@ async function main(): Promise<void> {
   // Déplacement, zoom et rotation : l'acquis #15 plus la rotation de #43.
   attachControls(container, scene, refresh);
 
-  window.addEventListener('resize', refresh);
+  /**
+   * Remesure les bandeaux et recadre.
+   *
+   * Au redimensionnement et à la rotation, mais aussi quand la barre d'URL du
+   * navigateur mobile se rétracte : `visualViewport` signale ce changement que
+   * `resize` seul ne rapporte pas toujours.
+   */
+  const remeasure = () => {
+    scene.setHudInsets(measureHudInsets());
+    refresh();
+  };
+
+  window.addEventListener('resize', remeasure);
+  window.addEventListener('orientationchange', remeasure);
+  window.visualViewport?.addEventListener('resize', remeasure);
+
+  // Les bandeaux peuvent changer de hauteur quand leur texte change — le
+  // libellé « Case 12 / 23 » n'occupe pas toujours le même nombre de lignes.
+  if (typeof ResizeObserver !== 'undefined') {
+    const observer = new ResizeObserver(remeasure);
+    for (const id of ['bar', 'foot']) {
+      const element = document.getElementById(id);
+      if (element) observer.observe(element);
+    }
+  }
+
+  // Une première mesure après la mise en page : au moment de la construction,
+  // les bandeaux n'ont pas encore leur hauteur définitive.
+  requestAnimationFrame(remeasure);
+}
+
+/**
+ * Mesure la place réellement occupée par les bandeaux.
+ *
+ * On lit le DOM plutôt que de reprendre des constantes : la hauteur dépend du
+ * texte, de la taille de police du système et de la largeur de l'écran. Les
+ * encoches système, elles, sont ajoutées par la scène — elle les lit depuis le
+ * CSS, seul endroit où le navigateur les expose.
+ */
+function measureHudInsets(): { top: number; bottom: number } {
+  const height = (id: string): number => {
+    const element = document.getElementById(id);
+    if (!element) return 0;
+
+    const box = element.getBoundingClientRect();
+    return Math.max(0, Math.round(box.height));
+  };
+
+  return { top: height('bar'), bottom: height('foot') };
 }
 
 /** Affiche ce que le cadrage a décidé, pour pouvoir en juger. */

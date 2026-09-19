@@ -178,6 +178,9 @@ export class BoardScene {
     }
 
     window.addEventListener('resize', this.onResize);
+    window.addEventListener('orientationchange', this.onResize);
+    // La barre d'URL qui se rétracte ne déclenche pas toujours `resize`.
+    window.visualViewport?.addEventListener('resize', this.onResize);
     document.addEventListener('visibilitychange', this.onVisibility);
 
     this.layout();
@@ -198,7 +201,9 @@ export class BoardScene {
   public worldToScreenPixels(worldLength: number): number {
     const fov = MathUtils.degToRad(CAMERA_FOV_DEG);
     const visibleHeight = 2 * this.cameraDistance * Math.tan(fov / 2);
-    const screenHeight = Math.max(1, this.container.clientHeight);
+    // La même mesure que le cadrage : lire une hauteur différente ici
+    // donnerait un chiffre qui ne correspond pas à ce qui est affiché.
+    const screenHeight = this.measureViewport().height;
 
     return (worldLength / visibleHeight) * screenHeight;
   }
@@ -356,14 +361,21 @@ export class BoardScene {
   public layout(): void {
     if (this.disposed) return;
 
-    const width = Math.max(1, this.container.clientWidth);
-    const height = Math.max(1, this.container.clientHeight);
+    const { width, height } = this.measureViewport();
 
     // Le cadrage se calcule MÊME sans contexte graphique. C'est une propriété
     // de la scène, pas un effet de bord du rendu : il doit rester mesurable
     // quand WebGL manque, et testable sans navigateur.
     if (this.renderer) {
-      this.renderer.setSize(width, height, false);
+      // Le troisième argument laissé à `true` : Three.js pose alors la taille
+      // CSS du canvas en plus du tampon de rendu. Avec `false`, le canvas
+      // gardait sa taille intrinsèque par défaut — 300 × 150 — et dessinait
+      // une vignette dans un coin pendant que tout le reste se calculait
+      // correctement. Écran noir sur téléphone, alors que le bandeau
+      // annonçait « 23 cases · case ≈ 53 px ». Le troisième argument n'est
+      // utile qu'à qui gère lui-même la taille CSS ; notre feuille de style
+      // ne donne aucune dimension au canvas.
+      this.renderer.setSize(width, height);
       // Plafonné à 2 : au-delà, un écran dense quadruple le nombre de pixels à
       // dessiner pour un gain invisible, et les téléphones d'entrée de gamme
       // sont la cible.
@@ -435,6 +447,31 @@ export class BoardScene {
    * compte, on recule trop et le plateau devient minuscule.
    */
   /**
+   * Place réellement disponible pour dessiner.
+   *
+   * Sur mobile, `clientHeight` ne vaut pas ce qu'on croit : la barre d'URL du
+   * navigateur se rétracte au défilement, et la hauteur du conteneur reste
+   * celle d'avant. `visualViewport` donne la surface effectivement visible.
+   * Elle n'existe pas partout — les WebViews anciennes de la cible Android
+   * 5.1 ne la connaissent pas — d'où le repli sur le conteneur.
+   */
+  private measureViewport(): { width: number; height: number } {
+    const visual = typeof window !== 'undefined' ? window.visualViewport : null;
+
+    const width = Math.max(1, this.container.clientWidth);
+    const height = Math.max(1, this.container.clientHeight);
+
+    if (!visual) return { width, height };
+
+    // On ne prend la mesure du navigateur que si elle est plausible : un
+    // `visualViewport` qui rapporterait zéro ferait disparaître le plateau.
+    return {
+      width: visual.width > 0 ? Math.max(1, Math.round(visual.width)) : width,
+      height: visual.height > 0 ? Math.max(1, Math.round(visual.height)) : height,
+    };
+  }
+
+  /**
    * Distance à laquelle tout le parcours tient dans le champ.
    *
    * On ne la DÉDUIT pas d'une formule : on la MESURE. La formule précédente
@@ -500,7 +537,7 @@ export class BoardScene {
     // unités monde pour qu'un glissement suive le doigt quel que soit le zoom.
     const worldPerPixel = this.cameraDistance * 2 *
       Math.tan(MathUtils.degToRad(CAMERA_FOV_DEG) / 2) /
-      Math.max(1, this.container.clientHeight);
+      this.measureViewport().height;
 
     const target = new Vector3(
       this.center.x + this.userPan.x * worldPerPixel,
@@ -599,7 +636,7 @@ export class BoardScene {
     // Encoches comprises : c'est la bande RÉELLEMENT visible qu'on centre.
     const shiftPx =
       (this.hudInsets.top + this.safeArea.top - this.hudInsets.bottom - this.safeArea.bottom) / 2;
-    const screenHeight = Math.max(1, this.container.clientHeight);
+    const screenHeight = this.measureViewport().height;
     const visibleHeight = 2 * distance * Math.tan(MathUtils.degToRad(CAMERA_FOV_DEG) / 2);
 
     return (shiftPx / screenHeight) * visibleHeight;
@@ -708,6 +745,8 @@ export class BoardScene {
     this.stop();
 
     window.removeEventListener('resize', this.onResize);
+    window.removeEventListener('orientationchange', this.onResize);
+    window.visualViewport?.removeEventListener('resize', this.onResize);
     document.removeEventListener('visibilitychange', this.onVisibility);
 
     if (this.canvas) {
