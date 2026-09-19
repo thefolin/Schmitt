@@ -9,7 +9,7 @@ import {
 import { BoardTiles3D } from './board-tiles-3d';
 import { Dice3DScene } from './dice-3d-scene';
 import { DicePhysics } from '@/features/dice/DicePhysics';
-import { DEFAULT_DICE_CONFIG } from '@/features/dice/DiceConfig';
+import { WORLD_DICE_CONFIG, rollingSpinRate } from './dice-world-config';
 import { loadTileConfigs, TILE_CONFIGS } from '@/features/tiles/tile.config';
 import { fetchBoardLayout } from '../camera/board-layout.config';
 
@@ -257,18 +257,22 @@ function attachDice(
   positions: { x: number; z: number }[],
   status: HTMLElement | null
 ): void {
-  // Les bornes sont celles d'une aire de jeu en unités monde : le dé roule
-  // sur le plateau, pas dans un rectangle d'écran.
+  // L'aire de jeu, en unités monde. Le dé part de son CENTRE, et c'est le
+  // point décisif : les bornes de `DicePhysics` vont de 0 à `width`, si bien
+  // qu'un lancer démarré en (0, 0) se fait DANS UN COIN. Le dé y rebondit
+  // aussitôt sur deux murs et revient sur ses pas — c'est exactement ce que
+  // Quentin décrivait, « je ne le vois pas se déplacer sur le plateau ».
+  const ARENA = 900;
   const physics = new DicePhysics(
-    DEFAULT_DICE_CONFIG,
-    { x: 0, y: 0 },
-    { width: 520, height: 520 }
+    WORLD_DICE_CONFIG,
+    { x: ARENA / 2, y: ARENA / 2 },
+    { width: ARENA, height: ARENA }
   );
   const result = document.getElementById('dice-value');
 
   // Le dé roule au centre du plateau, posé sur la surface des cases.
   const centre = positions[Math.floor(positions.length / 2)] ?? { x: 0, z: 0 };
-  die.setPosition(centre.x, Dice3DScene.halfSize + 30, centre.z);
+  die.setPosition(centre.x, Dice3DScene.halfSize, centre.z);
 
   const show = (value: number, rolling: boolean): void => {
     if (result) result.textContent = rolling ? '…' : String(value);
@@ -277,15 +281,47 @@ function attachDice(
 
   let frame: number | null = null;
 
+  /**
+   * Fait rouler le dé dans le sens de sa course.
+   *
+   * Un cube d'arête `a` qui avance de `v` sans glisser bascule à `2·v/a`,
+   * autour de l'axe horizontal perpendiculaire à son déplacement. Tant qu'il
+   * est en l'air, on laisse la rotation libre de la physique : un dé en vol
+   * ne roule sur rien.
+   */
+  const applyRolling = (state: ReturnType<typeof physics.update>): void => {
+    if (state.height > 0.5) return;
+
+    const speed = Math.hypot(state.velocity.x, state.velocity.y);
+    if (speed < 1) return;
+
+    const rate = rollingSpinRate(speed);
+
+    // L'axe de roulement est perpendiculaire à la course, dans le plan de la
+    // table : un dé qui part vers l'est bascule autour de l'axe nord-sud.
+    state.spin.x = (-state.velocity.y / speed) * rate;
+    state.spin.z = (state.velocity.x / speed) * rate;
+    // Le lacet ne vient pas du roulement : un dé qui roule droit ne pivote
+    // pas sur lui-même.
+    state.spin.y *= 0.9;
+  };
+
   const step = (): void => {
     const state = physics.update(16);
+
+    // Le roulement : la rotation suit le DÉPLACEMENT, au lieu d'en être
+    // indépendante. Sans ce lien on voit un cube qui tourne en glissant ;
+    // avec lui, un dé qui roule. C'est ce que Quentin appelle « la physique
+    // comme sur un plateau », et ça se voit bien plus que le contact au sol.
+    applyRolling(state);
+
     die.setOrientation(state.orientation);
 
     // Le dé s'élève puis retombe : sa hauteur vient de la physique.
     die.setPosition(
-      centre.x + state.position.x,
-      Dice3DScene.halfSize + 30 + Math.max(0, state.height),
-      centre.z + state.position.y
+      centre.x + (state.position.x - ARENA / 2),
+      Dice3DScene.halfSize + Math.max(0, state.height),
+      centre.z + (state.position.y - ARENA / 2)
     );
 
     if (state.isRolling) {
