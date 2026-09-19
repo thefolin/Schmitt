@@ -16,6 +16,7 @@ import { walkPath } from './pawn-path';
 import { walkFrame } from './pawn-walk';
 import { swipeToThrow, type ThrowRequest } from './dice-gesture';
 import { describeTurn, JOURNAL_MAX } from './turn-journal';
+import { pendingActions, type PendingAction } from './pending-actions';
 import { isHandheld, readDeviceOverride, type DeviceHints } from './device';
 import { GameLogic } from '@/features/game/game.logic';
 import { TurnRunner } from './turn-runner';
@@ -128,7 +129,7 @@ async function main(): Promise<void> {
   };
 
   // Le tour complet : lancer → avancer → joueur suivant (#46).
-  attachDice(die, positions, tiles, runner, scene, applyPreferredView, refresh);
+  attachDice(die, positions, tiles, logic, runner, scene, applyPreferredView, refresh);
 
   // Basculer entre « tout voir » et « suivre le pion », quand le joueur
   // veut autre chose que ce que la forme de l'écran suggère.
@@ -295,6 +296,7 @@ function attachDice(
   die: Dice3DScene,
   positions: { x: number; z: number }[],
   tiles: BoardTiles3D,
+  logic: GameLogic,
   runner: TurnRunner,
   scene: BoardScene,
   follow: () => void,
@@ -407,6 +409,10 @@ function attachDice(
     runner.log(line);
     say(line);
     renderJournal(runner);
+
+    // Les décisions que la règle attend du joueur : sans elles, la partie
+    // reste bloquée sans que rien ne l'explique.
+    renderActions(logic, runner, outcome, refresh);
 
     refresh();
   };
@@ -724,6 +730,77 @@ function renderJournal(runner: TurnRunner): void {
       return line;
     })
   );
+}
+
+/**
+ * Affiche les décisions en attente et les rend cliquables.
+ *
+ * La scène POSE la question ; c'est `GameLogic` qui applique le choix. Elle
+ * ne tranche rien elle-même.
+ */
+function renderActions(
+  logic: GameLogic,
+  runner: TurnRunner,
+  outcome: ReturnType<TurnRunner['playTurn']>,
+  refresh: () => void
+): void {
+  const panel = document.getElementById('actions-panel');
+  if (!panel) return;
+
+  const actions = pendingActions(logic, runner);
+
+  if (actions.length === 0) {
+    panel.hidden = true;
+    panel.replaceChildren();
+    return;
+  }
+
+  const action = actions[0];
+  panel.hidden = false;
+  panel.replaceChildren();
+
+  const title = document.createElement('div');
+  title.className = 'action-prompt';
+  title.textContent = `${action.playerName} — ${action.prompt}`;
+  panel.appendChild(title);
+
+  const row = document.createElement('div');
+  row.className = 'action-choices';
+
+  const apply = (run: () => void): void => {
+    run();
+    // On repasse : résoudre une décision peut en révéler une autre, et le
+    // bouclier en est justement capable.
+    renderActions(logic, runner, outcome, refresh);
+    renderJournal(runner);
+    refresh();
+  };
+
+  for (const choice of action.choices) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = choice.name;
+    button.style.borderColor = choice.color;
+    button.addEventListener('click', () =>
+      apply(() =>
+        action.kind === 'shield'
+          ? runner.resolveShield(choice.index)
+          : runner.resolveDistribute(choice.index, action.amount)
+      )
+    );
+    row.appendChild(button);
+  }
+
+  if (action.canDecline) {
+    const decline = document.createElement('button');
+    decline.type = 'button';
+    decline.className = 'action-decline';
+    decline.textContent = 'Je bois';
+    decline.addEventListener('click', () => apply(() => runner.declineShield()));
+    row.appendChild(decline);
+  }
+
+  panel.appendChild(row);
 }
 
 /** Raconte le dernier tour joué. */

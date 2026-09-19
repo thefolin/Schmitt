@@ -104,6 +104,17 @@ export class TurnRunner {
   /** Le catalogue des cases, dans l'ordre du parcours. */
   private board: TileConfig[] = [];
 
+  /**
+   * Distribution en attente de cible.
+   *
+   * Elle vit ICI et non dans le compte rendu du tour : `TurnOutcome` est un
+   * récit FIGÉ de ce qui s'est passé, et y lire une décision en attente la
+   * ferait réapparaître indéfiniment après résolution — le joueur croirait
+   * que son clic n'a rien fait. L'état d'une décision doit vivre là où elle
+   * peut être résolue, comme le bouclier vit dans `GameLogic`.
+   */
+  private awaitingDistribution: { by: number; amount: number } | null = null;
+
   constructor(private readonly logic: GameLogic) {}
 
   /**
@@ -214,6 +225,8 @@ export class TurnRunner {
       // La cible appartient au JOUEUR : la scène ne peut pas la choisir à sa
       // place, et en inventer une serait inventer une règle. Aucune gorgée
       // n'est servie tant qu'il n'a pas désigné qui boit.
+      this.awaitingDistribution = { by: player, amount };
+
       return { ...empty, distribute: { by: player, amount } };
     }
 
@@ -296,6 +309,32 @@ export class TurnRunner {
   /** L'historique de la partie, du plus ancien au plus récent. */
   public history(): string[] {
     return this.logic.getHistory();
+  }
+
+  /**
+   * Résout une décision en attente.
+   *
+   * La scène pose la question ; c'est `GameLogic` qui applique. Ce module ne
+   * fait que lui transmettre le choix du joueur.
+   */
+  public resolveDistribute(target: number, amount: number): void {
+    this.logic.addDrinks(target, amount);
+    this.awaitingDistribution = null;
+  }
+
+  /** La distribution qui attend encore sa cible, s'il y en a une. */
+  public getAwaitingDistribution(): { by: number; amount: number } | null {
+    return this.awaitingDistribution;
+  }
+
+  /** Renvoie la sanction retenue par le bouclier sur la cible choisie. */
+  public resolveShield(target: number): void {
+    this.logic.useAthenaShield(target);
+  }
+
+  /** Le porteur renonce au renvoi et boit. */
+  public declineShield(): void {
+    this.logic.cancelPendingShield();
   }
 
   /** Qui doit jouer maintenant. */
