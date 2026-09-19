@@ -308,15 +308,40 @@ function attachDice(
   // sur les cases et rebondit sur leurs bords. « Pas de je jette le dé dans
   // le vide. » Les quatre côtés sont bordés, donc le dé ne peut pas tomber.
   const arena = diceArena(positions, 120);
-  const physics = new DicePhysics(
-    WORLD_DICE_CONFIG,
-    { x: (arena.minX + arena.maxX) / 2, y: (arena.minZ + arena.maxZ) / 2 },
-    { width: arena.maxX - arena.minX, height: arena.maxZ - arena.minZ }
-  );
-  physics.setTableBounds(
-    { minX: arena.minX, maxX: arena.maxX, minY: arena.minZ, maxY: arena.maxZ },
-    { top: true, right: true, bottom: true, left: true }
-  );
+
+  /**
+   * Une physique neuve, posée au MILIEU du tapis.
+   *
+   * Quentin : « au début de la partie je voudrais que le dé soit au milieu du
+   * tapis ». Elle est reconstruite à chaque tour, et pas seulement au
+   * démarrage : `DicePhysics` relance depuis l'endroit où le dé s'est
+   * ARRÊTÉ, pas depuis son point d'origine — vérifié, le deuxième lancer
+   * partait de (923, 481) après un premier qui avait fini là.
+   *
+   * Sans cela, reposer le dessin au centre sans replacer la simulation ferait
+   * SAUTER le dé au moment du lancer, du centre vers sa position précédente.
+   *
+   * `DicePhysics` n'a pas de méthode pour se repositionner, et c'est un
+   * module partagé avec le rendu CSS de `main` : on le reconstruit plutôt que
+   * d'y toucher. L'objet est léger, et un lancer par tour n'a rien d'une
+   * boucle serrée.
+   */
+  const centredPhysics = (): DicePhysics => {
+    const fresh = new DicePhysics(
+      WORLD_DICE_CONFIG,
+      { x: (arena.minX + arena.maxX) / 2, y: (arena.minZ + arena.maxZ) / 2 },
+      { width: arena.maxX - arena.minX, height: arena.maxZ - arena.minZ }
+    );
+
+    fresh.setTableBounds(
+      { minX: arena.minX, maxX: arena.maxX, minY: arena.minZ, maxY: arena.maxZ },
+      { top: true, right: true, bottom: true, left: true }
+    );
+
+    return fresh;
+  };
+
+  let physics = centredPhysics();
 
   const result = document.getElementById('dice-value');
 
@@ -339,7 +364,45 @@ function attachDice(
     favorDice.setVisible(visibility.favor);
   };
 
+  /**
+   * POSE le dé du tour au milieu du tapis.
+   *
+   * Quentin (20/09/2026) : « au début de la partie je voudrais que le dé soit
+   * au milieu du tapis ».
+   *
+   * Sa position n'était fixée que PENDANT l'animation du lancer : avant le
+   * premier jet, il restait à l'origine du monde, c'est-à-dire dans un coin
+   * du plateau. Le joueur devait deviner où l'attraper — le même défaut que
+   * celui corrigé pour les deux dés de la faveur (#61).
+   *
+   * Le centre est CONSERVÉ plutôt que relu sur la physique : après un lancer,
+   * `getState().position` donne l'endroit où le dé s'est arrêté, pas celui
+   * d'où il est parti. Le relire reposerait le dé là où il a fini de rouler.
+   */
+  const matCentre = {
+    x: (arena.minX + arena.maxX) / 2,
+    z: (arena.minZ + arena.maxZ) / 2,
+  };
+
+  const restDie = (): void => {
+    // La SIMULATION revient au centre elle aussi, sinon le prochain lancer
+    // partirait de là où le dé s'était arrêté et le dé sauterait.
+    physics = centredPhysics();
+
+    die.setPosition(matCentre.x, Dice3DScene.halfSize, matCentre.z);
+  };
+
   let frame: number | null = null;
+
+  /**
+   * Le pion est-il en train de marcher ?
+   *
+   * Le lancer doit rester SOURD pendant ce temps. `frame` est remis à `null`
+   * dès que le dé s'immobilise, donc avant que le pion soit arrivé : sans ce
+   * second verrou, un joueur pressé pourrait relancer en pleine marche, et la
+   * physique serait remplacée sous les pieds de l'animation en cours.
+   */
+  let walking = false;
 
   /**
    * Fait rouler le dé dans le sens de sa course.
@@ -419,6 +482,8 @@ function attachDice(
 
     const outcome = runner.playTurn(face);
 
+    walking = true;
+
     // LE PION MARCHE, il ne se téléporte pas (#48). `setPawns` reconstruit
     // chaque pion à sa position finale : c'est exactement la téléportation
     // que Quentin ne veut plus. On anime le trajet, puis on repose les pions
@@ -426,6 +491,16 @@ function attachDice(
     walkPawn(tiles, runner, outcome, () => {
       tiles.setPawns(runner.pawns());
       refresh();
+
+      // LE DÉ REVIENT AU MILIEU DU TAPIS. Il reste là où il s'est arrêté le
+      // temps que le pion marche — c'est cette face qu'on vient de lire, et
+      // la déplacer pendant qu'on la lit serait déroutant. Une fois le pion
+      // posé, il regagne sa place : le joueur suivant sait toujours où le
+      // trouver, plutôt que de le chercher là où le précédent l'a laissé.
+      //
+      // La physique, elle, relance toujours depuis le centre de l'aire.
+      restDie();
+      walking = false;
 
       // LA FAVEUR DES DIEUX, une fois le pion posé. Les deux dés arrivent
       // APRÈS la marche : le joueur doit d'abord voir où il est tombé, sinon
@@ -530,7 +605,7 @@ function attachDice(
 
   /** Lance le dé, si un lancer est attendu. */
   const roll = (): void => {
-    if (frame !== null || favorDice.rolling) return;
+    if (frame !== null || walking || favorDice.rolling) return;
 
     // Le bouton sert aussi la faveur : c'est le repli de ceux qui ne font
     // pas le geste, et il ne doit pas laisser la partie bloquée.
@@ -552,7 +627,7 @@ function attachDice(
    * seconde physique. Le module partagé avec le rendu CSS n'est pas touché.
    */
   const throwFromGesture = (request: ThrowRequest): void => {
-    if (frame !== null || favorDice.rolling) return;
+    if (frame !== null || walking || favorDice.rolling) return;
 
     // LE GESTE VA AUX DÉS QUI ATTENDENT. Quand la faveur est en attente,
     // c'est la paire qu'on jette ; sinon c'est le dé du tour. Le joueur
@@ -571,6 +646,10 @@ function attachDice(
     frame = requestAnimationFrame(step);
   };
 
+  // Le dé est POSÉ avant que la partie commence : sans cela il attend à
+  // l'origine du monde, dans un coin, au lieu du milieu du tapis.
+  restDie();
+
   document.getElementById('roll')?.addEventListener('click', roll);
 
   // ATTRAPER LE DÉ AU DOIGT plutôt que par un bouton. Le déclenchement se
@@ -581,7 +660,7 @@ function attachDice(
   attachDiceGrab(
     () => (runner.getAwaitingGodFavor() ? favorDice.views : [die]),
     scene,
-    () => frame === null && !favorDice.rolling,
+    () => frame === null && !walking && !favorDice.rolling,
     throwFromGesture
   );
 }

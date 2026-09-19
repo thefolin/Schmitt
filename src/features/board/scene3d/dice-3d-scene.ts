@@ -7,6 +7,7 @@ import {
   Vector3,
   Color,
 } from 'three';
+import { DIE_EDGE } from './dice-world-config';
 import { DICE_FACES } from '@/features/dice/dice-faces';
 import { GRAB_LIFT } from './dice-gesture';
 import type { Quaternion } from '@/features/dice/quaternion';
@@ -31,8 +32,15 @@ import type { Quaternion } from '@/features/dice/quaternion';
  * chiffre recréerait exactement le problème qu'on est en train de supprimer.
  */
 
-/** Arête du dé, en unités monde. Un peu plus petit qu'une case. */
-const DIE_SIZE = 86;
+/**
+ * Arête du dé, en unités monde.
+ *
+ * ELLE N'EST PAS REDÉCLARÉE ICI : elle vient de `dice-world-config`, qui la
+ * donne aussi à la physique. La même valeur écrite à deux endroits finit
+ * toujours par diverger — et un dé dessiné plus grand que le dé simulé
+ * traverserait les bords du plateau sous les yeux du joueur.
+ */
+const DIE_SIZE = DIE_EDGE;
 
 /** Rayon d'un point, proportionné à l'arête comme sur un vrai dé. */
 const PIP_RADIUS = DIE_SIZE * 0.082;

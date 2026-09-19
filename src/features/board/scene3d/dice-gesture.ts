@@ -37,12 +37,25 @@ const MAX_SWIPE_SPEED = WORLD_DICE_CONFIG.velocityMax;
 /**
  * Vigueur de geste qui donne un lancer à pleine puissance.
  *
- * Mesuré sur des gestes plausibles : un glissement vif de 300 px en 120 ms,
- * vu à l'échelle du plateau entier, produit environ 10 000 unités/s. C'est le
- * geste franc qu'on fait pour lancer un dé sur une table ; au-delà, on
- * plafonne.
+ * ABAISSÉE de 10 000 à 4 000 le 20/09/2026. Quentin : « je voudrais une
+ * sensation de lancer ».
+ *
+ * À 10 000, aucun geste humain n'atteignait le haut de la plage : un
+ * glissement violent de 500 px en 100 ms donnait 966 sur une plage montant à
+ * 1 200. Le joueur ne pouvait donc jamais lancer fort, quoi qu'il fasse.
+ *
+ * Mesuré sur des gestes plausibles, avec la référence à 4 000 :
+ *
+ *   tout doux   30 px / 300 ms  ->  526
+ *   doux        80 px / 200 ms  ->  653
+ *   moyen      200 px / 150 ms  ->  862
+ *   franc      300 px / 120 ms  -> 1032
+ *   violent    500 px / 100 ms  -> 1200  (plafond)
+ *
+ * Toute la plage est atteignable, et le plafond n'arrive qu'au geste
+ * réellement violent.
  */
-const REFERENCE_SWIPE = 10000;
+const REFERENCE_SWIPE = 4000;
 
 export interface SwipeRequest {
   /** Déplacement du doigt, en pixels écran. */

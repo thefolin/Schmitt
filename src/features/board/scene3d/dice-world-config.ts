@@ -19,8 +19,26 @@ import type { DicePhysicsConfig } from '@/features/dice/DiceConfig';
  * rendu CSS qui tourne sur `main`.
  */
 
-/** Arête du dé, en unités monde. Référence de toutes les autres valeurs. */
-export const DIE_EDGE = 86;
+/**
+ * Arête du dé, en unités monde. Référence de toutes les autres valeurs.
+ *
+ * Quentin (20/09/2026) : « le dé est gros ».
+ *
+ * Il l'était : 86 sur une case de 120, soit 72 % de la case. Un dé posé sur
+ * une case en cachait presque toute l'illustration, et deux dés de faveur
+ * côte à côte occupaient la moitié de la largeur du plateau.
+ *
+ * 58 le met à 48 % de la case — la proportion d'un vrai dé sur un vrai
+ * plateau. Il reste largement assez gros pour qu'on lise sa face et qu'on
+ * l'attrape au doigt : 58 unités font environ 19 px sur un Pixel 10 en vue
+ * suivie, au-dessus des 48 px de cible tactile une fois la zone de prise
+ * comptée autour.
+ *
+ * Elle sert AUSSI au rendu (`dice-3d-scene`), qui ne la redéclare plus : la
+ * même valeur à deux endroits finit par diverger, et un dé dessiné plus grand
+ * que le dé simulé traverserait les bords du plateau.
+ */
+export const DIE_EDGE = 58;
 
 /**
  * Vitesse de lancer, en unités par seconde.
@@ -36,11 +54,33 @@ export const DIE_EDGE = 86;
  *   350-650   médiane 1,6 case,  max 2,0  → ne sort jamais, mais court
  *   180-380   médiane 0,9 case             → l'ancien réglage d'écran
  *
- * 500-900 est le compromis : le dé traverse deux bonnes cases, ce qui se voit
- * franchement, et reste dans le cadre à tous les coups.
+ * CETTE PLAGE A ÉTÉ ÉLARGIE le 20/09/2026. Quentin : « je voudrais une
+ * sensation de lancer ». Il n'y en avait pas, et la mesure le montrait sans
+ * ambiguïté : entre un geste tout doux et un geste violent, le dé parcourait
+ * 1,75 puis 2,36 case — et au-delà la distance REDESCENDAIT, le dé rebondissant
+ * contre les murs. Le joueur pouvait mettre toute la force qu'il voulait, il
+ * obtenait toujours la même chose.
+ *
+ * La cause tenait à la plage elle-même : 500-900 est trop étroite pour que la
+ * physique réponde. Mesuré sur 80 lancers par palier, avec le dé ramené à 58 :
+ *
+ *   400   1,1 case      le geste hésitant
+ *   650   2,1 cases
+ *   800   2,7 cases
+ *   1100  3,5 cases
+ *   1200  3,6 cases     le geste franc
+ *   1500  saturation, la distance cesse de croître
+ *
+ * 400-1200 donne donc un rapport de UN À TROIS entre le geste le plus doux et
+ * le plus vif : c'est ça, la sensation de lancer.
+ *
+ * La borne de 900 avait été posée pour que le dé ne quitte pas la fenêtre de
+ * sept cases de la vue suivie. Cette crainte était infondée : la caméra SUIT
+ * le dé pendant qu'il roule (`followPoint` à chaque image), donc la fenêtre se
+ * déplace avec lui et il ne peut pas sortir de l'écran.
  */
-const VELOCITY_MIN = 500;
-const VELOCITY_MAX = 900;
+const VELOCITY_MIN = 400;
+const VELOCITY_MAX = 1200;
 
 export const WORLD_DICE_CONFIG: DicePhysicsConfig = {
   size: DIE_EDGE,

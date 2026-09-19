@@ -43,6 +43,7 @@ function runThrow(config: typeof DEFAULT_DICE_CONFIG, seed = 0): {
   frames: number;
   value: number;
   touchedGround: boolean;
+  position: { x: number; y: number };
 } {
   const physics = new DicePhysics(
     config,
@@ -64,6 +65,7 @@ function runThrow(config: typeof DEFAULT_DICE_CONFIG, seed = 0): {
   const end = physics.getState().position;
 
   return {
+    position: { ...physics.getState().position },
     distance: Math.hypot(end.x - start.x, end.y - start.y),
     frames,
     value: physics.getState().currentValue,
@@ -85,15 +87,29 @@ describe('3D-44 — le dé traverse vraiment le plateau', () => {
     expect(total / 60).toBeGreaterThan(1.5 * TILE);
   });
 
-  it('reste dans la fenêtre suivie de #45', () => {
-    // La contrainte que pose la vue suivie : elle cadre sept cases de côté,
-    // donc trois et demie depuis le centre. Un dé qui la quitte pendant son
-    // roulement disparaît sous les yeux du joueur. Mesuré : à 700-1400, ça
-    // arrivait 80 fois sur 200 — d'où le choix de 500-900.
-    const halfWindow = 3.5 * TILE;
+  it('reste sur le PLATEAU, quelle que soit la vigueur du lancer', () => {
+    // CE TEST A ÉTÉ RENVERSÉ le 20/09/2026, et la raison mérite d'être lue.
+    //
+    // Il vérifiait que le dé ne quitte pas une fenêtre de sept cases — la
+    // contrainte qui avait fait brider la plage de lancer à 500-900. Cette
+    // crainte était INFONDÉE : la caméra suit le dé pendant qu'il roule
+    // (`followPoint` est appelé à chaque image avec sa position), donc la
+    // fenêtre se déplace AVEC lui. Le dé ne peut pas disparaître de l'écran.
+    //
+    // En bridant la plage pour une contrainte inexistante, on avait supprimé
+    // la sensation de lancer : entre un geste doux et un geste violent, le dé
+    // parcourait 1,75 puis 2,36 case. Quentin : « je voudrais une sensation
+    // de lancer. »
+    //
+    // Ce qui compte VRAIMENT, et que ce test vérifie maintenant : le dé ne
+    // sort pas du plateau. « Pas de je jette le dé dans le vide. »
+    for (let trial = 0; trial < 200; trial++) {
+      const thrown = runThrow(WORLD_DICE_CONFIG, trial);
 
-    for (let trial = 0; trial < 120; trial++) {
-      expect(runThrow(WORLD_DICE_CONFIG, trial).distance).toBeLessThan(halfWindow);
+      expect(thrown.position.x).toBeGreaterThanOrEqual(0);
+      expect(thrown.position.x).toBeLessThanOrEqual(ARENA);
+      expect(thrown.position.y).toBeGreaterThanOrEqual(0);
+      expect(thrown.position.y).toBeLessThanOrEqual(ARENA);
     }
   });
 
@@ -227,10 +243,16 @@ describe('3D-44 — l\'exigence de justesse ne bouge pas', () => {
 
 describe('3D-44 — l\'échelle est cohérente', () => {
   it('dimensionne le dé par rapport à une case', () => {
-    // Un dé plus gros qu'une case paraîtrait posé par-dessus le plateau
-    // plutôt que dessus.
-    expect(DIE_EDGE).toBeLessThan(TILE);
-    expect(DIE_EDGE).toBeGreaterThan(TILE / 2);
+    // Quentin (20/09/2026) : « le dé est gros ». Il l'était : 86 sur une case
+    // de 120, soit 72 % de la case — un dé posé dessus en cachait presque
+    // toute l'illustration.
+    //
+    // La borne basse était de TILE / 2, ce qui INTERDISAIT la taille d'un
+    // vrai dé sur un vrai plateau (40 à 50 % de la case). Elle descend à
+    // 40 % : assez grand pour lire la face et l'attraper au doigt, assez
+    // petit pour laisser voir la case qu'il occupe.
+    expect(DIE_EDGE).toBeLessThan(TILE * 0.6);
+    expect(DIE_EDGE).toBeGreaterThan(TILE * 0.4);
   });
 
   it('déclare la même arête que la physique', () => {
