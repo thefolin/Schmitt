@@ -78,6 +78,12 @@ async function main(): Promise<void> {
   ]);
 
   const runner = new TurnRunner(logic);
+
+  // Les cases telles qu'elles sont POSÉES sur le parcours, et non le
+  // catalogue : sur un plateau composé dans l'éditeur, la case du rang N
+  // n'est pas la case N du catalogue. C'est le correctif #30.
+  runner.setBoard(layout.placements.map(placement => catalog[placement.tileId]));
+
   tiles.setPawns(runner.pawns());
 
   scene.setBoardExtent(positions, layout.tileSize);
@@ -337,10 +343,13 @@ function attachDice(
     scene.followTile(runner.tileToFollow());
     centre = placeArena();
 
-    say(
-      `${outcome.playerName} fait ${outcome.dice} : case ${outcome.from} → ${outcome.to}` +
-        (outcome.returning ? ' (retour)' : '')
-    );
+    const parts = [`${outcome.playerName} fait ${outcome.dice} : ${outcome.from} → ${outcome.to}`];
+    if (outcome.effect) parts.push(`flèche → ${outcome.effect.to}`);
+    if (outcome.schmittPower) parts.push('\u{26A1} pouvoir du Schmitt, demi-tour !');
+    if (outcome.returning) parts.push('(retour)');
+    if (outcome.winner) parts.push(`\u{1F3C6} ${outcome.winner} gagne !`);
+
+    say(parts.join(' · '));
 
     refresh();
   };
