@@ -20,7 +20,8 @@
       "tileId": 2,
       "gridRow": 3,
       "gridCol": 4,
-      "size": "full"
+      "size": "full",
+      "rotation": 90
     },
     {
       "tileId": 3,
@@ -62,7 +63,8 @@
       "tileId": 9,
       "gridRow": 4,
       "gridCol": 10,
-      "size": "full"
+      "size": "full",
+      "rotation": 180
     },
     {
       "tileId": 10,
@@ -128,7 +130,8 @@
       "tileId": 20,
       "gridRow": 8,
       "gridCol": 3,
-      "size": "full"
+      "size": "full",
+      "rotation": 90
     },
     {
       "tileId": 21,

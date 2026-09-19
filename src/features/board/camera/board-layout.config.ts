@@ -24,6 +24,25 @@ export interface TilePlacement {
   gridCol: number;          // Colonne sur la grille
   size: 'quarter' | 'half' | 'full';  // Taille: 1/4, 1/2, ou 1 case complète
   slot?: number;            // Pour 'quarter': quel slot (0-3), pour 'half': direction (0=horizontal, 1=vertical)
+  /**
+   * Rotation du DESSIN de la case, en degrés, sens horaire à l'écran.
+   *
+   * Quentin : « besoin de pouvoir tourner les flèches visuellement ». Le
+   * parcours officiel est un U : il file vers l'est, tourne vers le sud, puis
+   * repart vers l'ouest. L'illustration de la flèche, elle, est dessinée une
+   * fois pour toutes et pointe vers le bas. Sur les segments est et ouest,
+   * elle montre donc un côté qui n'a rien à voir avec la marche.
+   *
+   * La rotation appartient au PLACEMENT et non au catalogue : la même case
+   * `forward_2` est posée quatre fois sur le plateau, sur trois segments
+   * d'orientation différente. Un angle rangé dans le catalogue les tournerait
+   * toutes ensemble.
+   *
+   * Cet angle ne décide de RIEN au jeu : c'est le champ `direction` de la
+   * case qui dit où la flèche pousse le pion. Les deux sont séparés à dessein
+   * — Quentin doit pouvoir redresser un dessin sans toucher aux règles.
+   */
+  rotation?: number;
 }
 
 export interface BoardLayoutConfig {

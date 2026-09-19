@@ -24,7 +24,12 @@ export const TILE_CONFIGS: TileConfig[] = [
     icon: '⏩',
     name: 'AVANCEZ DE 2 CASES',
     description: 'Le joueur avance de 2 cases dans le sens de la flèche (rotation). Max 2 déplacements consécutifs pour éviter les boucles.',
-    image: 'assets/row.png'
+    image: 'assets/row.png',
+    // Cette flèche POINTE À CONTRE-SENS de la marche, et son dessin le
+    // montre (rotation du placement dans schmitt.json). Le déplacement
+    // doit dire la même chose que l'image : sans ce champ, le pion
+    // partirait dans le sens opposé à la flèche qu'il regarde.
+    direction: 'backward'
   },
   {
     type: 'drink_2' as TileType,
@@ -73,7 +78,12 @@ export const TILE_CONFIGS: TileConfig[] = [
     icon: '⏩',
     name: 'AVANCEZ DE 2 CASES',
     description: 'Le joueur avance de 2 cases dans le sens de la flèche (rotation). Max 2 déplacements consécutifs pour éviter les boucles.',
-    image: 'assets/row.png'
+    image: 'assets/row.png',
+    // Cette flèche POINTE À CONTRE-SENS de la marche, et son dessin le
+    // montre (rotation du placement dans schmitt.json). Le déplacement
+    // doit dire la même chose que l'image : sans ce champ, le pion
+    // partirait dans le sens opposé à la flèche qu'il regarde.
+    direction: 'backward'
   },
   {
     type: 'distribute_4' as TileType,

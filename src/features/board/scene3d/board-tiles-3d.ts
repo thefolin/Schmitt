@@ -127,7 +127,7 @@ export class BoardTiles3D {
 
       this.positions[index] = { x, z };
       this.images[index] = tile.image;
-      this.group.add(this.createTile(tile, bounds, index));
+      this.group.add(this.createTile(tile, bounds, index, placement.rotation));
     });
 
     this.createTable(step);
@@ -155,7 +155,8 @@ export class BoardTiles3D {
   private createTile(
     tile: TileConfig,
     bounds: { x: number; y: number; width: number; height: number },
-    index: number
+    index: number,
+    rotationDeg?: number
   ): Group {
     const holder = new Group();
     holder.position.set(bounds.x + bounds.width / 2, 0, bounds.y + bounds.height / 2);
@@ -191,14 +192,28 @@ export class BoardTiles3D {
       })
     );
     face.rotation.x = -Math.PI / 2;
-    // Une flèche qui recule se DESSINE à l'envers. L'illustration est unique
-    // et pointe vers l'avant ; c'est la case qui déclare son sens, et le
-    // dessin la suit. Quand Quentin voudra qu'une flèche recule, il n'aura
-    // que sa donnée à changer.
+    // L'ORIENTATION DU DESSIN, qui se joue sur deux plans distincts.
     //
-    // Le demi-tour se fait autour de la normale de la face, donc sur z APRÈS
+    // 1. La ROTATION DU PLACEMENT redresse l'illustration sur le plateau. Le
+    //    parcours est un U : il file vers l'est, tourne vers le sud, repart
+    //    vers l'ouest. L'illustration de la flèche est dessinée une fois pour
+    //    toutes et pointe vers le bas — sur les segments est et ouest elle
+    //    montrait donc un côté sans rapport avec la marche.
+    //
+    // 2. Le DEMI-TOUR d'une flèche qui recule, qui vient de la case et non du
+    //    placement : c'est une donnée de règle, et le dessin la suit.
+    //
+    // Les deux s'ajoutent, et restent séparés : Quentin doit pouvoir
+    // redresser un dessin sans toucher à ce que la case fait au pion.
+    //
+    // La rotation se fait autour de la normale de la face, donc sur z APRÈS
     // le basculement en x : la face est déjà couchée dans le plan du plateau.
-    face.rotation.z = arrowDirection(tile) === 'backward' ? Math.PI : 0;
+    // Le sens est inversé pour rester HORAIRE à l'écran — la face est vue de
+    // dessus, et sa normale pointe vers l'observateur.
+    const placed = -((rotationDeg ?? 0) * Math.PI) / 180;
+    const flipped = arrowDirection(tile) === 'backward' ? Math.PI : 0;
+
+    face.rotation.z = placed + flipped;
     face.position.y = TILE_THICKNESS + 0.6;
     face.name = 'tile-face';
     holder.add(face);

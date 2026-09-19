@@ -153,3 +153,63 @@ describe('3D-57 — le dessin et le déplacement lisent la même déclaration', 
       .toBe('forward');
   });
 });
+
+describe('3D-57 — redresser le dessin sur un parcours qui tourne', () => {
+  /** Un plateau d'une case, avec une rotation de placement donnée. */
+  function placedAt(rotation: number | undefined, tile: Partial<TileConfig> = {}): Mesh {
+    tiles?.dispose();
+    tiles = new BoardTiles3D();
+    tiles.build(
+      [{ type: 'forward_2', image: 'a.png', ...tile }] as TileConfig[],
+      {
+        tileSize: 120,
+        tileGap: 15,
+        columns: 1,
+        rows: 1,
+        placements: [{ tileId: 0, col: 0, row: 0, rotation }],
+      } as unknown as BoardLayoutConfig
+    );
+
+    return faceOf(0);
+  }
+
+  it('ne tourne rien quand le placement ne demande rien', () => {
+    // Les placements du plateau officiel n'ont jamais porté d'angle : le
+    // défaut ne doit pas se mettre à tourner les dessins existants.
+    expect(placedAt(undefined).rotation.z).toBeCloseTo(0, 5);
+  });
+
+  it('tourne du quart demandé', () => {
+    expect(Math.abs(placedAt(90).rotation.z)).toBeCloseTo(Math.PI / 2, 5);
+  });
+
+  it('tourne dans le sens HORAIRE à l\'écran', () => {
+    // C'EST LE PIÈGE, et il n'a rien d'évident : la face est vue DE DESSUS,
+    // et sa normale pointe vers l'observateur. Une rotation positive sur z
+    // tourne donc dans le sens anti-horaire à l'écran. Quentin raisonne en
+    // « tourner vers la droite » devant son téléphone — c'est ce sens-là qui
+    // doit être respecté, sinon chaque angle qu'il donne part à l'opposé.
+    expect(placedAt(90).rotation.z).toBeCloseTo(-Math.PI / 2, 5);
+  });
+
+  it('accepte un demi-tour de placement', () => {
+    expect(Math.abs(placedAt(180).rotation.z)).toBeCloseTo(Math.PI, 5);
+  });
+
+  it('s\'ajoute au demi-tour d\'une flèche qui recule', () => {
+    // Les deux sont SÉPARÉS : l'angle redresse le dessin sur le plateau, le
+    // sens vient de la règle. Une flèche redressée de 90° qui recule doit
+    // montrer les deux effets, pas l'un écraser l'autre.
+    const rotated = placedAt(90, { direction: 'backward' });
+
+    expect(rotated.rotation.z).toBeCloseTo(-Math.PI / 2 + Math.PI, 5);
+  });
+
+  it('laisse une case ordinaire se redresser aussi', () => {
+    // La rotation appartient au PLACEMENT : elle vaut pour n'importe quelle
+    // illustration, pas seulement pour les flèches.
+    const ordinary = placedAt(90, { type: 'drink_2', direction: undefined });
+
+    expect(ordinary.rotation.z).toBeCloseTo(-Math.PI / 2, 5);
+  });
+});
