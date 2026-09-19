@@ -176,6 +176,16 @@ export class TurnRunner {
     }));
   }
 
+  /**
+   * La dernière case du parcours.
+   *
+   * L'animation en a besoin pour reconstituer le rebond : c'est sur ce bord
+   * que le pion fait demi-tour quand le dé dépasse.
+   */
+  public lastPosition(): number {
+    return this.logic.getLastPosition();
+  }
+
   /** Qui doit jouer maintenant. */
   public currentPlayerName(): string {
     return this.logic.getPlayers()[this.logic.getCurrentPlayerIndex()]?.name ?? '';

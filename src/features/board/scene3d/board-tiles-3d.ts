@@ -267,6 +267,30 @@ export class BoardTiles3D {
     });
   }
 
+  /**
+   * Où poser le pion d'un joueur sur une case donnée.
+   *
+   * Exposé pour que l'animation puisse placer un pion entre deux cases sans
+   * reconstruire toute la scène — `setPawns` recrée chaque pion, ce qui est
+   * précisément ce qui donnait une téléportation.
+   */
+  public pawnAnchor(tileIndex: number): { x: number; y: number; z: number } | null {
+    const tile = this.positions[tileIndex];
+    if (!tile) return null;
+
+    return { x: tile.x, y: TILE_THICKNESS + PAWN_HEIGHT / 2, z: tile.z };
+  }
+
+  /** Le pion d'un joueur, pour le déplacer sans le recréer. */
+  public pawnOf(index: number): Mesh | null {
+    return (this.pawns.getObjectByName(`pawn-${index}`) as Mesh | undefined) ?? null;
+  }
+
+  /** Hauteur d'un pion au repos, au-dessus du plateau. */
+  public static get pawnRestHeight(): number {
+    return TILE_THICKNESS + PAWN_HEIGHT / 2;
+  }
+
   /** Le tapis sous le plateau, qui lui donne son assise. */
   private createTable(step: number): void {
     if (this.positions.length === 0) return;

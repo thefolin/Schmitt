@@ -12,6 +12,8 @@ import { Dice3DScene } from './dice-3d-scene';
 import { DicePhysics } from '@/features/dice/DicePhysics';
 import { WORLD_DICE_CONFIG, rollingSpinRate } from './dice-world-config';
 import { diceArena } from './dice-arena';
+import { walkPath } from './pawn-path';
+import { walkFrame } from './pawn-walk';
 import { isHandheld, readDeviceOverride, type DeviceHints } from './device';
 import { GameLogic } from '@/features/game/game.logic';
 import { TurnRunner } from './turn-runner';
@@ -383,7 +385,14 @@ function attachDice(
 
     const outcome = runner.playTurn(face);
 
-    tiles.setPawns(runner.pawns());
+    // LE PION MARCHE, il ne se téléporte pas (#48). `setPawns` reconstruit
+    // chaque pion à sa position finale : c'est exactement la téléportation
+    // que Quentin ne veut plus. On anime le trajet, puis on repose les pions
+    // proprement à l'arrivée.
+    walkPawn(tiles, runner, outcome, () => {
+      tiles.setPawns(runner.pawns());
+      refresh();
+    });
 
     // Retour SOUPLE à la vue du plateau : un saut de caméra à l'instant où
     // le dé s'immobilise ferait perdre le résultat de vue.
@@ -417,6 +426,111 @@ function attachDice(
   // posé sur la table et passé de main en main, c'est toujours le tour de
   // celui qui le tient — il n'y a donc pas d'autre condition à vérifier.
   attachDiceGrab(die, scene, () => frame === null, roll);
+}
+
+/**
+ * Fait marcher le pion case par case jusqu'à son arrivée.
+ *
+ * Quentin : « pas de téléportation ». Le trajet suit le CHEMIN calculé par les
+ * règles, rebond compris : un 5 depuis la case 20 fait monter le pion jusqu'au
+ * bord puis redescendre, cinq pas en tout. Sauter directement à l'arrivée
+ * montrerait le pion reculer d'une case alors que le dé annonce 5.
+ *
+ * Le pion est DÉPLACÉ, pas reconstruit : `setPawns` recrée chaque pion à sa
+ * position finale, ce qui est la téléportation elle-même.
+ */
+function walkPawn(
+  tiles: BoardTiles3D,
+  runner: TurnRunner,
+  outcome: { player: number; from: number; to: number; dice: number; returning: boolean;
+    effect: { from: number; to: number } | null },
+  done: () => void
+): void {
+  const last = runner.lastPosition();
+
+  // Le trajet du dé, puis celui de la flèche s'il y en a une : deux
+  // déplacements distincts que le joueur doit voir l'un après l'autre.
+  const legs: { start: number; path: number[] }[] = [
+    {
+      start: outcome.from,
+      path: walkPath({
+        from: outcome.from,
+        to: outcome.to,
+        steps: outcome.dice,
+        last,
+        returning: outcome.returning,
+      }),
+    },
+  ];
+
+  if (outcome.effect) {
+    legs.push({
+      start: outcome.effect.from,
+      path: walkPath({
+        from: outcome.effect.from,
+        to: outcome.effect.to,
+        steps: Math.abs(outcome.effect.to - outcome.effect.from),
+        last,
+        returning: false,
+      }),
+    });
+  }
+
+  const pawn = tiles.pawnOf(outcome.player);
+  if (!pawn) {
+    done();
+    return;
+  }
+
+  let leg = 0;
+  let began = performance.now();
+
+  const tick = (): void => {
+    const current = legs[leg];
+
+    if (!current) {
+      done();
+      return;
+    }
+
+    const frame = walkFrame(current.path, current.start, performance.now() - began);
+
+    const from = tiles.pawnAnchor(frame.from);
+    const to = tiles.pawnAnchor(frame.to);
+
+    if (from && to) {
+      pawn.position.set(
+        from.x + (to.x - from.x) * frame.progress,
+        // Un léger saut à chaque case : le pion se pose plutôt que de glisser,
+        // ce qui rend les pas comptables à l'œil.
+        BoardTiles3D.pawnRestHeight + Math.sin(frame.progress * Math.PI) * 14,
+        from.z + (to.z - from.z) * frame.progress
+      );
+    }
+
+    if (!frame.done) {
+      requestAnimationFrame(tick);
+      return;
+    }
+
+    leg += 1;
+    began = performance.now();
+
+    if (leg < legs.length) {
+      requestAnimationFrame(tick);
+      return;
+    }
+
+    done();
+  };
+
+  // Un trajet vide — une flèche bloquée au bord — ne doit pas faire attendre.
+  if (legs.every(l => l.path.length === 0)) {
+    done();
+    return;
+  }
+
+  requestAnimationFrame(tick);
 }
 
 /**
