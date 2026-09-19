@@ -27,6 +27,18 @@ export interface EffectOutcome {
   to: number;
 }
 
+/** Des gorgées servies au joueur qui vient de jouer. */
+export interface DrinkOutcome {
+  player: number;
+  amount: number;
+}
+
+/** Des gorgées à distribuer, dont la cible reste à choisir. */
+export interface DistributeOutcome {
+  by: number;
+  amount: number;
+}
+
 export interface TurnOutcome {
   /** Le joueur qui vient de jouer, et non celui à qui la main passe. */
   player: number;
@@ -44,7 +56,32 @@ export interface TurnOutcome {
   schmittPower: boolean;
   /** Le nom du vainqueur, si la partie vient de s'achever. */
   winner: string | null;
+  /** Les gorgées servies par la case, s'il y en a. */
+  drinks: DrinkOutcome | null;
+  /** Les gorgées à distribuer, la cible restant au joueur. */
+  distribute: DistributeOutcome | null;
+  /** La case a-t-elle fait boire tout le monde ? */
+  everyone: boolean;
+  /** La case se joue-t-elle à la table, hors de l'application ? */
+  tableRule: boolean;
 }
+
+/**
+ * Gorgées d'une tournée générale.
+ *
+ * La case dit « tous les joueurs boivent 1 gorgée » : la quantité est dans la
+ * règle, pas dans le type.
+ */
+const EVERYONE_DRINKS = 1;
+
+/**
+ * Cases qui se jouent À LA TABLE, hors de l'application.
+ *
+ * Quentin : « On laisse les joueurs le faire, on affiche les règles, ils le
+ * font dans la vraie vie, puis quand ils sont finis on reprend le tour. »
+ * L'application énonce et attend — elle n'arbitre pas.
+ */
+const TABLE_RULE_TYPES = new Set(['rule', 'schmitt_call', 'copy', 'power']);
 
 /**
  * Nombre maximal de flèches enchaînées sur un même tour.
@@ -106,6 +143,11 @@ export class TurnRunner {
     const schmittPower =
       landed === this.logic.getLastPosition() && this.logic.claimSchmittPower(player);
 
+    // Les effets de boisson de la case où le pion s'est posé. Toutes les
+    // gorgées passent par `addDrinks`, seul endroit où le bouclier d'Athéna
+    // intercepte : les compter ici laisserait passer le bouclier.
+    const drinking = this.applyDrinking(player, landed);
+
     const winner = this.logic.checkVictory();
 
     this.logic.nextPlayer();
@@ -121,7 +163,61 @@ export class TurnRunner {
       effect,
       schmittPower,
       winner: winner ? winner.name : null,
+      ...drinking,
     };
+  }
+
+  /**
+   * Applique ce que la case fait boire.
+   *
+   * Ce module CHOISIT quelle méthode de `GameLogic` appeler d'après le type
+   * de la case ; il ne tient aucun compte lui-même. La quantité est lue dans
+   * le type — `drink_2`, `distribute_3` — qui en est la seule source.
+   */
+  private applyDrinking(
+    player: number,
+    position: number
+  ): Pick<TurnOutcome, 'drinks' | 'distribute' | 'everyone' | 'tableRule'> {
+    const empty = { drinks: null, distribute: null, everyone: false, tableRule: false };
+
+    const tile = this.board[position];
+    if (!tile) return empty;
+
+    // Le Poulet n'est pas un effet de boisson : il pose un STATUT, avec sa
+    // promotion en Gros Poulet et son report sur les pions. Il relève de
+    // l'étape des badges, pas de celle-ci — le brancher à moitié ici ferait
+    // porter la règle à deux endroits.
+    if (tile.type === 'chicken' || tile.type === 'big_chicken') return empty;
+
+    if (TABLE_RULE_TYPES.has(tile.type)) {
+      return { ...empty, tableRule: true };
+    }
+
+    if (tile.type === 'everyone_drinks') {
+      this.logic.getPlayers().forEach((_, index) => {
+        this.logic.addDrinks(index, EVERYONE_DRINKS);
+      });
+
+      return { ...empty, everyone: true };
+    }
+
+    const amount = Number(tile.type.split('_')[1]);
+    if (!Number.isFinite(amount) || amount <= 0) return empty;
+
+    if (tile.type.startsWith('drink_')) {
+      this.logic.addDrinks(player, amount);
+
+      return { ...empty, drinks: { player, amount } };
+    }
+
+    if (tile.type.startsWith('distribute_')) {
+      // La cible appartient au JOUEUR : la scène ne peut pas la choisir à sa
+      // place, et en inventer une serait inventer une règle. Aucune gorgée
+      // n'est servie tant qu'il n'a pas désigné qui boit.
+      return { ...empty, distribute: { by: player, amount } };
+    }
+
+    return empty;
   }
 
   /**

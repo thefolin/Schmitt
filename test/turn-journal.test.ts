@@ -147,3 +147,55 @@ describe('3D-50 — à qui le tour', () => {
     expect(runner.currentPlayerName()).toBe('Bastien');
   });
 });
+
+describe('3D-51 — le journal dit ce qu\'on boit', () => {
+  /** Un tour nu, dont on ne renseigne que ce qui est testé. */
+  function turn(overrides: Partial<Parameters<typeof describeTurn>[0]>) {
+    return describeTurn({
+      player: 0,
+      playerName: 'Alice',
+      dice: 2,
+      steps: 2,
+      from: 1,
+      to: 3,
+      returning: false,
+      effect: null,
+      schmittPower: false,
+      winner: null,
+      drinks: null,
+      distribute: null,
+      everyone: false,
+      tableRule: false,
+      ...overrides,
+    });
+  }
+
+  it('annonce les gorgées reçues', () => {
+    expect(turn({ drinks: { player: 0, amount: 3 } })).toContain('3');
+  });
+
+  it('annonce une distribution sans nommer de cible', () => {
+    // La cible appartient au joueur : le journal ne peut pas l'annoncer
+    // avant qu'il ait choisi, et en inventer une serait inventer une règle.
+    const line = turn({ distribute: { by: 0, amount: 2 } });
+
+    expect(line.toLowerCase()).toContain('distribue');
+    expect(line).not.toContain('Bastien');
+  });
+
+  it('annonce la tournée générale', () => {
+    expect(turn({ everyone: true }).toLowerCase()).toContain('tournée');
+  });
+
+  it('annonce les cases qui se jouent à la table', () => {
+    // L'application énonce et attend : le joueur doit comprendre que la
+    // suite lui appartient, et qu'il ne s'agit pas d'un blocage.
+    expect(turn({ tableRule: true }).toLowerCase()).toContain('table');
+  });
+
+  it('reste muet quand la case ne fait rien boire', () => {
+    const line = turn({});
+
+    expect(line).not.toContain('\u{1F37A}');
+  });
+});

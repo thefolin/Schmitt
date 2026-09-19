@@ -1,4 +1,5 @@
 import type { TurnOutcome } from './turn-runner';
+import { GULP } from '@/features/game/action-text';
 
 /**
  * Raconter un tour au joueur.
@@ -47,6 +48,13 @@ export function describeTurn(outcome: TurnOutcome): string {
   );
 
   if (outcome.effect) parts.push(`flèche → ${outcome.effect.to}`);
+
+  // Ce que la case fait boire. Le symbole 🍺 remplace le mot « gorgées »,
+  // comme partout ailleurs dans le jeu (SCH-12).
+  if (outcome.drinks) parts.push(`${outcome.drinks.amount} ${GULP}`);
+  if (outcome.distribute) parts.push(`distribue ${outcome.distribute.amount} ${GULP}`);
+  if (outcome.everyone) parts.push(`tournée générale — tout le monde boit ${GULP}`);
+  if (outcome.tableRule) parts.push('à jouer à la table');
   if (outcome.returning) parts.push('retour');
   if (outcome.schmittPower) parts.push('\u{26A1} pouvoir du Schmitt, demi-tour !');
   if (outcome.winner) parts.push(`\u{1F3C6} ${outcome.winner} gagne !`);
