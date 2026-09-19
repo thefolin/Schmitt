@@ -14,6 +14,7 @@ import { WORLD_DICE_CONFIG, rollingSpinRate } from './dice-world-config';
 import { diceArena } from './dice-arena';
 import { FavorDice } from './favor-dice';
 import { duringFavor, betweenFavors, type DiceVisibility } from './dice-on-stage';
+import { grabProbes, gestureOwner } from './grab-zone';
 import { walkPath } from './pawn-path';
 import { walkFrame } from './pawn-walk';
 import { swipeToThrow, type ThrowRequest } from './dice-gesture';
@@ -131,7 +132,7 @@ async function main(): Promise<void> {
   };
 
   // Le tour complet : lancer → avancer → joueur suivant (#46).
-  attachDice(die, positions, tiles, logic, runner, scene, applyPreferredView, refresh);
+  const startsOnDice = attachDice(die, positions, tiles, logic, runner, scene, applyPreferredView, refresh);
 
   // Basculer entre « tout voir » et « suivre le pion », quand le joueur
   // veut autre chose que ce que la forme de l'écran suggère.
@@ -148,7 +149,7 @@ async function main(): Promise<void> {
   // ne peut plus exister par construction, puisqu'il n'y a plus deux
   // représentations à accorder.
   // Déplacement, zoom et rotation : l'acquis #15 plus la rotation de #43.
-  attachControls(container, scene, refresh);
+  attachControls(container, scene, refresh, startsOnDice);
 
   /**
    * Remesure les bandeaux et recadre.
@@ -303,7 +304,7 @@ function attachDice(
   scene: BoardScene,
   follow: () => void,
   refresh: () => void
-): void {
+): (x: number, y: number) => boolean {
   // L'aire de jeu épouse le PLATEAU, et non un carré inventé : le dé roule
   // sur les cases et rebondit sur leurs bords. « Pas de je jette le dé dans
   // le vide. » Les quatre côtés sont bordés, donc le dé ne peut pas tomber.
@@ -657,7 +658,7 @@ function attachDice(
   // lancer est attendu, et reste sourd pendant qu'il roule. Sur un téléphone
   // posé sur la table et passé de main en main, c'est toujours le tour de
   // celui qui le tient — il n'y a donc pas d'autre condition à vérifier.
-  attachDiceGrab(
+  return attachDiceGrab(
     () => (runner.getAwaitingGodFavor() ? favorDice.views : [die]),
     scene,
     () => frame === null && !walking && !favorDice.rolling,
@@ -827,7 +828,7 @@ function attachDiceGrab(
   scene: BoardScene,
   canRoll: () => boolean,
   throwDice: (request: ThrowRequest) => void
-): void {
+): (x: number, y: number) => boolean {
   const container = scene.viewport;
   const raycaster = new Raycaster();
 
@@ -839,14 +840,25 @@ function attachDiceGrab(
    */
   const hitsDie = (clientX: number, clientY: number): boolean => {
     const box = container.getBoundingClientRect();
-    const pointer = new Vector2(
-      ((clientX - box.left) / Math.max(1, box.width)) * 2 - 1,
-      -((clientY - box.top) / Math.max(1, box.height)) * 2 + 1
-    );
 
-    raycaster.setFromCamera(pointer, scene.camera);
+    // UNE ZONE DE PRISE PLUS LARGE QUE LE DÉ. Le dé mesure 37 px à l'écran en
+    // vue d'ensemble, sous les 48 px de cible tactile : viser le cube lui-même
+    // demande une précision qu'un doigt n'a pas, surtout sur un téléphone
+    // passé de main en main.
+    //
+    // On teste donc le centre du doigt PUIS quelques points autour, à la
+    // distance qui complète la cible. Le dé n'a pas besoin de grossir pour
+    // être attrapable — c'est la zone sensible qui s'élargit, pas l'objet.
+    return grabProbes(clientX, clientY).some(probe => {
+      const pointer = new Vector2(
+        ((probe.x - box.left) / Math.max(1, box.width)) * 2 - 1,
+        -((probe.y - box.top) / Math.max(1, box.height)) * 2 + 1
+      );
 
-    return dice().some(die => raycaster.intersectObject(die.group, true).length > 0);
+      raycaster.setFromCamera(pointer, scene.camera);
+
+      return dice().some(die => raycaster.intersectObject(die.group, true).length > 0);
+    });
   };
 
   /** Le retour visuel s'applique à tous les dés que le geste va lancer. */
@@ -909,6 +921,11 @@ function attachDiceGrab(
     holding = false;
     setHeld(false);
   });
+
+  // Rendu à la caméra pour qu'elle se taise quand le geste appartient au dé.
+  // Un SEUL juge de « le doigt est-il sur un dé », partagé : deux réponses
+  // différentes à la même question rouvriraient le défaut.
+  return (x, y) => canRoll() && hitsDie(x, y);
 }
 
 
@@ -1047,7 +1064,21 @@ function announce(runner: TurnRunner): void {
 function attachControls(
   container: HTMLElement,
   scene: BoardScene,
-  onChange: () => void
+  onChange: () => void,
+  /**
+   * Le geste commence-t-il SUR un dé ?
+   *
+   * LE DÉFAUT QUE CELA CORRIGE : le dé écoute `pointerdown`, la caméra
+   * écoute `touchstart`. Ce sont deux familles d'événements distinctes, et
+   * `stopPropagation` sur l'une n'empêche pas l'autre. Sur téléphone, poser
+   * le doigt sur le dé démarrait donc les DEUX gestes à la fois : on tenait
+   * le dé pendant que la caméra tournait sous lui, et le dé ne partait pas.
+   *
+   * `touchstart` est de surcroît passif — il ne peut pas être annulé. La
+   * seule issue est que la caméra SE TAISE d'elle-même quand le geste
+   * appartient au dé.
+   */
+  startsOnDice: (x: number, y: number) => boolean = () => false
 ): void {
   let dragging = false;
   let lastX = 0;
@@ -1055,6 +1086,10 @@ function attachControls(
   let pinch = 0;
 
   const start = (x: number, y: number) => {
+    // Le dé passe AVANT la caméra : un geste qui commence sur lui lui
+    // appartient entièrement.
+    if (gestureOwner(startsOnDice(x, y)) === 'dice') return;
+
     dragging = true;
     lastX = x;
     lastY = y;
@@ -1077,6 +1112,8 @@ function attachControls(
   let panning = false;
 
   container.addEventListener('mousedown', e => {
+    if (gestureOwner(startsOnDice(e.clientX, e.clientY)) === 'dice') return;
+
     panning = e.button === 2 || e.button === 1 || e.shiftKey;
     start(e.clientX, e.clientY);
   });
