@@ -17,7 +17,7 @@ import { walkPath } from './pawn-path';
 import { walkFrame } from './pawn-walk';
 import { swipeToThrow, type ThrowRequest } from './dice-gesture';
 import { describeTurn, JOURNAL_MAX } from './turn-journal';
-import { pendingActions, type PendingAction } from './pending-actions';
+import { tableAnnouncement } from './table-announcements';
 import { isHandheld, readDeviceOverride, type DeviceHints } from './device';
 import { GameLogic } from '@/features/game/game.logic';
 import { TurnRunner } from './turn-runner';
@@ -807,60 +807,42 @@ function renderActions(
   const panel = document.getElementById('actions-panel');
   if (!panel) return;
 
-  const actions = pendingActions(logic, runner);
+  const lines: string[] = [];
 
-  if (actions.length === 0) {
+  // LE BOUCLIER D'ATHÉNA, soldé sans demander de cible. Les règles RETIENNENT
+  // les gorgées tant que personne n'est désigné : cesser de poser la question
+  // sans les solder les ferait s'évaporer. Elles retombent sur le porteur.
+  const shield = runner.settlePendingShield();
+  if (shield) {
+    const holder = logic.getPlayers()[shield.player];
+    lines.push(
+      `\u{1F6E1}\u{FE0F} ${holder?.name ?? ''} garde son bouclier et boit ${shield.amount} \u{1F37A}`
+    );
+  }
+
+  // CE QUI SE JOUE À LA TABLE : on l'énonce, les joueurs l'appliquent.
+  const announcement = tableAnnouncement(outcome);
+  if (announcement) lines.push(announcement.text);
+
+  if (lines.length === 0) {
     panel.hidden = true;
     panel.replaceChildren();
     return;
   }
 
-  const action = actions[0];
   panel.hidden = false;
-  panel.replaceChildren();
+  panel.replaceChildren(
+    ...lines.map(text => {
+      const line = document.createElement('div');
+      line.className = 'action-prompt';
+      line.textContent = text;
+      return line;
+    })
+  );
 
-  const title = document.createElement('div');
-  title.className = 'action-prompt';
-  title.textContent = `${action.playerName} — ${action.prompt}`;
-  panel.appendChild(title);
-
-  const row = document.createElement('div');
-  row.className = 'action-choices';
-
-  const apply = (run: () => void): void => {
-    run();
-    // On repasse : résoudre une décision peut en révéler une autre, et le
-    // bouclier en est justement capable.
-    renderActions(logic, runner, outcome, refresh);
-    renderJournal(runner);
-    refresh();
-  };
-
-  for (const choice of action.choices) {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.textContent = choice.name;
-    button.style.borderColor = choice.color;
-    button.addEventListener('click', () =>
-      apply(() =>
-        action.kind === 'shield'
-          ? runner.resolveShield(choice.index)
-          : runner.resolveDistribute(choice.index, action.amount)
-      )
-    );
-    row.appendChild(button);
-  }
-
-  if (action.canDecline) {
-    const decline = document.createElement('button');
-    decline.type = 'button';
-    decline.className = 'action-decline';
-    decline.textContent = 'Je bois';
-    decline.addEventListener('click', () => apply(() => runner.declineShield()));
-    row.appendChild(decline);
-  }
-
-  panel.appendChild(row);
+  for (const line of lines) runner.log(line);
+  renderJournal(runner);
+  refresh();
 }
 
 /** Raconte le dernier tour joué. */

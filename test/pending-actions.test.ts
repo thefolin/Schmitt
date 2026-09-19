@@ -53,35 +53,44 @@ describe('3D-52 — rien à décider, rien à afficher', () => {
   });
 });
 
-describe('3D-52 — choisir qui boit', () => {
-  it('demande une cible après une case distribuer', () => {
+describe('3D-59 — la distribution ne se choisit plus dans l\'application', () => {
+  /**
+   * CE GROUPE A ÉTÉ RENVERSÉ, et il est gardé plutôt que supprimé pour que
+   * la raison reste lisible.
+   *
+   * Il vérifiait que l'écran DEMANDE une cible après une case « distribuer »,
+   * avec un bouton par joueur. Quentin a tranché l'inverse le 19/09/2026 :
+   * « Interactions = énoncé + à la table. Pas de sélection dans l'app, pas de
+   * choix à arbitrer — juste “Alice distribue 3 gorgées”. »
+   *
+   * Le bouclier, lui, continue d'être suivi par `pendingActions` : sa
+   * sanction est RETENUE par les règles, et quelque chose doit la solder.
+   */
+  it('ne demande plus de cible après une case distribuer', () => {
     runner.setBoard(boardWith({ 3: { type: 'distribute_3' } }));
     logic.setPlayerPosition(0, 1);
 
     const actions = pendingActions(logic, (runner.playTurn(2), runner));
 
-    expect(actions).toHaveLength(1);
-    expect(actions[0].kind).toBe('distribute');
-    expect(actions[0].amount).toBe(3);
+    expect(actions).toHaveLength(0);
   });
 
-  it('propose tout le monde sauf celui qui distribue', () => {
-    // On ne se distribue pas des gorgées à soi-même.
+  it('ne retient aucune distribution en attente', () => {
     runner.setBoard(boardWith({ 3: { type: 'distribute_2' } }));
     logic.setPlayerPosition(0, 1);
+    runner.playTurn(2);
 
-    const actions = pendingActions(logic, (runner.playTurn(2), runner));
-
-    expect(actions[0].choices.map(c => c.name)).toEqual(['Bastien', 'Chloé']);
+    expect(runner.getAwaitingDistribution()).toBeNull();
   });
 
-  it('nomme le joueur qui distribue', () => {
+  it('laisse le tour se terminer sans décision', () => {
+    // L'ancienne version bloquait la partie tant que personne n'avait
+    // cliqué. Plus rien ne doit l'attendre.
     runner.setBoard(boardWith({ 3: { type: 'distribute_2' } }));
     logic.setPlayerPosition(0, 1);
+    runner.playTurn(2);
 
-    const actions = pendingActions(logic, (runner.playTurn(2), runner));
-
-    expect(actions[0].playerName).toBe('Alice');
+    expect(pendingActions(logic, runner)).toHaveLength(0);
   });
 });
 
@@ -161,24 +170,17 @@ describe('3D-52 — le module ne décide de rien', () => {
 });
 
 describe('3D-52 — une décision résolue disparaît', () => {
-  it('ne redemande plus la cible une fois les gorgées servies', () => {
-    // LE PIÈGE : `outcome` est un compte rendu FIGÉ du tour. Y lire la
-    // distribution en attente la fait réapparaître indéfiniment, même après
-    // résolution — le panneau resterait à l'écran et le joueur croirait que
-    // son clic n'a rien fait.
-    //
-    // L'état d'une décision doit vivre là où elle peut être résolue, comme
-    // le bouclier vit dans `GameLogic`.
+  it('n\'a plus de distribution à faire disparaître', () => {
+    // L'ancien test vérifiait qu'une distribution résolue cessait d'être
+    // demandée — le défaut du `TurnOutcome` figé, qui la faisait réapparaître
+    // à chaque image. La distribution ne passe plus par l'application du
+    // tout : il n'y a plus rien à résoudre ni à effacer.
     runner.setBoard(boardWith({ 3: { type: 'distribute_3' } }));
     logic.setPlayerPosition(0, 1);
 
-    const outcome = runner.playTurn(2);
-    expect(pendingActions(logic, runner)).toHaveLength(1);
-
-    runner.resolveDistribute(1, 3);
+    runner.playTurn(2);
 
     expect(pendingActions(logic, runner)).toHaveLength(0);
-    expect(logic.getPlayers()[1].drinks).toBe(3);
   });
 
   it('ne redemande plus le renvoi une fois le bouclier utilisé', () => {

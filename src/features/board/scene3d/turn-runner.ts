@@ -275,11 +275,14 @@ export class TurnRunner {
     }
 
     if (tile.type.startsWith('distribute_')) {
-      // La cible appartient au JOUEUR : la scène ne peut pas la choisir à sa
-      // place, et en inventer une serait inventer une règle. Aucune gorgée
-      // n'est servie tant qu'il n'a pas désigné qui boit.
-      this.awaitingDistribution = { by: player, amount };
-
+      // LA DISTRIBUTION SE FAIT À LA TABLE. Quentin : « pas de sélection dans
+      // l'app, pas de choix à arbitrer — juste “Alice distribue 3 gorgées” ».
+      // L'application énonce, les joueurs appliquent.
+      //
+      // Aucune gorgée n'est donc comptée ici, et c'est VOULU : les compter
+      // sur quelqu'un demanderait de choisir qui boit, exactement ce qu'on
+      // retire. Le compte de l'application ne prétend plus suivre ce qui se
+      // boit réellement autour de la table.
       return { ...empty, distribute: { by: player, amount } };
     }
 
@@ -378,6 +381,32 @@ export class TurnRunner {
   /** La distribution qui attend encore sa cible, s'il y en a une. */
   public getAwaitingDistribution(): { by: number; amount: number } | null {
     return this.awaitingDistribution;
+  }
+
+  /**
+   * Solde un bouclier qui retenait une sanction, sans demander de cible.
+   *
+   * Quentin a tranché que les interactions se jouent À LA TABLE : l'écran ne
+   * demande plus sur qui renvoyer. Mais `GameLogic` RETIENT les gorgées tant
+   * qu'aucune cible n'est désignée — cesser simplement de poser la question
+   * les ferait s'évaporer, et le compte deviendrait faux sans que rien ne le
+   * signale.
+   *
+   * `cancelPendingShield` est le filet que les règles prévoient déjà pour ce
+   * cas : la sanction retombe sur le porteur, qui garde son bouclier. C'est
+   * la lecture prudente — elle ne fait disparaître aucune gorgée et
+   * n'invente aucune règle. Si Quentin veut que le renvoi se négocie aussi à
+   * la table, c'est à lui de le dire.
+   *
+   * Renvoie le porteur et le montant retenus, pour pouvoir l'annoncer.
+   */
+  public settlePendingShield(): { player: number; amount: number } | null {
+    const pending = this.logic.getPendingShield();
+    if (!pending) return null;
+
+    this.logic.cancelPendingShield();
+
+    return { player: pending.playerIndex, amount: pending.amount };
   }
 
   /** Le joueur qui doit lancer les deux dés du temple, s'il y en a un. */
