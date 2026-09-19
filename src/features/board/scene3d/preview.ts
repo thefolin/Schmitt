@@ -42,7 +42,16 @@ async function main(): Promise<void> {
     fetchBoardLayout('/assets/schmitt.json'),
   ]);
 
-  const positions = tiles.build(catalog, layout, () => scene.layout());
+  const positions = tiles.build(catalog, layout);
+
+  // Quelques pions pour juger s'ils se lisent bien posés sur leurs cases.
+  tiles.setPawns([
+    { position: 0, color: '#e2483d' },
+    { position: 4, color: '#3d7fc4' },
+    { position: 4, color: '#2f8f4e' },
+    { position: 11, color: '#e3c169' },
+  ]);
+
   scene.setBoardExtent(positions, layout.tileSize);
   scene.start();
 
@@ -59,8 +68,12 @@ function report(status: HTMLElement | null, scene: BoardScene, count: number): v
   if (!status) return;
 
   const framing = scene.getFraming();
-  const tilePx = Math.round(120 * framing.scale * scene.getUserZoom());
   const turned = framing.yawDeg === 90 ? 'quart de tour' : 'sens naturel';
+
+  // En perspective, la taille apparente dépend de la distance : on la mesure
+  // sur la scène plutôt que de la déduire d'un facteur d'échelle, qui n'a
+  // plus cours depuis le passage en projection conique.
+  const tilePx = Math.round(scene.worldToScreenPixels(120));
 
   status.textContent = `${count} cases · ${turned} · une case ≈ ${tilePx} px`;
 }

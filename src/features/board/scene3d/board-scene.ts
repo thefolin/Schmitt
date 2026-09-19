@@ -1,10 +1,12 @@
 import {
   Scene,
-  OrthographicCamera,
+  PerspectiveCamera,
   WebGLRenderer,
   Group,
   Vector3,
   MathUtils,
+  AmbientLight,
+  DirectionalLight,
 } from 'three';
 import {
   computeFraming,
@@ -12,6 +14,7 @@ import {
   measureCenter,
   type BoardExtent,
   type Framing,
+  type Viewport,
 } from './framing';
 
 /**
@@ -33,15 +36,18 @@ import {
 const CAMERA_TILT_DEG = 52;
 
 /**
- * Distance de la caméra au plateau.
+ * Champ de vision vertical, en degrés.
  *
- * Sans effet sur la taille apparente : la projection est orthographique, et
- * c'est justement ce qu'on veut. Une perspective conique rétrécit les cases
- * lointaines, ce que Quentin avait signalé comme « les cases ne font pas la
- * même taille ». Cette distance ne sert qu'à contenir le plateau entre les
- * plans de coupe.
+ * La projection est en PERSPECTIVE, et c'est le point qui décide de tout :
+ * une projection parallèle donne à une case du fond exactement la taille
+ * d'une case du premier plan. Sans fuite, aucune profondeur perçue — le
+ * plateau paraît plat quelle que soit l'épaisseur réelle des cases.
+ *
+ * 38° est un compromis : assez pour que la fuite se voie, assez peu pour que
+ * les cases du fond ne deviennent pas illisibles. Un champ large donnerait
+ * un effet grand-angle qui déforme les bords.
  */
-const CAMERA_DISTANCE = 4000;
+const CAMERA_FOV_DEG = 38;
 
 export interface BoardSceneOptions {
   /** Élément qui accueille le canvas. Le HUD DOM reste au-dessus. */
@@ -55,7 +61,7 @@ export interface BoardSceneOptions {
 
 export class BoardScene {
   readonly scene = new Scene();
-  readonly camera: OrthographicCamera;
+  readonly camera: PerspectiveCamera;
   /** Tout le contenu du plateau : c'est LUI qu'on tourne, pas la caméra. */
   readonly world = new Group();
 
@@ -76,6 +82,8 @@ export class BoardScene {
   /** Réglages de l'utilisateur, qui se composent avec le cadrage automatique. */
   private userZoom = 1;
   private userPan = { x: 0, y: 0 };
+  /** Distance courante de la caméra, calculée par le cadrage. */
+  private cameraDistance = 1000;
 
   private readonly onResize = () => this.layout();
   private readonly onVisibility = () => this.syncRunning();
@@ -98,8 +106,9 @@ export class BoardScene {
 
     // Les bornes sont posées au premier cadrage ; celles-ci évitent une
     // caméra dégénérée avant la première mesure.
-    this.camera = new OrthographicCamera(-1, 1, 1, -1, 0.1, CAMERA_DISTANCE * 4);
+    this.camera = new PerspectiveCamera(CAMERA_FOV_DEG, 1, 10, 40000);
     this.scene.add(this.world);
+    this.addLights();
 
     this.renderer = this.createRenderer();
     if (this.renderer) {
@@ -118,6 +127,21 @@ export class BoardScene {
   /** Le rendu 3D est-il disponible ? Faux si WebGL manque à l'appel. */
   public isAvailable(): boolean {
     return this.renderer !== null;
+  }
+
+  /**
+   * Taille à l'écran, en pixels, d'une longueur exprimée en unités monde.
+   *
+   * En projection conique la taille apparente dépend de la distance : elle ne
+   * se déduit plus d'un simple facteur d'échelle. Cette conversion sert à
+   * juger la lisibilité réelle d'une case.
+   */
+  public worldToScreenPixels(worldLength: number): number {
+    const fov = MathUtils.degToRad(CAMERA_FOV_DEG);
+    const visibleHeight = 2 * this.cameraDistance * Math.tan(fov / 2);
+    const screenHeight = Math.max(1, this.container.clientHeight);
+
+    return (worldLength / visibleHeight) * screenHeight;
   }
 
   /** Le cadrage retenu : orientation et échelle. Exposé pour être mesuré. */
@@ -197,53 +221,100 @@ export class BoardScene {
     this.framing = computeFraming(this.extent, usable);
     this.world.rotation.y = MathUtils.degToRad(this.framing.yawDeg);
 
-    // L'inclinaison écrase la profondeur à l'écran : un plateau incliné à 52°
-    // n'occupe plus que cos(52°) de sa hauteur. Le cadrage doit en tenir
-    // compte, sinon le plateau sort par le haut — c'est exactement ce qui
-    // arrivait à la tentative précédente.
-    const squash = Math.cos(MathUtils.degToRad(CAMERA_TILT_DEG));
-    const scale = this.framing.scale * this.userZoom;
+    // En perspective, cadrer ne consiste plus à fixer des bornes mais à
+    // RECULER la caméra jusqu'à ce que le plateau tienne dans le cône de
+    // vision. Le choix d'orientation, lui, ne change pas : vérifié, le quart
+    // de tour reste gagnant sur le plateau officiel (35 → 59 px) et perdant
+    // sur un parcours en colonne, exactement comme en projection parallèle.
+    this.camera.aspect = usable.width / usable.height;
+    this.cameraDistance = this.distanceToFit(usable) / this.userZoom;
 
-    const halfW = usable.width / 2 / scale;
-    const halfH = usable.height / 2 / scale / Math.max(squash, 0.2);
-
-    this.camera.left = -halfW;
-    this.camera.right = halfW;
-    this.camera.top = halfH;
-    this.camera.bottom = -halfH;
-
-    // Le HUD mange le haut et le bas de façon asymétrique : on décale la
-    // fenêtre de projection pour que le plateau reste centré dans ce qui
-    // reste visible, au lieu de passer sous la barre d'action.
-    const hudShift = (this.hudInsets.top - this.hudInsets.bottom) / 2 / scale;
-    this.camera.top += hudShift;
-    this.camera.bottom += hudShift;
+    // La fenêtre est décalée verticalement pour que le plateau se centre
+    // dans la surface laissée libre par le HUD, et non derrière lui.
+    const hudShift = (this.hudInsets.top - this.hudInsets.bottom) / 2;
+    this.camera.setViewOffset(
+      usable.width,
+      usable.height,
+      0,
+      -hudShift,
+      usable.width,
+      usable.height
+    );
 
     this.placeCamera();
     this.camera.updateProjectionMatrix();
     this.renderOnce();
   }
 
+  /**
+   * Distance à laquelle tout le parcours tient dans le champ de vision.
+   *
+   * L'inclinaison écrase la profondeur vue : un plateau incliné à 52°
+   * n'occupe plus que cos(52°) de sa hauteur à l'écran. Sans en tenir
+   * compte, on recule trop et le plateau devient minuscule.
+   */
+  private distanceToFit(usable: Viewport): number {
+    const fov = MathUtils.degToRad(CAMERA_FOV_DEG);
+    const aspect = usable.width / usable.height;
+
+    const { width, depth } = this.framing.rotated;
+    const projectedDepth = depth * Math.cos(MathUtils.degToRad(CAMERA_TILT_DEG));
+
+    // Une marge sur la hauteur : l'épaisseur des cases et les pions dépassent
+    // du plan du plateau, et seraient coupés par un cadrage au ras.
+    const byHeight = (projectedDepth / 2) * 1.12 / Math.tan(fov / 2);
+    const byWidth = (width / 2) / (Math.tan(fov / 2) * aspect);
+
+    return Math.max(byHeight, byWidth, 200);
+  }
+
   /** Pose la caméra au-dessus du centre du plateau, inclinée. */
   private placeCamera(): void {
     const tilt = MathUtils.degToRad(CAMERA_TILT_DEG);
-    const scale = this.framing.scale * this.userZoom;
 
     // Le déplacement manuel s'exprime en pixels écran : on le ramène en
-    // unités monde pour qu'un glissement d'un centimètre déplace toujours le
-    // plateau d'un centimètre, quel que soit le zoom.
+    // unités monde pour qu'un glissement suive le doigt quel que soit le zoom.
+    const worldPerPixel = this.cameraDistance * 2 *
+      Math.tan(MathUtils.degToRad(CAMERA_FOV_DEG) / 2) /
+      Math.max(1, this.container.clientHeight);
+
     const target = new Vector3(
-      this.center.x + this.userPan.x / scale,
+      this.center.x + this.userPan.x * worldPerPixel,
       0,
-      this.center.z - this.userPan.y / scale
+      this.center.z - this.userPan.y * worldPerPixel
     );
 
     this.camera.position.set(
       target.x,
-      Math.cos(tilt) * CAMERA_DISTANCE,
-      target.z + Math.sin(tilt) * CAMERA_DISTANCE
+      Math.cos(tilt) * this.cameraDistance,
+      target.z + Math.sin(tilt) * this.cameraDistance
     );
     this.camera.lookAt(target);
+  }
+
+  /**
+   * Éclaire la scène.
+   *
+   * Sans lumière, un matériau qui y réagit rend NOIR, et un matériau qui
+   * l'ignore rend six faces de la même couleur — le volume existe dans les
+   * données mais ne se voit pas. C'est ce qui faisait paraître le plateau
+   * plat malgré des cases réellement épaisses.
+   */
+  private addLights(): void {
+    // L'ambiante empêche les faces à l'ombre de tomber dans le noir.
+    this.scene.add(new AmbientLight(0xffffff, 0.62));
+
+    // La directionnelle vient de l'avant-gauche et en hauteur : elle éclaire
+    // le dessus des cases plus que leur tranche, ce qui suffit à distinguer
+    // l'un de l'autre sans y réfléchir.
+    const key = new DirectionalLight(0xffffff, 0.85);
+    key.position.set(-0.45, 1, 0.35);
+    this.scene.add(key);
+
+    // Une seconde lumière, opposée et faible, détache les tranches du fond.
+    const fill = new DirectionalLight(0xffffff, 0.3);
+    fill.position.set(0.6, 0.5, -0.5);
+    this.scene.add(fill);
   }
 
   /** Démarre la boucle de rendu. */

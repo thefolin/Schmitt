@@ -1,13 +1,10 @@
 import {
   Group,
   Mesh,
-  MeshBasicMaterial,
+  MeshLambertMaterial,
   PlaneGeometry,
   BoxGeometry,
-  Texture,
-  TextureLoader,
-  SRGBColorSpace,
-  DoubleSide,
+  CylinderGeometry,
   Color,
 } from 'three';
 import type { TileConfig } from '@/core/models/Tile';
@@ -28,8 +25,51 @@ import {
  * par le même chemin que le plateau officiel.
  */
 
-/** Épaisseur d'une case, en unités monde. Donne son assise au plateau. */
-const TILE_THICKNESS = 14;
+/**
+ * Épaisseur d'une case, en unités monde.
+ *
+ * 28 sur une case de 120, soit près d'un quart : franchement plus marqué que
+ * les 14 du premier jet. Sous une plongée légère on ne voit qu'une mince
+ * bande de la tranche, et c'est elle qui dit que la case est un objet posé
+ * plutôt qu'un dessin sur le tapis.
+ */
+const TILE_THICKNESS = 28;
+
+/**
+ * Couleurs des cases par famille d'effet.
+ *
+ * Les illustrations viendront ensuite — Quentin veut d'abord juger les
+ * volumes. Elles reprennent le code couleur du plateau physique : rouge pour
+ * boire, vert pour distribuer, jaune pour les flèches, bleu pour les cases
+ * spéciales.
+ */
+const TILE_COLORS: Record<string, number> = {
+  start: 0xe8e2d2,
+  finish: 0xe3c169,
+  drink_2: 0xc4382f,
+  drink_3: 0xc4382f,
+  drink_4: 0xc4382f,
+  drink_5: 0xc4382f,
+  distribute_2: 0x2f8f4e,
+  distribute_3: 0x2f8f4e,
+  distribute_4: 0x2f8f4e,
+  everyone_drinks: 0xa8422f,
+  forward_2: 0xe0a53c,
+  chicken: 0x3d7fc4,
+  big_chicken: 0x3d7fc4,
+  copy: 0x3d7fc4,
+  schmitt_call: 0x3d7fc4,
+  rule: 0x3d7fc4,
+  temple: 0x9b7fd4,
+  power: 0xe3c169,
+};
+
+/** Couleur de repli pour une case dont le type n'est pas répertorié. */
+const TILE_COLOR_DEFAULT = 0xb9c0d0;
+
+/** Dimensions d'un pion, en unités monde. */
+const PAWN_RADIUS = 26;
+const PAWN_HEIGHT = 46;
 
 /** Couleur du plateau sous les cases. */
 const TABLE_COLOR = 0x11512f;
@@ -45,10 +85,9 @@ export interface TilePosition {
 export class BoardTiles3D {
   readonly group = new Group();
 
-  private readonly loader = new TextureLoader();
-  private readonly textures = new Map<string, Texture>();
   private positions: TilePosition[] = [];
   private table: Mesh | null = null;
+  private readonly pawns = new Group();
 
   /**
    * Dessine le parcours et renvoie la position de chaque case.
@@ -57,11 +96,7 @@ export class BoardTiles3D {
    * calculées ici, une seule fois, plutôt que recalculées par chaque module
    * qui en a besoin.
    */
-  public build(
-    catalog: TileConfig[],
-    layout: BoardLayoutConfig,
-    onReady?: () => void
-  ): TilePosition[] {
+  public build(catalog: TileConfig[], layout: BoardLayoutConfig): TilePosition[] {
     this.clear();
 
     const step = layout.tileSize + layout.tileGap;
@@ -82,10 +117,11 @@ export class BoardTiles3D {
       const z = bounds.y + bounds.height / 2;
 
       this.positions[index] = { x, z };
-      this.group.add(this.createTile(tile, bounds, index, onReady));
+      this.group.add(this.createTile(tile, bounds, index));
     });
 
     this.createTable(step);
+    this.group.add(this.pawns);
 
     return this.positions;
   }
@@ -94,84 +130,75 @@ export class BoardTiles3D {
     return this.positions;
   }
 
-  /** Une case : un pavé fin, texturé par son illustration. */
+  /** Une case : un pavé épais, éclairé, dont on distingue dessus et tranche. */
   private createTile(
     tile: TileConfig,
     bounds: { x: number; y: number; width: number; height: number },
-    index: number,
-    onReady?: () => void
+    index: number
   ): Group {
     const holder = new Group();
     holder.position.set(bounds.x + bounds.width / 2, 0, bounds.y + bounds.height / 2);
     holder.name = `tile-${index}`;
 
-    // La tranche, qui donne au plateau son épaisseur. Sans elle, les cases
-    // ont l'air peintes sur le tapis plutôt que posées dessus.
-    const edge = new Mesh(
+    const color = new Color(TILE_COLORS[tile.type] ?? TILE_COLOR_DEFAULT);
+
+    // Le corps de la case. MeshLambertMaterial RÉAGIT à la lumière : c'est ce
+    // qui distingue le dessus de la tranche. Un matériau qui l'ignore rend
+    // six faces de la même couleur, et le volume ne se voit pas — c'est ce
+    // qui faisait paraître le plateau plat au premier jet.
+    const body = new Mesh(
       new BoxGeometry(bounds.width, TILE_THICKNESS, bounds.height),
-      new MeshBasicMaterial({ color: 0xf2efe6 })
+      new MeshLambertMaterial({ color })
     );
-    edge.position.y = TILE_THICKNESS / 2;
-    holder.add(edge);
+    body.position.y = TILE_THICKNESS / 2;
+    holder.add(body);
 
-    // La face visible, posée sur le dessus du pavé.
-    const face = new Mesh(
-      new PlaneGeometry(bounds.width, bounds.height),
-      new MeshBasicMaterial({
-        color: tile.image ? 0xffffff : 0xdfe4ef,
-        side: DoubleSide,
-        transparent: true,
-      })
+    // Un liseré clair sur le dessus, légèrement débordant : il souligne
+    // l'arête supérieure, là où la lumière accroche sur une vraie pièce.
+    const rim = new Mesh(
+      new PlaneGeometry(bounds.width * 0.88, bounds.height * 0.88),
+      new MeshLambertMaterial({ color: color.clone().lerp(new Color(0xffffff), 0.28) })
     );
-    face.rotation.x = -Math.PI / 2;
-    face.position.y = TILE_THICKNESS + 0.5;
-    holder.add(face);
-
-    if (tile.image) {
-      this.applyTexture(face.material as MeshBasicMaterial, tile.image, onReady);
-    }
+    rim.rotation.x = -Math.PI / 2;
+    rim.position.y = TILE_THICKNESS + 0.6;
+    holder.add(rim);
 
     return holder;
   }
 
   /**
-   * Charge une illustration et l'applique, sans bloquer l'affichage.
+   * Pose les pions sur leurs cases.
    *
-   * Les textures sont partagées : le plateau officiel réutilise la même
-   * image pour ses quatre cases « distribuez », et en charger quatre copies
-   * gaspillerait la mémoire graphique — la ressource rare sur un téléphone
-   * d'entrée de gamme.
+   * Des volumes simples, sans badge ni texture : Quentin veut d'abord juger
+   * si un pion posé sur une case se lit correctement. Le reste viendra.
    */
-  private applyTexture(
-    material: MeshBasicMaterial,
-    url: string,
-    onReady?: () => void
-  ): void {
-    const cached = this.textures.get(url);
-    if (cached) {
-      material.map = cached;
-      material.needsUpdate = true;
-      return;
-    }
+  public setPawns(players: { position: number; color: string }[]): void {
+    this.pawns.clear();
 
-    this.loader.load(
-      url,
-      texture => {
-        // Sans cela les illustrations sortent délavées : elles sont encodées
-        // en sRGB, pas en linéaire.
-        texture.colorSpace = SRGBColorSpace;
-        this.textures.set(url, texture);
-        material.map = texture;
-        material.needsUpdate = true;
-        onReady?.();
-      },
-      undefined,
-      () => {
-        // Illustration absente (plateau importé, fichier renommé) : la case
-        // garde sa couleur unie plutôt que de disparaître.
-        console.warn(`Illustration introuvable : ${url}`);
-      }
-    );
+    players.forEach((player, index) => {
+      const tile = this.positions[player.position];
+      if (!tile) return;
+
+      // Plusieurs pions sur la même case : on les décale en cercle plutôt
+      // que de les empiler, sinon seul le dernier se voit.
+      const sharing = players.filter(p => p.position === player.position);
+      const rank = sharing.indexOf(player);
+      const spread = sharing.length > 1 ? 26 : 0;
+      const angle = (rank / Math.max(1, sharing.length)) * Math.PI * 2;
+
+      const pawn = new Mesh(
+        new CylinderGeometry(PAWN_RADIUS, PAWN_RADIUS * 1.15, PAWN_HEIGHT, 20),
+        new MeshLambertMaterial({ color: new Color(player.color) })
+      );
+      pawn.position.set(
+        tile.x + Math.cos(angle) * spread,
+        TILE_THICKNESS + PAWN_HEIGHT / 2,
+        tile.z + Math.sin(angle) * spread
+      );
+      pawn.name = `pawn-${index}`;
+
+      this.pawns.add(pawn);
+    });
   }
 
   /** Le tapis sous le plateau, qui lui donne son assise. */
@@ -196,7 +223,7 @@ export class BoardTiles3D {
 
     const table = new Mesh(
       new PlaneGeometry(width, depth),
-      new MeshBasicMaterial({ color: new Color(TABLE_COLOR) })
+      new MeshLambertMaterial({ color: new Color(TABLE_COLOR) })
     );
     table.rotation.x = -Math.PI / 2;
     table.position.set((minX + maxX) / 2, -1, (minZ + maxZ) / 2);
@@ -208,6 +235,7 @@ export class BoardTiles3D {
 
   /** Vide le plateau, en libérant la mémoire graphique. */
   public clear(): void {
+    this.pawns.clear();
     this.group.clear();
     this.table = null;
     this.positions = [];
@@ -228,8 +256,6 @@ export class BoardTiles3D {
       else material.dispose();
     });
 
-    this.textures.forEach(texture => texture.dispose());
-    this.textures.clear();
     this.clear();
   }
 }
