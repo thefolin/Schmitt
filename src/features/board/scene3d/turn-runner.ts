@@ -1,5 +1,6 @@
 import type { GameLogic } from '@/features/game/game.logic';
 import type { TileConfig } from '@/core/models/Tile';
+import { isArrowTile, arrowDirection } from './arrow-tile';
 
 /**
  * La jonction entre les règles et la scène 3D.
@@ -249,12 +250,12 @@ export class TurnRunner {
       const position = this.logic.getPlayers()[player]?.position ?? 0;
       const tile = this.board[position];
 
-      if (!tile || !tile.type.startsWith('forward_')) break;
+      if (!tile || !isArrowTile(tile)) break;
 
       const steps = Number(tile.type.split('_')[1]);
       if (!Number.isFinite(steps) || steps <= 0) break;
 
-      const direction = tile.direction ?? 'forward';
+      const direction = arrowDirection(tile);
       const to = this.logic.movePlayerInDirection(player, steps, direction);
 
       if (origin === null) origin = position;

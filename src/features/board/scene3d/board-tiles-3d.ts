@@ -11,6 +11,7 @@ import {
   type Texture,
 } from 'three';
 import type { TileConfig } from '@/core/models/Tile';
+import { arrowDirection } from './arrow-tile';
 import {
   calculatePlacementBounds,
   type BoardLayoutConfig,
@@ -190,6 +191,14 @@ export class BoardTiles3D {
       })
     );
     face.rotation.x = -Math.PI / 2;
+    // Une flèche qui recule se DESSINE à l'envers. L'illustration est unique
+    // et pointe vers l'avant ; c'est la case qui déclare son sens, et le
+    // dessin la suit. Quand Quentin voudra qu'une flèche recule, il n'aura
+    // que sa donnée à changer.
+    //
+    // Le demi-tour se fait autour de la normale de la face, donc sur z APRÈS
+    // le basculement en x : la face est déjà couchée dans le plan du plateau.
+    face.rotation.z = arrowDirection(tile) === 'backward' ? Math.PI : 0;
     face.position.y = TILE_THICKNESS + 0.6;
     face.name = 'tile-face';
     holder.add(face);
