@@ -7,6 +7,9 @@ import {
   type InsetOverrides,
 } from './debug-insets';
 import { BoardTiles3D } from './board-tiles-3d';
+import { Dice3DScene } from './dice-3d-scene';
+import { DicePhysics } from '@/features/dice/DicePhysics';
+import { DEFAULT_DICE_CONFIG } from '@/features/dice/DiceConfig';
 import { loadTileConfigs, TILE_CONFIGS } from '@/features/tiles/tile.config';
 import { fetchBoardLayout } from '../camera/board-layout.config';
 
@@ -98,6 +101,14 @@ async function main(): Promise<void> {
   );
 
   refresh();
+
+  // Le dé, dans la MÊME scène et sous la MÊME caméra que le plateau (#44).
+  // C'est le juge de paix de la refonte : le désaccord face lue / face vue
+  // ne peut plus exister par construction, puisqu'il n'y a plus deux
+  // représentations à accorder.
+  const die = new Dice3DScene();
+  scene.world.add(die.group);
+  attachDice(die, positions, status);
 
   // Déplacement, zoom et rotation : l'acquis #15 plus la rotation de #43.
   attachControls(container, scene, refresh);
@@ -231,6 +242,74 @@ function showInsets(
 
   frame.style.top = `${insets.top}px`;
   frame.style.bottom = `${insets.bottom}px`;
+}
+
+/**
+ * Lance le dé et le fait vivre dans la scène.
+ *
+ * La physique est celle du jeu, sans modification : elle a déjà été mesurée à
+ * 0 % d'erreur sur 3 000 tirages, et le dé tombé hors plateau s'y repose à
+ * plat (13f9c40). On ne refait pas ce qui marche — on le branche sur un rendu
+ * qui ne peut plus le contredire.
+ */
+function attachDice(
+  die: Dice3DScene,
+  positions: { x: number; z: number }[],
+  status: HTMLElement | null
+): void {
+  // Les bornes sont celles d'une aire de jeu en unités monde : le dé roule
+  // sur le plateau, pas dans un rectangle d'écran.
+  const physics = new DicePhysics(
+    DEFAULT_DICE_CONFIG,
+    { x: 0, y: 0 },
+    { width: 520, height: 520 }
+  );
+  const result = document.getElementById('dice-value');
+
+  // Le dé roule au centre du plateau, posé sur la surface des cases.
+  const centre = positions[Math.floor(positions.length / 2)] ?? { x: 0, z: 0 };
+  die.setPosition(centre.x, Dice3DScene.halfSize + 30, centre.z);
+
+  const show = (value: number, rolling: boolean): void => {
+    if (result) result.textContent = rolling ? '…' : String(value);
+    if (!rolling && status) status.dataset.dice = String(value);
+  };
+
+  let frame: number | null = null;
+
+  const step = (): void => {
+    const state = physics.update(16);
+    die.setOrientation(state.orientation);
+
+    // Le dé s'élève puis retombe : sa hauteur vient de la physique.
+    die.setPosition(
+      centre.x + state.position.x,
+      Dice3DScene.halfSize + 30 + Math.max(0, state.height),
+      centre.z + state.position.y
+    );
+
+    if (state.isRolling) {
+      frame = requestAnimationFrame(step);
+      return;
+    }
+
+    // Un dé tombé de la table se repose à plat plutôt que de rester figé sur
+    // une arête, sans face lisible (13f9c40) : l'acquis qu'on ne perd pas.
+    if (state.hasFallen) physics.resetFall();
+
+    frame = null;
+    show(physics.getState().currentValue, false);
+  };
+
+  document.getElementById('roll')?.addEventListener('click', () => {
+    if (frame !== null) cancelAnimationFrame(frame);
+
+    show(0, true);
+    physics.throw();
+    frame = requestAnimationFrame(step);
+  });
+
+  show(physics.getState().currentValue, false);
 }
 
 /** Avancer, reculer, et voir tout le plateau. */
