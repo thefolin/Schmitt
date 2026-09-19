@@ -1,3 +1,4 @@
+import { Raycaster, Vector2 } from 'three';
 import { BoardScene } from './board-scene';
 import { buildJourneyProgress } from './journey-progress';
 import {
@@ -10,6 +11,7 @@ import { BoardTiles3D } from './board-tiles-3d';
 import { Dice3DScene } from './dice-3d-scene';
 import { DicePhysics } from '@/features/dice/DicePhysics';
 import { WORLD_DICE_CONFIG, rollingSpinRate } from './dice-world-config';
+import { diceArena } from './dice-arena';
 import { GameLogic } from '@/features/game/game.logic';
 import { TurnRunner } from './turn-runner';
 import { loadTileConfigs, TILE_CONFIGS } from '@/features/tiles/tile.config';
@@ -108,6 +110,7 @@ async function main(): Promise<void> {
   };
 
   applyPreferredView();
+  showRotateHint(scene);
 
   scene.start();
 
@@ -153,6 +156,7 @@ async function main(): Promise<void> {
     // plutôt que de laisser le joueur sur un cadrage choisi pour l'autre
     // orientation.
     applyPreferredView();
+    showRotateHint(scene);
     refresh();
   };
 
@@ -290,16 +294,20 @@ function attachDice(
   follow: () => void,
   refresh: () => void
 ): void {
-  // L'aire de jeu, en unités monde. Le dé part de son CENTRE, et c'est le
-  // point décisif : les bornes de `DicePhysics` vont de 0 à `width`, si bien
-  // qu'un lancer démarré en (0, 0) se fait DANS UN COIN. Le dé y rebondit
-  // aussitôt sur deux murs et revient sur ses pas.
-  const ARENA = 900;
+  // L'aire de jeu épouse le PLATEAU, et non un carré inventé : le dé roule
+  // sur les cases et rebondit sur leurs bords. « Pas de je jette le dé dans
+  // le vide. » Les quatre côtés sont bordés, donc le dé ne peut pas tomber.
+  const arena = diceArena(positions, 120);
   const physics = new DicePhysics(
     WORLD_DICE_CONFIG,
-    { x: ARENA / 2, y: ARENA / 2 },
-    { width: ARENA, height: ARENA }
+    { x: (arena.minX + arena.maxX) / 2, y: (arena.minZ + arena.maxZ) / 2 },
+    { width: arena.maxX - arena.minX, height: arena.maxZ - arena.minZ }
   );
+  physics.setTableBounds(
+    { minX: arena.minX, maxX: arena.maxX, minY: arena.minZ, maxY: arena.maxZ },
+    { top: true, right: true, bottom: true, left: true }
+  );
+
   const result = document.getElementById('dice-value');
 
   let frame: number | null = null;
@@ -325,21 +333,33 @@ function attachDice(
     state.spin.y *= 0.9;
   };
 
-  /** Le dé roule près du pion du joueur courant. */
-  const placeArena = (): { x: number; z: number } =>
-    positions[runner.tileToFollow()] ?? positions[0] ?? { x: 0, z: 0 };
-
-  let centre = placeArena();
+  /**
+   * Cadrage du dé pendant qu'il roule, ramené doucement.
+   *
+   * Le suivi est AMORTI : la caméra tend vers le dé au lieu de lui coller.
+   * Un cadrage collé sur un objet qui rebondit donne le tournis, et le
+   * mouvement de la caméra masquerait celui du dé qu'on veut justement
+   * regarder.
+   */
+  const ROLL_SPAN = 7 * 120;
+  let camX = (arena.minX + arena.maxX) / 2;
+  let camZ = (arena.minZ + arena.maxZ) / 2;
 
   const step = (): void => {
     const state = physics.update(16);
 
     applyRolling(state);
+
+    camX += (state.position.x - camX) * 0.08;
+    camZ += (state.position.y - camZ) * 0.08;
+    scene.followPoint(camX, camZ, ROLL_SPAN);
     die.setOrientation(state.orientation);
+    // Les coordonnées de la physique SONT celles du monde : l'aire épouse le
+    // plateau, il n'y a plus de repère intermédiaire à convertir.
     die.setPosition(
-      centre.x + (state.position.x - ARENA / 2),
+      state.position.x,
       Dice3DScene.halfSize + Math.max(0, state.height),
-      centre.z + (state.position.y - ARENA / 2)
+      state.position.y
     );
 
     if (state.isRolling) {
@@ -362,8 +382,10 @@ function attachDice(
     const outcome = runner.playTurn(face);
 
     tiles.setPawns(runner.pawns());
-    follow();
-    centre = placeArena();
+
+    // Retour SOUPLE à la vue du plateau : un saut de caméra à l'instant où
+    // le dé s'immobilise ferait perdre le résultat de vue.
+    easeBack(scene, camX, camZ, ROLL_SPAN, follow);
 
     const parts = [`${outcome.playerName} fait ${outcome.dice} : ${outcome.from} → ${outcome.to}`];
     if (outcome.effect) parts.push(`flèche → ${outcome.effect.to}`);
@@ -376,14 +398,132 @@ function attachDice(
     refresh();
   };
 
-  document.getElementById('roll')?.addEventListener('click', () => {
+  /** Lance le dé, si un lancer est attendu. */
+  const roll = (): void => {
     if (frame !== null) return;
 
     if (result) result.textContent = '…';
-    centre = placeArena();
     physics.throw();
     frame = requestAnimationFrame(step);
-  });
+  };
+
+  document.getElementById('roll')?.addEventListener('click', roll);
+
+  // ATTRAPER LE DÉ AU DOIGT plutôt que par un bouton. Le déclenchement se
+  // fait PAR LE CONTEXTE, comme Quentin le préfère : le dé répond quand un
+  // lancer est attendu, et reste sourd pendant qu'il roule. Sur un téléphone
+  // posé sur la table et passé de main en main, c'est toujours le tour de
+  // celui qui le tient — il n'y a donc pas d'autre condition à vérifier.
+  attachDiceGrab(die, scene, () => frame === null, roll);
+}
+
+/**
+ * Ramène la caméra du dé vers la vue du plateau, en douceur.
+ *
+ * La durée est courte — une demi-seconde — pour ne pas rallonger le tour de
+ * façon sensible. Ce qu'on achète avec, c'est que le joueur garde le dé et
+ * son résultat à l'œil pendant que la vue s'élargit.
+ */
+function easeBack(
+  scene: BoardScene,
+  fromX: number,
+  fromZ: number,
+  fromSpan: number,
+  done: () => void
+): void {
+  const DURATION = 480;
+  const start = performance.now();
+
+  // La cible : ce que la vue montrera à l'arrivée.
+  done();
+  const target = scene.getFraming();
+  const targetSpan = Math.max(target.rotated.width, target.rotated.depth);
+  const centre = scene.getFocusCenter();
+
+  const tick = (): void => {
+    const t = Math.min(1, (performance.now() - start) / DURATION);
+    // Amorti en fin de course : le mouvement s'arrête sans à-coup.
+    const eased = 1 - Math.pow(1 - t, 3);
+
+    if (t >= 1) {
+      done();
+      return;
+    }
+
+    scene.followPoint(
+      fromX + (centre.x - fromX) * eased,
+      fromZ + (centre.z - fromZ) * eased,
+      fromSpan + (targetSpan - fromSpan) * eased
+    );
+
+    requestAnimationFrame(tick);
+  };
+
+  requestAnimationFrame(tick);
+}
+
+/**
+ * Rend le dé attrapable au doigt ou à la souris.
+ *
+ * Le geste est distingué de la rotation de caméra par ce qu'il TOUCHE : un
+ * appui sur le dé le lance, un appui ailleurs laisse la caméra tourner. La
+ * rotation n'est donc pas désactivée, elle est seulement précédée.
+ */
+function attachDiceGrab(
+  die: Dice3DScene,
+  scene: BoardScene,
+  canRoll: () => boolean,
+  roll: () => void
+): void {
+  const container = scene.viewport;
+  const raycaster = new Raycaster();
+
+  /** Le doigt touche-t-il le dé ? */
+  const hitsDie = (clientX: number, clientY: number): boolean => {
+    const box = container.getBoundingClientRect();
+    const pointer = new Vector2(
+      ((clientX - box.left) / Math.max(1, box.width)) * 2 - 1,
+      -((clientY - box.top) / Math.max(1, box.height)) * 2 + 1
+    );
+
+    raycaster.setFromCamera(pointer, scene.camera);
+
+    return raycaster.intersectObject(die.group, true).length > 0;
+  };
+
+  const tryGrab = (clientX: number, clientY: number): boolean => {
+    if (!canRoll()) return false;
+    if (!hitsDie(clientX, clientY)) return false;
+
+    roll();
+    return true;
+  };
+
+  container.addEventListener('pointerdown', event => {
+    // Le dé passe AVANT la caméra : s'il est touché, le geste lui revient et
+    // la vue ne doit pas tourner en même temps.
+    if (tryGrab(event.clientX, event.clientY)) {
+      event.stopPropagation();
+      event.preventDefault();
+    }
+  }, true);
+}
+
+/**
+ * Invite à tourner le téléphone en portrait.
+ *
+ * Quentin a choisi de ne PAS verrouiller l'orientation : le jeu reste
+ * réactif, et on le dit au joueur plutôt que de lui imposer. Ça laisse la
+ * porte ouverte à un verrouillage plus tard, si l'usage montre qu'il le faut.
+ *
+ * Le cadrage portrait continue donc de fonctionner derrière le message — ce
+ * n'est pas un écran de blocage, c'est un conseil.
+ */
+function showRotateHint(scene: BoardScene): void {
+  const hint = document.getElementById('rotate-hint');
+  if (!hint) return;
+
+  hint.hidden = scene.prefersWholeBoard();
 }
 
 /** Raconte le dernier tour joué. */

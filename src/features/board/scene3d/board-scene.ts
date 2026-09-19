@@ -141,6 +141,8 @@ export class BoardScene {
   private tileSize = 120;
   /** Case suivie, ou `null` en vue d'ensemble. */
   private followed: number | null = null;
+  /** Point cadré indépendamment des cases — le dé qui roule. */
+  private focus: { x: number; z: number; span: number } | null = null;
   /** Distance courante de la caméra, calculée par le cadrage. */
   private cameraDistance = 1000;
 
@@ -184,6 +186,11 @@ export class BoardScene {
     document.addEventListener('visibilitychange', this.onVisibility);
 
     this.layout();
+  }
+
+  /** L'élément qui reçoit les gestes : le même que celui qui porte le canvas. */
+  public get viewport(): HTMLElement {
+    return this.container;
   }
 
   /** Le rendu 3D est-il disponible ? Faux si WebGL manque à l'appel. */
@@ -265,12 +272,37 @@ export class BoardScene {
    */
   public followTile(index: number): void {
     this.followed = index;
+    this.focus = null;
     this.applyView();
   }
 
   /** Montre tout le parcours, à la demande (#45). */
   public showWholeBoard(): void {
     this.followed = null;
+    this.focus = null;
+    this.applyView();
+  }
+
+  /**
+   * Cadre un point du monde, sans le rattacher à une case (#49).
+   *
+   * Sert à suivre le dé pendant qu'il roule : il ne se trouve sur aucune case
+   * en particulier, et souvent entre plusieurs.
+   */
+  public followPoint(x: number, z: number, span: number): void {
+    this.followed = null;
+    this.focus = { x, z, span };
+    this.layout();
+  }
+
+  /** Le point que la caméra vise actuellement. */
+  public getFocusCenter(): { x: number; z: number } {
+    return { ...this.center };
+  }
+
+  /** Abandonne le cadrage d'un point et revient à la vue courante. */
+  public releasePoint(): void {
+    this.focus = null;
     this.applyView();
   }
 
@@ -290,6 +322,15 @@ export class BoardScene {
    * pas.
    */
   private applyView(): void {
+    // Un point cadré l'emporte : pendant que le dé roule, c'est lui qu'on
+    // regarde, quelle que soit la vue qui reprendra ensuite.
+    if (this.focus) {
+      this.extent = { width: this.focus.span, depth: this.focus.span };
+      this.center = { x: this.focus.x, z: this.focus.z };
+      this.layout();
+      return;
+    }
+
     const tile = this.followed === null ? undefined : this.tiles[this.followed];
 
     if (!tile) {

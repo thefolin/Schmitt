@@ -115,6 +115,45 @@
 
         button:hover { border-color: #d4af37; }
 
+        #rotate-hint {
+            position: fixed;
+            inset: 0;
+            z-index: 50;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: rgba(13, 21, 36, 0.96);
+        }
+
+        .rotate-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            text-align: center;
+        }
+
+        .rotate-card strong { font-size: 17px; }
+        .rotate-card span { font-size: 13px; color: #aab6d0; }
+
+        .rotate-icon {
+            font-size: 44px;
+            /* Le pictogramme bascule : il montre le geste attendu plutôt que
+               de seulement le nommer. */
+            animation: tilt 2.4s ease-in-out infinite;
+        }
+
+        @keyframes tilt {
+            0%, 40% { transform: rotate(0deg); }
+            60%, 100% { transform: rotate(-90deg); }
+        }
+
+        /* Le mouvement peut gêner : on le retire quand le système le demande. */
+        @media (prefers-reduced-motion: reduce) {
+            .rotate-icon { animation: none; transform: rotate(-90deg); }
+        }
+
         /* La barre du bas : elle situe le joueur sans manger l'écran. */
         .foot {
             position: fixed;
@@ -187,6 +226,17 @@
 </head>
 <body>
     <div id="scene"></div>
+
+    <!-- Le jeu se joue en paysage. Plutôt que de verrouiller l'orientation,
+         on le dit : le joueur garde la main, et on pourra verrouiller plus
+         tard si l'usage montre que c'est nécessaire. -->
+    <div id="rotate-hint" hidden>
+        <div class="rotate-card">
+            <div class="rotate-icon">📱</div>
+            <strong>Tourne ton téléphone</strong>
+            <span>Schmitt Odyssée se joue à l'horizontale.</span>
+        </div>
+    </div>
 
     <!-- Cadre de contrôle, visible avec ?debug=1 : le plateau doit être
          centré dans lui, et sa ligne médiane passer au milieu du plateau. -->
