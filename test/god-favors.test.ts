@@ -17,14 +17,35 @@ describe('GOD_FAVORS mapping', () => {
   });
 
   it('associe la bonne divinité à chaque somme (règles du jeu)', () => {
+    // La table du PLATEAU PHYSIQUE, arbitrée par Quentin (#34). Elle était
+    // décalée d'un cran sur les sommes 3 à 7 : ATHÉNA en 4 au lieu de 3, et
+    // chaque faveur suivante héritait de la place de la précédente.
     expect(getGodFavor(2)?.name).toBe('COLÈRE DES DIEUX');
-    expect(getGodFavor(4)?.name).toBe('ATHÉNA');
-    expect(getGodFavor(5)?.name).toBe('APHRODITE');
-    expect(getGodFavor(6)?.name).toBe('HERMÈS');
-    expect(getGodFavor(7)?.name).toBe('APOLLON');
+    expect(getGodFavor(3)?.name).toBe('ATHÉNA');
+    expect(getGodFavor(4)?.name).toBe('APHRODITE');
+    expect(getGodFavor(5)?.name).toBe('HERMÈS');
+    expect(getGodFavor(6)?.name).toBe('APOLLON');
+    expect(getGodFavor(7)?.name).toBe('ARTÉMIS');
+    expect(getGodFavor(8)?.name).toBe('ARÈS');
     expect(getGodFavor(9)?.name).toBe('DIONYSOS');
+    expect(getGodFavor(10)?.name).toBe('HÉPHAÏSTOS');
     expect(getGodFavor(11)?.name).toBe('POSÉIDON');
     expect(getGodFavor(12)?.name).toBe('ZEUS - FAVEUR SUPRÊME');
+  });
+
+  it('ne contient plus « Jugement dernier »', () => {
+    // Implémentée mais absente du plateau physique : Quentin l'a supprimée.
+    const names = Object.values(GOD_FAVORS).map(f => f.name);
+
+    expect(names).not.toContain('JUGEMENT DERNIER');
+  });
+
+  it('donne à chaque somme une divinité distincte', () => {
+    // Un décalage de table laisse facilement deux sommes sur la même faveur,
+    // et le défaut passe inaperçu tant qu'on ne les compare pas toutes.
+    const names = Object.values(GOD_FAVORS).map(f => f.name);
+
+    expect(new Set(names).size).toBe(names.length);
   });
 
   it('retourne undefined pour une somme hors plage (1 dé seul, ou valeur impossible)', () => {

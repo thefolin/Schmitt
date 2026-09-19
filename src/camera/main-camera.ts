@@ -69,7 +69,7 @@ class SchmittOdysseeCamera {
   private sheepHops = 0; // Sauts de MOUTON dans le tour : borne les rebonds en chaîne
   private diceResults: { normal: number | null; godPower: number | null } = { normal: null, godPower: null };
   private isRollingForGodPower = false; // Flag pour savoir si on lance pour une faveur des dieux
-  /** Valeurs des 2 dés de la dernière Faveur, pour le Jugement Dernier. */
+  /** Valeurs des 2 dés de la dernière Faveur, pour Artémis. */
   private lastFavorDice: { a: number; b: number } = { a: 1, b: 1 };
   // Callback en attente lié au modal d'effet affiché (déclenché par timer OU par le bouton OK)
   private pendingModalAction: { timeoutId: number; callback: () => void } | null = null;
@@ -677,7 +677,7 @@ class SchmittOdysseeCamera {
 
         console.log(`⚡ Résultat faveur: ${this.diceResults.normal} + ${this.diceResults.godPower} = ${sum} (double: ${isDouble})`);
 
-        // Conserver les deux valeurs : le Jugement Dernier permet d'en garder
+        // Conserver les deux valeurs : Artémis permet d'en garder
         // une et de relancer l'autre, il faut donc savoir ce qui est sorti.
         this.lastFavorDice = {
           a: this.diceResults.normal,
@@ -1277,18 +1277,26 @@ class SchmittOdysseeCamera {
   }
 
   /**
-   * JUGEMENT DERNIER — le joueur garde l'un des 2 dés et relance l'autre.
+   * ARTÉMIS — garder un dé, relancer l'autre UNE SEULE FOIS.
+   *
+   * Arbitré par Quentin (#34). La faveur remplace « Jugement Dernier », qui
+   * était implémentée mais absente du plateau physique, et prend la somme 7.
    *
    * C'est un choix tactique : selon la faveur visée, on garde le dé qui
-   * approche du total souhaité. Le code tirait deux dés au hasard, ce qui
-   * supprimait toute décision.
+   * approche du total souhaité.
+   *
+   * LA DIFFÉRENCE AVEC L'ANCIENNE FAVEUR est dans le double. Jugement Dernier
+   * renvoyait la Colère des Dieux sur le joueur lui-même ; Artémis lui permet
+   * de la DONNER au joueur de son choix — et ce sont des gorgées, pas un cul
+   * sec. C'est ce que Quentin a précisé quand la première formulation était
+   * ambiguë.
    */
-  private handleLastJudgement(currentPlayer: Player): void {
+  private handleArtemis(currentPlayer: Player): void {
     const { a, b } = this.lastFavorDice;
 
     this.promptChoice(
-      'Jugement Dernier',
-      `Vos dés : ${a} et ${b}. Gardez-en un, l'autre sera relancé.`,
+      'Artémis',
+      `Vos dés : ${a} et ${b}. Gardez-en un, l'autre sera relancé une fois.`,
       [
         { label: `Garder le ${a}`, value: String(a) },
         { label: `Garder le ${b}`, value: String(b) }
@@ -1300,18 +1308,33 @@ class SchmittOdysseeCamera {
         const sum = keptValue + reroll;
 
         this.gameLogic.logEvent(
-          `\u{1F3B2} Jugement Dernier : ${currentPlayer.name} garde ${keptValue}, relance ${reroll}`
+          `\u{1F3F9} Artémis : ${currentPlayer.name} garde ${keptValue}, relance ${reroll}`
         );
 
-        // Un double reste la colère des dieux, même après un Jugement Dernier
+        // Le double reste la Colère des Dieux — mais Artémis permet de la
+        // faire porter par un autre, en gorgées plutôt qu'en cul sec.
         if (keptValue === reroll) {
           this.gameRenderer.showNotification(
-            `\u{274C} COLÈRE DES DIEUX ! Double ${reroll} : ${currentPlayer.name} reçoit 1 cul sec !`,
-            3000
+            `\u{1F3F9} Double ${reroll} ! ${currentPlayer.name} désigne qui boit à sa place.`,
+            2500
           );
-          this.gameLogic.addDrinks(currentPlayer.index, 1);
-          this.updateUI();
-          this.scheduleNextTurn(3000);
+
+          this.playerSelector.show(
+            this.gameLogic.getPlayers(),
+            1,
+            currentPlayer.index,
+            false,
+            (selectedPlayers) => {
+              const target = selectedPlayers[0];
+              this.gameLogic.addDrinks(target.index, reroll);
+              this.gameRenderer.showNotification(
+                `\u{1F3F9} ${target.name} reçoit ${reroll} ${GULP} à la place de ${currentPlayer.name} !`,
+                3000
+              );
+              this.updateUI();
+              this.scheduleNextTurn(3000);
+            }
+          );
           return;
         }
 
@@ -2110,19 +2133,15 @@ class SchmittOdysseeCamera {
         this.scheduleNextTurn(2000);
         break;
 
-      case 3: // JUGEMENT DERNIER — garder un dé, relancer l'autre
-        this.handleLastJudgement(currentPlayer);
-        break;
-
-      case 4: // ATHÉNA — le bouclier qui renvoie une fois, et interdit de gagner
+      case 3: // ATHÉNA — le bouclier qui renvoie une fois, et interdit de gagner
         this.handleAthenaShield(currentPlayer);
         break;
 
-      case 5: // Aphrodite - lancer 2 dés et déplacer 2 adversaires
+      case 4: // Aphrodite - lancer 2 dés et déplacer 2 adversaires
         this.handleAphroditePower(currentPlayer);
         break;
 
-      case 6: // Hermès - échanger de position
+      case 5: // Hermès - échanger de position
         this.gameRenderer.showNotification(`${currentPlayer.name} : Choisissez un adversaire pour échanger de position`);
         this.playerSelector.show(
           this.gameLogic.getPlayers(),
@@ -2141,8 +2160,12 @@ class SchmittOdysseeCamera {
         );
         break;
 
-      case 7: // APOLLON — rejouer avec 2 dés, garder celui de son choix
+      case 6: // APOLLON — rejouer avec 2 dés, garder celui de son choix
         this.handleApollon(currentPlayer);
+        break;
+
+      case 7: // ARTÉMIS — garder un dé, relancer l'autre une seule fois
+        this.handleArtemis(currentPlayer);
         break;
 
       case 8: // ARÈS — se joue à la table, l'app énonce et attend

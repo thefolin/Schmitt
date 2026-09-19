@@ -450,7 +450,7 @@
   gap: var(--sp-3);
 }
 
-/* Liste de choix (Jugement Dernier, Apollon, Zeus).
+/* Liste de choix (Artémis, Apollon, Zeus).
    Zeus propose 9 faveurs : en colonne unique cela dépasse l'écran d'un
    téléphone en paysage, d'où la grille auto-ajustée. */
 .choice-list {

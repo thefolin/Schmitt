@@ -23,9 +23,9 @@ const GOD_POWERS = [
   },
   {
     id: 101,
-    name: 'Jugement Dernier',
-    icon: '🎲',
-    description: 'Conservez 1 des 2 dés et relancez l\'autre en fonction des faveurs souhaitées. Attention à la colère des Dieux !',
+    name: 'Artémis',
+    icon: '🏹',
+    description: 'Conservez 1 dé et relancez l\'autre une seule fois. Si vous retombez sur un double, distribuez les gorgées de la Colère des Dieux au joueur de votre choix à votre place.',
     image: 'assets/de.jpg'
   },
   {
