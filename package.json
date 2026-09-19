@@ -24,6 +24,7 @@
   },
   "devDependencies": {
     "@types/estree": "^1.0.8",
+    "@types/three": "0.186.0",
     "jsdom": "^29.1.1",
     "terser": "^5.44.1",
     "typescript": "^5.3.3",
@@ -38,6 +39,7 @@
     "@capacitor/core": "^6.2.1",
     "@capacitor/geolocation": "^6.1.0",
     "@capacitor/preferences": "^6.0.3",
-    "@capacitor/push-notifications": "^6.0.4"
+    "@capacitor/push-notifications": "^6.0.4",
+    "three": "0.186.0"
   }
 }

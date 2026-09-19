@@ -30,6 +30,10 @@ export default defineConfig({
       input: {
         main: path.resolve(__dirname, 'index.html'),
         editor: path.resolve(__dirname, 'index-editor.html'),
+        // Aperçu du rendu 3D, le temps de la refonte. Page à part : le jeu
+        // continue de tourner sur le rendu CSS tant que le nouveau n'est pas
+        // au niveau.
+        preview3d: path.resolve(__dirname, 'index-3d.html'),
       },
       output: {
         // Optimisation des chunks pour mobile
