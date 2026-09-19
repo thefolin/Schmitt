@@ -49,6 +49,25 @@ const CAMERA_TILT_DEG = 52;
  */
 const CAMERA_FOV_DEG = 38;
 
+/**
+ * Bornes de l'élévation manuelle, en degrés depuis la verticale (#43).
+ *
+ * Elles ne sont pas décoratives. À 90° on passerait SOUS le plateau : on y
+ * verrait la tranche des cases par en dessous, sans repère pour comprendre
+ * comment en revenir. À 0° la caméra regarde droit vers le bas, la fuite
+ * disparaît et on retombe sur la vue plate que Quentin a refusée au premier
+ * jet — la borne haute protège donc l'acquis de la perspective.
+ *
+ * Le LACET, lui, n'est pas borné : un plateau se regarde de tous les côtés,
+ * et une butée au milieu d'un geste continu se sentirait comme un défaut.
+ */
+const MIN_TILT_DEG = 12;
+const MAX_TILT_DEG = 78;
+
+/** Degrés de rotation par pixel glissé. */
+const YAW_PER_PIXEL = 0.4;
+const TILT_PER_PIXEL = 0.3;
+
 export interface BoardSceneOptions {
   /** Élément qui accueille le canvas. Le HUD DOM reste au-dessus. */
   container: HTMLElement;
@@ -82,6 +101,18 @@ export class BoardScene {
   /** Réglages de l'utilisateur, qui se composent avec le cadrage automatique. */
   private userZoom = 1;
   private userPan = { x: 0, y: 0 };
+  /**
+   * Orbite du joueur : d'où il regarde le plateau (#43).
+   *
+   * Distincte du lacet de `framing`, et c'est le point à ne pas confondre.
+   * `framing.yawDeg` décide du SENS DE PRÉSENTATION du plateau d'après sa
+   * forme — il appartient au plateau. `orbitYaw` décide d'OÙ ON LE REGARDE —
+   * il appartient au joueur. Les fondre en un seul angle ferait recalculer
+   * un cadrage à chaque geste, et le plateau changerait de taille pendant
+   * qu'on le tourne.
+   */
+  private orbitYaw = 0;
+  private orbitTilt = CAMERA_TILT_DEG;
   /** Distance courante de la caméra, calculée par le cadrage. */
   private cameraDistance = 1000;
 
@@ -178,10 +209,56 @@ export class BoardScene {
     this.layout();
   }
 
-  /** Revient au cadrage automatique, en annulant zoom et déplacement. */
+  /**
+   * Tourne la vue autour du plateau, en degrés (#43).
+   *
+   * Le lacet fait le tour librement ; l'élévation est bornée. On ne recadre
+   * PAS en continu pendant le geste : le plateau se remettrait à l'échelle
+   * sous le doigt, et le joueur verrait sa taille changer sans avoir rien
+   * demandé. Une rotation libre peut donc sortir des cases du champ — c'est
+   * son choix, et « Recadrer » est le filet.
+   */
+  public orbitBy(yawDeg: number, tiltDeg: number): void {
+    // Ramené dans un tour : cumulé sans fin, l'angle finirait par perdre en
+    // précision, et une valeur de cinquante tours ne dit rien à personne.
+    this.orbitYaw = wrapDegrees(this.orbitYaw + yawDeg);
+    this.orbitTilt = MathUtils.clamp(this.orbitTilt + tiltDeg, MIN_TILT_DEG, MAX_TILT_DEG);
+    this.layout();
+  }
+
+  /** Tourne la vue en pixels glissés, pour un geste au doigt (#43). */
+  public orbitByPixels(dxPx: number, dyPx: number): void {
+    this.orbitBy(dxPx * YAW_PER_PIXEL, dyPx * TILT_PER_PIXEL);
+  }
+
+  /** D'où le joueur regarde le plateau. Exposé pour être mesuré. */
+  public getOrbit(): { yawDeg: number; tiltDeg: number } {
+    return { yawDeg: this.orbitYaw, tiltDeg: this.orbitTilt };
+  }
+
+  /** L'élévation du cadrage automatique, celle que « Recadrer » restaure. */
+  public getDefaultTiltDeg(): number {
+    return CAMERA_TILT_DEG;
+  }
+
+  /** Position de la caméra dans le monde. Exposée pour être mesurée. */
+  public getCameraPosition(): { x: number; y: number; z: number } {
+    const { x, y, z } = this.camera.position;
+    return { x, y, z };
+  }
+
+  /**
+   * Revient au cadrage automatique : zoom, déplacement ET angle.
+   *
+   * L'angle en fait partie. Un bouton qui rendrait le zoom mais laisserait la
+   * vue de travers ne serait qu'un demi-bouton, et laisserait perdu le joueur
+   * qui s'en sert précisément parce qu'il l'est.
+   */
   public resetView(): void {
     this.userZoom = 1;
     this.userPan = { x: 0, y: 0 };
+    this.orbitYaw = 0;
+    this.orbitTilt = CAMERA_TILT_DEG;
     this.layout();
   }
 
@@ -258,19 +335,40 @@ export class BoardScene {
     const aspect = usable.width / usable.height;
 
     const { width, depth } = this.framing.rotated;
-    const projectedDepth = depth * Math.cos(MathUtils.degToRad(CAMERA_TILT_DEG));
+
+    // L'encombrement VU DEPUIS LA CAMÉRA, et non l'encombrement du plateau.
+    // La distinction n'existait pas tant que la caméra était fixe : la
+    // largeur du plateau faisait alors toujours face à l'objectif. Dès que
+    // la caméra orbite, c'est faux — à 90° de lacet, c'est la profondeur qui
+    // occupe l'horizontale, et sur un plateau deux fois plus large que
+    // profond l'écart est du simple au double. Le plateau serait coupé.
+    const yaw = MathUtils.degToRad(this.orbitYaw);
+    const cos = Math.abs(Math.cos(yaw));
+    const sin = Math.abs(Math.sin(yaw));
+
+    // Un rectangle tourné dans son plan occupe, sur chaque axe, la somme des
+    // projections de ses deux côtés : c'est son encombrement réel, celui qui
+    // doit tenir dans le champ.
+    const facingWidth = width * cos + depth * sin;
+    const facingDepth = depth * cos + width * sin;
+
+    // L'inclinaison écrase la profondeur vue : à 52° le plateau n'occupe plus
+    // que cos(52°) de sa profondeur à l'écran. Une vue rasante le déploie au
+    // contraire devant l'objectif et demande plus de recul.
+    const projectedDepth = facingDepth * Math.cos(MathUtils.degToRad(this.orbitTilt));
 
     // Une marge sur la hauteur : l'épaisseur des cases et les pions dépassent
     // du plan du plateau, et seraient coupés par un cadrage au ras.
     const byHeight = (projectedDepth / 2) * 1.12 / Math.tan(fov / 2);
-    const byWidth = (width / 2) / (Math.tan(fov / 2) * aspect);
+    const byWidth = (facingWidth / 2) / (Math.tan(fov / 2) * aspect);
 
     return Math.max(byHeight, byWidth, 200);
   }
 
-  /** Pose la caméra au-dessus du centre du plateau, inclinée. */
+  /** Pose la caméra sur son orbite autour du centre du plateau. */
   private placeCamera(): void {
-    const tilt = MathUtils.degToRad(CAMERA_TILT_DEG);
+    const tilt = MathUtils.degToRad(this.orbitTilt);
+    const yaw = MathUtils.degToRad(this.orbitYaw);
 
     // Le déplacement manuel s'exprime en pixels écran : on le ramène en
     // unités monde pour qu'un glissement suive le doigt quel que soit le zoom.
@@ -284,10 +382,15 @@ export class BoardScene {
       this.center.z - this.userPan.y * worldPerPixel
     );
 
+    // La caméra orbite AUTOUR DE LA CIBLE, et non autour de l'origine du
+    // monde : un parcours posé loin de l'origine sortirait du champ au
+    // premier geste si on tournait autour de (0, 0).
+    const ground = Math.sin(tilt) * this.cameraDistance;
+
     this.camera.position.set(
-      target.x,
+      target.x + Math.sin(yaw) * ground,
       Math.cos(tilt) * this.cameraDistance,
-      target.z + Math.sin(tilt) * this.cameraDistance
+      target.z + Math.cos(yaw) * ground
     );
     this.camera.lookAt(target);
   }
@@ -409,4 +512,9 @@ export class BoardScene {
     this.renderer?.dispose();
     this.renderer = null;
   }
+}
+
+/** Ramène un angle dans ]-360, 360[, en gardant son signe. */
+function wrapDegrees(deg: number): number {
+  return deg % 360;
 }

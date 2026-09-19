@@ -57,7 +57,7 @@ async function main(): Promise<void> {
 
   report(status, scene, positions.length);
 
-  // Déplacement et zoom manuels : l'acquis #15 qu'on ne doit pas perdre.
+  // Déplacement, zoom et rotation : l'acquis #15 plus la rotation de #43.
   attachControls(container, scene, () => report(status, scene, positions.length));
 
   window.addEventListener('resize', () => report(status, scene, positions.length));
@@ -75,10 +75,23 @@ function report(status: HTMLElement | null, scene: BoardScene, count: number): v
   // plus cours depuis le passage en projection conique.
   const tilePx = Math.round(scene.worldToScreenPixels(120));
 
-  status.textContent = `${count} cases · ${turned} · une case ≈ ${tilePx} px`;
+  // L'angle de vue est affiché : c'est ce qu'on est en train de juger, et
+  // « vue 45° » se vérifie d'un coup d'œil là où un plateau tourné ne dit
+  // pas de combien il l'est.
+  const orbit = scene.getOrbit();
+  const angle = `vue ${Math.round(orbit.yawDeg)}° / ${Math.round(orbit.tiltDeg)}°`;
+
+  status.textContent = `${count} cases · ${turned} · ${angle} · case ≈ ${tilePx} px`;
 }
 
-/** Glisser pour déplacer, pincer ou molette pour zoomer. */
+/**
+ * Glisser pour TOURNER, deux doigts (ou Maj) pour déplacer, pincer pour zoomer.
+ *
+ * La rotation prend le geste simple parce que c'est elle que Quentin a
+ * demandée et qu'elle est le geste qu'on essaie en premier sur une scène 3D.
+ * Le déplacement reste accessible, mais il sert moins souvent : le cadrage
+ * automatique montre déjà tout le parcours.
+ */
 function attachControls(
   container: HTMLElement,
   scene: BoardScene,
@@ -95,16 +108,19 @@ function attachControls(
     lastY = y;
   };
 
-  const move = (x: number, y: number) => {
+  const move = (x: number, y: number, pan: boolean) => {
     if (!dragging) return;
-    scene.panBy(x - lastX, y - lastY);
+    if (pan) scene.panBy(x - lastX, y - lastY);
+    // Le lacet suit le doigt ; l'élévation est inversée pour que tirer vers
+    // le bas rapproche la vue de l'horizon, comme on incline un objet réel.
+    else scene.orbitByPixels(x - lastX, -(y - lastY));
     lastX = x;
     lastY = y;
     onChange();
   };
 
   container.addEventListener('mousedown', e => start(e.clientX, e.clientY));
-  window.addEventListener('mousemove', e => move(e.clientX, e.clientY));
+  window.addEventListener('mousemove', e => move(e.clientX, e.clientY, e.shiftKey));
   window.addEventListener('mouseup', () => {
     dragging = false;
   });
@@ -113,7 +129,10 @@ function attachControls(
     'touchstart',
     e => {
       if (e.touches.length === 1) start(e.touches[0].clientX, e.touches[0].clientY);
-      else if (e.touches.length === 2) pinch = distance(e.touches);
+      else if (e.touches.length === 2) {
+        pinch = distance(e.touches);
+        start(center(e.touches).x, center(e.touches).y);
+      }
     },
     { passive: true }
   );
@@ -121,15 +140,21 @@ function attachControls(
   container.addEventListener(
     'touchmove',
     e => {
+      // Un doigt tourne.
       if (e.touches.length === 1) {
-        move(e.touches[0].clientX, e.touches[0].clientY);
+        move(e.touches[0].clientX, e.touches[0].clientY, false);
         return;
       }
 
+      // Deux doigts pincent pour zoomer ET glissent pour déplacer : les deux
+      // gestes se font naturellement en même temps, les séparer obligerait à
+      // lever un doigt au milieu.
       if (e.touches.length === 2 && pinch > 0) {
         const next = distance(e.touches);
         scene.setUserZoom(scene.getUserZoom() * (next / pinch));
         pinch = next;
+        const mid = center(e.touches);
+        move(mid.x, mid.y, true);
         onChange();
       }
     },
@@ -155,6 +180,14 @@ function attachControls(
     scene.resetView();
     onChange();
   });
+}
+
+/** Milieu d'un geste à deux doigts. */
+function center(touches: TouchList): { x: number; y: number } {
+  return {
+    x: (touches[0].clientX + touches[1].clientX) / 2,
+    y: (touches[0].clientY + touches[1].clientY) / 2,
+  };
 }
 
 function distance(touches: TouchList): number {

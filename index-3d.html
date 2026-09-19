@@ -47,9 +47,18 @@
         }
 
         #status {
+            display: block;
             font-size: 13px;
             line-height: 1.3;
             color: #aab6d0;
+        }
+
+        /* Le geste ne se devine pas : on le dit une fois, discrètement. */
+        #hint {
+            display: block;
+            margin-top: 2px;
+            font-size: 11px;
+            color: #6b7896;
         }
 
         button {
@@ -72,7 +81,10 @@
     <div id="scene"></div>
 
     <div class="bar">
-        <span id="status">Chargement du plateau…</span>
+        <span>
+            <span id="status">Chargement du plateau…</span>
+            <span id="hint">glisser pour tourner · deux doigts pour déplacer · pincer pour zoomer</span>
+        </span>
         <button id="reset" type="button">Recadrer</button>
     </div>
 
