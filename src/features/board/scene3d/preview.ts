@@ -10,6 +10,8 @@ import { BoardTiles3D } from './board-tiles-3d';
 import { Dice3DScene } from './dice-3d-scene';
 import { DicePhysics } from '@/features/dice/DicePhysics';
 import { WORLD_DICE_CONFIG, rollingSpinRate } from './dice-world-config';
+import { GameLogic } from '@/features/game/game.logic';
+import { TurnRunner } from './turn-runner';
 import { loadTileConfigs, TILE_CONFIGS } from '@/features/tiles/tile.config';
 import { fetchBoardLayout } from '../camera/board-layout.config';
 
@@ -64,41 +66,45 @@ async function main(): Promise<void> {
 
   const positions = tiles.build(catalog, layout);
 
-  // Quelques pions pour juger s'ils se lisent bien posés sur leurs cases.
-  tiles.setPawns([
-    { position: 0, color: '#e2483d' },
-    { position: 4, color: '#3d7fc4' },
-    { position: 4, color: '#2f8f4e' },
-    { position: 11, color: '#e3c169' },
+  // Une vraie partie, pilotée par les VRAIES règles (#46). La scène ne
+  // décide d'aucune règle : elle demande à GameLogic ce qui arrive au pion
+  // et se contente de l'afficher.
+  const logic = new GameLogic();
+  logic.setBoardSize(positions.length);
+  logic.startGame([
+    { name: 'Alice', color: '#e2483d' },
+    { name: 'Bastien', color: '#3d7fc4' },
+    { name: 'Chloé', color: '#2f8f4e' },
   ]);
+
+  const runner = new TurnRunner(logic);
+  tiles.setPawns(runner.pawns());
 
   scene.setBoardExtent(positions, layout.tileSize);
 
   // La vue suit le pion : c'est l'arbitrage de Quentin pour la lisibilité
   // (#45). Une case fait alors 54 px sur un 5 pouces, contre 40 en montrant
   // tout le parcours — au-dessus des 48 px de la cible tactile.
-  let followed = 0;
-  scene.followTile(followed);
+  const die = new Dice3DScene();
+  scene.world.add(die.group);
+
+  scene.followTile(runner.tileToFollow());
 
   scene.start();
 
   const refresh = () => {
     report(status, scene, positions.length);
-    renderProgress(followed, positions.length);
+    renderProgress(runner.tileToFollow(), positions.length);
+    announce(runner);
   };
 
-  attachFollowControls(
-    () => positions.length,
-    next => {
-      followed = next;
-      scene.followTile(followed);
-      refresh();
-    },
-    () => {
-      scene.showWholeBoard();
-      refresh();
-    }
-  );
+  // Le tour complet : lancer → avancer → joueur suivant (#46).
+  attachDice(die, positions, tiles, runner, scene, refresh);
+
+  document.getElementById('whole')?.addEventListener('click', () => {
+    scene.showWholeBoard();
+    refresh();
+  });
 
   refresh();
 
@@ -106,10 +112,6 @@ async function main(): Promise<void> {
   // C'est le juge de paix de la refonte : le désaccord face lue / face vue
   // ne peut plus exister par construction, puisqu'il n'y a plus deux
   // représentations à accorder.
-  const die = new Dice3DScene();
-  scene.world.add(die.group);
-  attachDice(die, positions, status);
-
   // Déplacement, zoom et rotation : l'acquis #15 plus la rotation de #43.
   attachControls(container, scene, refresh);
 
@@ -255,13 +257,15 @@ function showInsets(
 function attachDice(
   die: Dice3DScene,
   positions: { x: number; z: number }[],
-  status: HTMLElement | null
+  tiles: BoardTiles3D,
+  runner: TurnRunner,
+  scene: BoardScene,
+  refresh: () => void
 ): void {
   // L'aire de jeu, en unités monde. Le dé part de son CENTRE, et c'est le
   // point décisif : les bornes de `DicePhysics` vont de 0 à `width`, si bien
   // qu'un lancer démarré en (0, 0) se fait DANS UN COIN. Le dé y rebondit
-  // aussitôt sur deux murs et revient sur ses pas — c'est exactement ce que
-  // Quentin décrivait, « je ne le vois pas se déplacer sur le plateau ».
+  // aussitôt sur deux murs et revient sur ses pas.
   const ARENA = 900;
   const physics = new DicePhysics(
     WORLD_DICE_CONFIG,
@@ -269,15 +273,6 @@ function attachDice(
     { width: ARENA, height: ARENA }
   );
   const result = document.getElementById('dice-value');
-
-  // Le dé roule au centre du plateau, posé sur la surface des cases.
-  const centre = positions[Math.floor(positions.length / 2)] ?? { x: 0, z: 0 };
-  die.setPosition(centre.x, Dice3DScene.halfSize, centre.z);
-
-  const show = (value: number, rolling: boolean): void => {
-    if (result) result.textContent = rolling ? '…' : String(value);
-    if (!rolling && status) status.dataset.dice = String(value);
-  };
 
   let frame: number | null = null;
 
@@ -297,27 +292,22 @@ function attachDice(
 
     const rate = rollingSpinRate(speed);
 
-    // L'axe de roulement est perpendiculaire à la course, dans le plan de la
-    // table : un dé qui part vers l'est bascule autour de l'axe nord-sud.
     state.spin.x = (-state.velocity.y / speed) * rate;
     state.spin.z = (state.velocity.x / speed) * rate;
-    // Le lacet ne vient pas du roulement : un dé qui roule droit ne pivote
-    // pas sur lui-même.
     state.spin.y *= 0.9;
   };
+
+  /** Le dé roule près du pion du joueur courant. */
+  const placeArena = (): { x: number; z: number } =>
+    positions[runner.tileToFollow()] ?? positions[0] ?? { x: 0, z: 0 };
+
+  let centre = placeArena();
 
   const step = (): void => {
     const state = physics.update(16);
 
-    // Le roulement : la rotation suit le DÉPLACEMENT, au lieu d'en être
-    // indépendante. Sans ce lien on voit un cube qui tourne en glissant ;
-    // avec lui, un dé qui roule. C'est ce que Quentin appelle « la physique
-    // comme sur un plateau », et ça se voit bien plus que le contact au sol.
     applyRolling(state);
-
     die.setOrientation(state.orientation);
-
-    // Le dé s'élève puis retombe : sa hauteur vient de la physique.
     die.setPosition(
       centre.x + (state.position.x - ARENA / 2),
       Dice3DScene.halfSize + Math.max(0, state.height),
@@ -334,42 +324,47 @@ function attachDice(
     if (state.hasFallen) physics.resetFall();
 
     frame = null;
-    show(physics.getState().currentValue, false);
+
+    // LA CHAÎNE QUI COMPTE : la face que le joueur voit sur le dessus du dé
+    // est celle dont on avance. Elle n'est pas retirée au sort une seconde
+    // fois — c'est toute la différence avec le rendu précédent.
+    const face = physics.getState().currentValue;
+    if (result) result.textContent = String(face);
+
+    const outcome = runner.playTurn(face);
+
+    tiles.setPawns(runner.pawns());
+    scene.followTile(runner.tileToFollow());
+    centre = placeArena();
+
+    say(
+      `${outcome.playerName} fait ${outcome.dice} : case ${outcome.from} → ${outcome.to}` +
+        (outcome.returning ? ' (retour)' : '')
+    );
+
+    refresh();
   };
 
   document.getElementById('roll')?.addEventListener('click', () => {
-    if (frame !== null) cancelAnimationFrame(frame);
+    if (frame !== null) return;
 
-    show(0, true);
+    if (result) result.textContent = '…';
+    centre = placeArena();
     physics.throw();
     frame = requestAnimationFrame(step);
   });
-
-  show(physics.getState().currentValue, false);
 }
 
-/** Avancer, reculer, et voir tout le plateau. */
-function attachFollowControls(
-  total: () => number,
-  goTo: (index: number) => void,
-  whole: () => void
-): void {
-  let current = 0;
+/** Raconte le dernier tour joué. */
+function say(message: string): void {
+  const line = document.getElementById('turn-log');
+  if (line) line.textContent = message;
+}
 
-  const step = (delta: number) => {
-    current = Math.max(0, Math.min(current + delta, total() - 1));
-    goTo(current);
-  };
-
-  document.getElementById('prev')?.addEventListener('click', () => step(-1));
-  document.getElementById('next')?.addEventListener('click', () => step(1));
-  document.getElementById('whole')?.addEventListener('click', () => whole());
-
-  // Les flèches du clavier : commode pour parcourir vite en aperçu.
-  window.addEventListener('keydown', event => {
-    if (event.key === 'ArrowRight') step(1);
-    else if (event.key === 'ArrowLeft') step(-1);
-  });
+/** Annonce à qui est le tour. */
+function announce(runner: TurnRunner): void {
+  const line = document.getElementById('whose-turn');
+  if (line) line.textContent = `Au tour de ${runner.currentPlayerName()}`;
 }
 
 /**
