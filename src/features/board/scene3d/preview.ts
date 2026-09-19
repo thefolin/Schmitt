@@ -12,6 +12,7 @@ import { Dice3DScene } from './dice-3d-scene';
 import { DicePhysics } from '@/features/dice/DicePhysics';
 import { WORLD_DICE_CONFIG, rollingSpinRate } from './dice-world-config';
 import { diceArena } from './dice-arena';
+import { isHandheld, readDeviceOverride, type DeviceHints } from './device';
 import { GameLogic } from '@/features/game/game.logic';
 import { TurnRunner } from './turn-runner';
 import { loadTileConfigs, TILE_CONFIGS } from '@/features/tiles/tile.config';
@@ -35,6 +36,7 @@ async function main(): Promise<void> {
   // corrige à l'aveugle, par l'intermédiaire de quelqu'un qui n'a pas le code
   // sous les yeux. Sans paramètre d'URL, rien ne change.
   const overrides = readInsetOverrides(window.location.search);
+  const device = readDeviceOverride(window.location.search);
   applySimulatedSafeArea(overrides);
   if (overrides.outline) document.body.classList.add('debug-outline');
 
@@ -110,7 +112,7 @@ async function main(): Promise<void> {
   };
 
   applyPreferredView();
-  showRotateHint(scene);
+  showRotateHint(scene, device);
 
   scene.start();
 
@@ -156,7 +158,7 @@ async function main(): Promise<void> {
     // plutôt que de laisser le joueur sur un cadrage choisi pour l'autre
     // orientation.
     applyPreferredView();
-    showRotateHint(scene);
+    showRotateHint(scene, device);
     refresh();
   };
 
@@ -519,11 +521,15 @@ function attachDiceGrab(
  * Le cadrage portrait continue donc de fonctionner derrière le message — ce
  * n'est pas un écran de blocage, c'est un conseil.
  */
-function showRotateHint(scene: BoardScene): void {
+function showRotateHint(scene: BoardScene, device: DeviceHints): void {
   const hint = document.getElementById('rotate-hint');
   if (!hint) return;
 
-  hint.hidden = scene.prefersWholeBoard();
+  // Le conseil ne vaut QUE là où l'écran peut tourner. Sur un poste fixe dont
+  // la fenêtre est plus haute que large, « tourne ton téléphone » est faux —
+  // personne ne tournera son moniteur — et un conseil faux use la confiance
+  // plus qu'il n'aide.
+  hint.hidden = scene.prefersWholeBoard() || !isHandheld(device);
 }
 
 /** Raconte le dernier tour joué. */
