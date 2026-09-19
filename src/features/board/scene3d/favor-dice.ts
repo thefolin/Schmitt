@@ -93,6 +93,39 @@ export class FavorDice {
    * Ils sont posés à leurs deux points de lancer, écartés l'un de l'autre :
    * deux dés qu'on voit séparément, et qu'on peut viser du doigt.
    */
+  /**
+   * Replace les deux physiques autour d'un point, en gardant leur écart.
+   *
+   * `DicePhysics` n'a pas de méthode pour se repositionner, et c'est un
+   * module partagé avec le rendu CSS de `main` : on reconstruit plutôt que
+   * d'y toucher. Deux objets par tirage n'ont rien d'une boucle serrée.
+   */
+  private relocate(centre: { x: number; z: number }): void {
+    const width = this.arena.maxX - this.arena.minX;
+    const height = this.arena.maxZ - this.arena.minZ;
+
+    this.dice.forEach((die, index) => {
+      const side = index === 0 ? -1 : 1;
+
+      // L'écart est CONSERVÉ : deux dés posés l'un sur l'autre se
+      // traverseraient, `DicePhysics` ne gérant que les bords.
+      const x = Math.min(
+        Math.max(centre.x + side * width * LAUNCH_SPREAD * 0.5, this.arena.minX),
+        this.arena.maxX
+      );
+      const z = Math.min(Math.max(centre.z, this.arena.minZ), this.arena.maxZ);
+
+      const fresh = new DicePhysics(WORLD_DICE_CONFIG, { x, y: z }, { width, height });
+
+      fresh.setTableBounds(
+        { minX: this.arena.minX, maxX: this.arena.maxX, minY: this.arena.minZ, maxY: this.arena.maxZ },
+        { top: true, right: true, bottom: true, left: true }
+      );
+
+      die.physics = fresh;
+    });
+  }
+
   public rest(): void {
     for (const die of this.dice) {
       const start = die.physics.getState().position;
@@ -109,7 +142,11 @@ export class FavorDice {
    * faveur qui ne correspond pas aux dés posés sur la table rejouerait le
    * défaut que toute la refonte supprime.
    */
-  public roll(done: (a: number, b: number) => void, request?: ThrowRequest): void {
+  public roll(
+    done: (a: number, b: number) => void,
+    request?: ThrowRequest,
+    from?: { x: number; z: number }
+  ): void {
     if (this.frame !== null) return;
 
     // La VISIBILITÉ n'est pas décidée ici : `dice-on-stage` en est seul juge,
@@ -127,6 +164,12 @@ export class FavorDice {
     // égale donnent 16,7 % de doubles — exactement le taux de deux dés
     // honnêtes. J'avais d'abord ajouté un écart de trajectoire pour éviter
     // des dés collés ; il ne corrigeait rien qui existait, et il est retiré.
+    // Les dés partent D'OÙ ILS ONT ÉTÉ LÂCHÉS. Depuis qu'ils suivent le
+    // doigt, ils ne sont plus à leurs points de départ : relancer de là les
+    // ferait sauter en arrière au moment du jet. Leur ÉCART est conservé —
+    // c'est une poignée qu'on jette, pas deux dés empilés.
+    if (from) this.relocate(from);
+
     for (const die of this.dice) {
       if (request) {
         die.physics.throwWithVelocity(

@@ -17,8 +17,20 @@ import { WORLD_DICE_CONFIG } from './dice-world-config';
  * vue d'ensemble — et le joueur ne saurait jamais quelle force il met.
  */
 
-/** Hauteur dont le dé se soulève quand on le tient, en unités monde. */
-export const GRAB_LIFT = 34;
+/**
+ * Hauteur dont le dé se soulève quand on le tient, en unités monde.
+ *
+ * Quentin (20/09/2026) : « quand je le prends il s'élève très peu ».
+ *
+ * Il avait raison, et le chiffre le dit : 34 unités faisaient 22 px à l'écran
+ * en vue d'ensemble, soit moins d'une demi-hauteur de dé. Le signe « je te
+ * tiens » existait sans se voir.
+ *
+ * 60 porte le soulèvement à 39 px, soit une pleine hauteur de dé (37 px) : on
+ * voit le dé quitter le plateau, et l'ombre qu'il laisse en dessous dit le
+ * reste. Au-delà il se détacherait du plateau au point de paraître flotter.
+ */
+export const GRAB_LIFT = 60;
 
 /** En deçà, le doigt n'a pas lancé : il a hésité. */
 const MIN_SWIPE_PIXELS = 24;

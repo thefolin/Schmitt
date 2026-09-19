@@ -4,6 +4,9 @@ import {
   WebGLRenderer,
   Group,
   Vector3,
+  Vector2,
+  Raycaster,
+  Plane,
   MathUtils,
   AmbientLight,
   DirectionalLight,
@@ -213,6 +216,45 @@ export class BoardScene {
     const screenHeight = this.measureViewport().height;
 
     return (worldLength / visibleHeight) * screenHeight;
+  }
+
+  /**
+   * Le point du PLATEAU que vise un pixel de l'écran.
+   *
+   * Indispensable pour qu'un objet SUIVE le doigt : sans cette conversion, on
+   * sait qu'un geste a eu lieu mais pas où il pointe dans le monde. Le dé
+   * restait donc collé sur place pendant qu'on le glissait.
+   *
+   * Le rayon est croisé avec le plan du plateau à la hauteur demandée — et
+   * non avec le sol : un dé soulevé de 34 unités qu'on suivrait au niveau du
+   * sol dériverait sous le doigt, d'autant plus que la vue est inclinée.
+   *
+   * Renvoie `null` quand le pixel vise le ciel, au-dessus de l'horizon : il
+   * n'y a alors aucun point du plateau sous le doigt, et inventer une
+   * position enverrait l'objet à l'infini.
+   */
+  public screenToBoard(
+    clientX: number,
+    clientY: number,
+    height = 0
+  ): { x: number; z: number } | null {
+    const box = this.container.getBoundingClientRect();
+
+    const pointer = new Vector2(
+      ((clientX - box.left) / Math.max(1, box.width)) * 2 - 1,
+      -((clientY - box.top) / Math.max(1, box.height)) * 2 + 1
+    );
+
+    const raycaster = new Raycaster();
+    raycaster.setFromCamera(pointer, this.camera);
+
+    // Le plan horizontal du plateau, remonté à la hauteur de l'objet.
+    const plane = new Plane(new Vector3(0, 1, 0), -height);
+    const hit = new Vector3();
+
+    if (!raycaster.ray.intersectPlane(plane, hit)) return null;
+
+    return { x: hit.x, z: hit.z };
   }
 
   /**

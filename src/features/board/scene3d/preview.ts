@@ -17,7 +17,7 @@ import { duringFavor, betweenFavors, type DiceVisibility } from './dice-on-stage
 import { grabProbes, gestureOwner } from './grab-zone';
 import { walkPath } from './pawn-path';
 import { walkFrame } from './pawn-walk';
-import { swipeToThrow, type ThrowRequest } from './dice-gesture';
+import { swipeToThrow, GRAB_LIFT, type ThrowRequest } from './dice-gesture';
 import { describeTurn, JOURNAL_MAX } from './turn-journal';
 import { tableAnnouncement } from './table-announcements';
 import { isHandheld, readDeviceOverride, type DeviceHints } from './device';
@@ -327,10 +327,20 @@ function attachDice(
    * d'y toucher. L'objet est léger, et un lancer par tour n'a rien d'une
    * boucle serrée.
    */
-  const centredPhysics = (): DicePhysics => {
+  const physicsAt = (from?: { x: number; z: number }): DicePhysics => {
+    // Le point de départ est BORNÉ à l'aire : un dé lâché au bord de l'écran
+    // pourrait viser un point hors du plateau, et la physique démarrerait
+    // dans le mur.
+    const startX = from
+      ? Math.min(Math.max(from.x, arena.minX), arena.maxX)
+      : (arena.minX + arena.maxX) / 2;
+    const startZ = from
+      ? Math.min(Math.max(from.z, arena.minZ), arena.maxZ)
+      : (arena.minZ + arena.maxZ) / 2;
+
     const fresh = new DicePhysics(
       WORLD_DICE_CONFIG,
-      { x: (arena.minX + arena.maxX) / 2, y: (arena.minZ + arena.maxZ) / 2 },
+      { x: startX, y: startZ },
       { width: arena.maxX - arena.minX, height: arena.maxZ - arena.minZ }
     );
 
@@ -342,7 +352,7 @@ function attachDice(
     return fresh;
   };
 
-  let physics = centredPhysics();
+  let physics = physicsAt();
 
   const result = document.getElementById('dice-value');
 
@@ -388,7 +398,7 @@ function attachDice(
   const restDie = (): void => {
     // La SIMULATION revient au centre elle aussi, sinon le prochain lancer
     // partirait de là où le dé s'était arrêté et le dé sauterait.
-    physics = centredPhysics();
+    physics = physicsAt();
 
     die.setPosition(matCentre.x, Dice3DScene.halfSize, matCentre.z);
   };
@@ -580,7 +590,7 @@ function attachDice(
    * (#49) : on ne joue pas à la place du joueur, et un lancer qu'on n'a pas
    * fait soi-même ne se conteste pas — dans un jeu à boire, ça compte.
    */
-  const throwFavor = (request: ThrowRequest): void => {
+  const throwFavor = (request: ThrowRequest, from?: { x: number; z: number }): void => {
     favorDice.roll((a, b) => {
       const roll = runner.resolveGodFavor(a, b);
 
@@ -601,7 +611,7 @@ function attachDice(
       }, FAVOR_DICE_LINGER_MS);
 
       refresh();
-    }, request);
+    }, request, from);
   };
 
   /** Lance le dé, si un lancer est attendu. */
@@ -627,18 +637,24 @@ function attachDice(
    * couple depuis la vitesse : on s'appuie dessus plutôt que d'écrire une
    * seconde physique. Le module partagé avec le rendu CSS n'est pas touché.
    */
-  const throwFromGesture = (request: ThrowRequest): void => {
+  const throwFromGesture = (request: ThrowRequest, from?: { x: number; z: number }): void => {
     if (frame !== null || walking || favorDice.rolling) return;
 
     // LE GESTE VA AUX DÉS QUI ATTENDENT. Quand la faveur est en attente,
     // c'est la paire qu'on jette ; sinon c'est le dé du tour. Le joueur
     // attrape ce qu'il voit, sans avoir à choisir lequel.
     if (runner.getAwaitingGodFavor()) {
-      throwFavor(request);
+      throwFavor(request, from);
       return;
     }
 
     if (result) result.textContent = '…';
+
+    // LE LANCER PART D'OÙ LE DÉ A ÉTÉ LÂCHÉ. Depuis qu'il suit le doigt, il
+    // n'est plus au centre du tapis : relancer depuis le centre le ferait
+    // sauter en arrière sous les yeux du joueur.
+    physics = physicsAt(from);
+
     physics.throwWithVelocity(
       request.velocity,
       request.verticalVelocity,
@@ -827,7 +843,7 @@ function attachDiceGrab(
   dice: () => Dice3DScene[],
   scene: BoardScene,
   canRoll: () => boolean,
-  throwDice: (request: ThrowRequest) => void
+  throwDice: (request: ThrowRequest, from?: { x: number; z: number }) => void
 ): (x: number, y: number) => boolean {
   const container = scene.viewport;
   const raycaster = new Raycaster();
@@ -871,6 +887,45 @@ function attachDiceGrab(
   let startY = 0;
   let startedAt = 0;
 
+  /**
+   * FAIT SUIVRE LES DÉS AU DOIGT.
+   *
+   * C'était le défaut que Quentin décrivait : « quand je le prends il s'élève
+   * très peu et je ne peux pas le déplacer ». Le code enregistrait l'appui et
+   * le relâchement, mais RIEN ENTRE LES DEUX — il n'y avait aucun
+   * `pointermove`. Le dé restait donc collé sur place, soulevé, jusqu'au
+   * lâcher. Le retour visuel disait « je te tiens » et le dé démentait.
+   *
+   * La position est lue sur le plateau À LA HAUTEUR DU DÉ SOULEVÉ : au
+   * niveau du sol, le dé dériverait sous le doigt, d'autant plus que la vue
+   * est inclinée.
+   */
+  const follow = (clientX: number, clientY: number): void => {
+    if (!holding) return;
+
+    const point = scene.screenToBoard(clientX, clientY, Dice3DScene.halfSize + GRAB_LIFT);
+    if (!point) return;
+
+    const held = dice();
+
+    // Plusieurs dés suivent ENSEMBLE, en gardant leur écart : c'est une
+    // poignée qu'on déplace, pas deux objets qu'on empile.
+    const centre = held.reduce(
+      (sum, die) => ({ x: sum.x + die.group.position.x, z: sum.z + die.group.position.z }),
+      { x: 0, z: 0 }
+    );
+    const midX = centre.x / Math.max(1, held.length);
+    const midZ = centre.z / Math.max(1, held.length);
+
+    for (const die of held) {
+      die.setPosition(
+        die.group.position.x + (point.x - midX),
+        die.group.position.y,
+        die.group.position.z + (point.z - midZ)
+      );
+    }
+  };
+
   const release = (clientX: number, clientY: number): void => {
     if (!holding) return;
 
@@ -889,7 +944,18 @@ function attachDiceGrab(
 
     // Un simple appui n'est pas un lancer : le joueur a hésité, on repose le
     // dé sans rien déclencher.
-    if (request.thrown) throwDice(request);
+    //
+    // LE LANCER PART D'OÙ LE DÉ A ÉTÉ LÂCHÉ, et non du centre du tapis :
+    // depuis qu'il suit le doigt, il n'est plus là où la physique le croit.
+    // Le faire partir du centre le ferait SAUTER en arrière au moment du jet.
+    if (request.thrown) {
+      const first = dice()[0];
+
+      throwDice(
+        request,
+        first ? { x: first.group.position.x, z: first.group.position.z } : undefined
+      );
+    }
   };
 
   container.addEventListener(
@@ -915,6 +981,11 @@ function attachDiceGrab(
 
   // Le relâchement est écouté sur la fenêtre : un doigt qui quitte le canvas
   // en cours de geste doit quand même lancer, sinon le dé reste en main.
+  // LE DÉ SUIT LE DOIGT. Écouté sur la fenêtre, comme le relâchement : un
+  // doigt qui sort du canevas en cours de geste doit continuer d'entraîner le
+  // dé, sinon celui-ci se fige au bord.
+  window.addEventListener('pointermove', event => follow(event.clientX, event.clientY));
+
   window.addEventListener('pointerup', event => release(event.clientX, event.clientY));
   window.addEventListener('pointercancel', () => {
     if (!holding) return;
