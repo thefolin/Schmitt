@@ -55,6 +55,9 @@ export function describeTurn(outcome: TurnOutcome): string {
   if (outcome.distribute) parts.push(`distribue ${outcome.distribute.amount} ${GULP}`);
   if (outcome.everyone) parts.push(`tournée générale — tout le monde boit ${GULP}`);
   if (outcome.tableRule) parts.push('à jouer à la table');
+  // La faveur est ANNONCÉE avant d'être tirée : le joueur doit savoir
+  // pourquoi deux dés apparaissent sur le plateau.
+  if (outcome.godFavor) parts.push('\u{26A1} faveur des dieux — lancez les 2 dés');
   if (outcome.returning) parts.push('retour');
   if (outcome.schmittPower) parts.push('\u{26A1} pouvoir du Schmitt, demi-tour !');
   if (outcome.winner) parts.push(`\u{1F3C6} ${outcome.winner} gagne !`);

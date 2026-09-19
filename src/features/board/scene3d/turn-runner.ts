@@ -1,6 +1,7 @@
 import type { GameLogic } from '@/features/game/game.logic';
 import type { TileConfig } from '@/core/models/Tile';
 import { isArrowTile, arrowDirection } from './arrow-tile';
+import { isGodFavorTile, readFavorRoll, type FavorRoll } from './god-favor-roll';
 
 /**
  * La jonction entre les règles et la scène 3D.
@@ -65,6 +66,14 @@ export interface TurnOutcome {
   everyone: boolean;
   /** La case se joue-t-elle à la table, hors de l'application ? */
   tableRule: boolean;
+  /**
+   * La case appelle-t-elle la FAVEUR DES DIEUX ?
+   *
+   * Quentin : « les 2 dés n'apparaissent pas quand on tombe dessus ». Le
+   * temps du tirage, la main reste au joueur : le tour ne passe pas au
+   * suivant tant que les deux dés ne sont pas tombés.
+   */
+  godFavor: boolean;
 }
 
 /**
@@ -81,8 +90,12 @@ const EVERYONE_DRINKS = 1;
  * Quentin : « On laisse les joueurs le faire, on affiche les règles, ils le
  * font dans la vraie vie, puis quand ils sont finis on reprend le tour. »
  * L'application énonce et attend — elle n'arbitre pas.
+ *
+ * `power` A ÉTÉ RETIRÉ de cette liste : c'est la case « FAVEUR DES DIEUX »,
+ * qui appelle un lancer de deux dés. Rangée ici, elle affichait « à jouer à
+ * la table » et aucun dé n'apparaissait — le défaut que Quentin a signalé.
  */
-const TABLE_RULE_TYPES = new Set(['rule', 'schmitt_call', 'copy', 'power']);
+const TABLE_RULE_TYPES = new Set(['rule', 'schmitt_call', 'copy']);
 
 /**
  * Nombre maximal de flèches enchaînées sur un même tour.
@@ -95,6 +108,14 @@ const TABLE_RULE_TYPES = new Set(['rule', 'schmitt_call', 'copy', 'power']);
  * infinie, qui laisse passer tout enchaînement que Quentin pourrait vouloir.
  */
 const MAX_CHAINED_ARROWS = 8;
+
+/**
+ * Ce que coûte la COLÈRE DES DIEUX.
+ *
+ * « Le joueur reçoit 1 cul sec ! » — c'est la description de la case, et le
+ * jeu qui tourne compte bien 1. La quantité vient de la règle, pas d'ici.
+ */
+const WRATH_DRINKS = 1;
 
 export interface PawnView {
   position: number;
@@ -115,6 +136,14 @@ export class TurnRunner {
    * peut être résolue, comme le bouclier vit dans `GameLogic`.
    */
   private awaitingDistribution: { by: number; amount: number } | null = null;
+  /**
+   * Le joueur qui doit lancer les deux dés de la faveur des dieux.
+   *
+   * L'état vit ICI et non dans `TurnOutcome`, qui est figé au moment du
+   * retour : une décision lue dans un résultat gelé ne s'efface jamais, et le
+   * panneau concerné reparaissait à chaque image.
+   */
+  private awaitingGodFavor: { player: number } | null = null;
 
   constructor(private readonly logic: GameLogic) {}
 
@@ -162,7 +191,16 @@ export class TurnRunner {
 
     const winner = this.logic.checkVictory();
 
-    this.logic.nextPlayer();
+    // LA MAIN RESTE AU JOUEUR tant que la faveur des dieux n'est pas tirée.
+    // Passer au suivant ici ferait résoudre la faveur pendant le tour d'un
+    // autre : c'est exactement le défaut qui avait figé le panneau de
+    // distribution, où l'état vivait d'un côté et la décision de l'autre.
+    // `resolveGodFavor` rendra la main quand les deux dés seront tombés.
+    if (drinking.godFavor) {
+      this.awaitingGodFavor = { player };
+    } else {
+      this.logic.nextPlayer();
+    }
 
     return {
       player,
@@ -189,8 +227,14 @@ export class TurnRunner {
   private applyDrinking(
     player: number,
     position: number
-  ): Pick<TurnOutcome, 'drinks' | 'distribute' | 'everyone' | 'tableRule'> {
-    const empty = { drinks: null, distribute: null, everyone: false, tableRule: false };
+  ): Pick<TurnOutcome, 'drinks' | 'distribute' | 'everyone' | 'tableRule' | 'godFavor'> {
+    const empty = {
+      drinks: null,
+      distribute: null,
+      everyone: false,
+      tableRule: false,
+      godFavor: false,
+    };
 
     const tile = this.board[position];
     if (!tile) return empty;
@@ -200,6 +244,14 @@ export class TurnRunner {
     // l'étape des badges, pas de celle-ci — le brancher à moitié ici ferait
     // porter la règle à deux endroits.
     if (tile.type === 'chicken' || tile.type === 'big_chicken') return empty;
+
+    // LA CASE DU TEMPLE appelle les deux dés. Elle tombait jusqu'ici dans le
+    // cas « aucun effet », silencieusement : le joueur s'y posait et le tour
+    // passait au suivant. On ne sert aucune gorgée ici — la faveur décide de
+    // ce qui se boit, et elle n'est pas encore tirée.
+    if (isGodFavorTile(tile)) {
+      return { ...empty, godFavor: true };
+    }
 
     if (TABLE_RULE_TYPES.has(tile.type)) {
       return { ...empty, tableRule: true };
@@ -326,6 +378,39 @@ export class TurnRunner {
   /** La distribution qui attend encore sa cible, s'il y en a une. */
   public getAwaitingDistribution(): { by: number; amount: number } | null {
     return this.awaitingDistribution;
+  }
+
+  /** Le joueur qui doit lancer les deux dés du temple, s'il y en a un. */
+  public getAwaitingGodFavor(): { player: number } | null {
+    return this.awaitingGodFavor;
+  }
+
+  /**
+   * Enregistre le tirage des deux dés et rend la main.
+   *
+   * La faveur elle-même se joue À LA TABLE : l'application l'énonce, les
+   * joueurs l'appliquent, comme pour les autres cases que Quentin a tranchées
+   * ainsi. Servir des gorgées ici reviendrait à arbitrer des règles qui
+   * demandent de choisir une cible, de relancer un dé ou de poser un shooter
+   * — rien de tout cela ne se décide sans le joueur.
+   *
+   * Seule la COLÈRE DES DIEUX est comptée : elle ne demande aucun choix, et
+   * elle passe par `addDrinks`, seul endroit où le bouclier d'Athéna
+   * intercepte.
+   */
+  public resolveGodFavor(a: number, b: number): FavorRoll {
+    const roll = readFavorRoll(a, b);
+    const pending = this.awaitingGodFavor;
+
+    this.awaitingGodFavor = null;
+
+    if (pending && roll.double) {
+      this.logic.addDrinks(pending.player, WRATH_DRINKS);
+    }
+
+    this.logic.nextPlayer();
+
+    return roll;
   }
 
   /** Renvoie la sanction retenue par le bouclier sur la cible choisie. */

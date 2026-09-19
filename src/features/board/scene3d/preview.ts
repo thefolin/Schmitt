@@ -12,6 +12,7 @@ import { Dice3DScene } from './dice-3d-scene';
 import { DicePhysics } from '@/features/dice/DicePhysics';
 import { WORLD_DICE_CONFIG, rollingSpinRate } from './dice-world-config';
 import { diceArena } from './dice-arena';
+import { FavorDice } from './favor-dice';
 import { walkPath } from './pawn-path';
 import { walkFrame } from './pawn-walk';
 import { swipeToThrow, type ThrowRequest } from './dice-gesture';
@@ -318,6 +319,12 @@ function attachDice(
 
   const result = document.getElementById('dice-value');
 
+  // LES DEUX DÉS DU TEMPLE. Objet distinct du dé du tour : celui-ci garde sa
+  // physique et sa chaîne « la face vue est celle dont on avance ». Ils
+  // restent invisibles tant que personne ne se pose sur le temple.
+  const favorDice = new FavorDice(arena);
+  for (const view of favorDice.views) scene.world.add(view.group);
+
   let frame: number | null = null;
 
   /**
@@ -350,6 +357,15 @@ function attachDice(
    * regarder.
    */
   const ROLL_SPAN = 7 * 120;
+
+  /**
+   * Temps pendant lequel les deux dés du temple restent posés.
+   *
+   * Assez pour lire les deux faces et vérifier la somme annoncée — c'est un
+   * jeu à boire, on recompte. Au-delà, deux dés oubliés se confondraient avec
+   * le dé du tour suivant.
+   */
+  const FAVOR_DICE_LINGER_MS = 4000;
   let camX = (arena.minX + arena.maxX) / 2;
   let camZ = (arena.minZ + arena.maxZ) / 2;
 
@@ -396,6 +412,12 @@ function attachDice(
     walkPawn(tiles, runner, outcome, () => {
       tiles.setPawns(runner.pawns());
       refresh();
+
+      // LA FAVEUR DES DIEUX, une fois le pion posé. Les deux dés arrivent
+      // APRÈS la marche : le joueur doit d'abord voir où il est tombé, sinon
+      // les dés surgissent pendant que le pion bouge encore et plus personne
+      // ne sait ce qui a déclenché quoi.
+      if (outcome.godFavor) rollFavor();
     });
 
     // Retour SOUPLE à la vue du plateau : un saut de caméra à l'instant où
@@ -417,9 +439,47 @@ function attachDice(
     refresh();
   };
 
+  /**
+   * Fait tirer la faveur des dieux, deux dés dans la même scène.
+   *
+   * La main reste au joueur du temple pendant le tirage : c'est `TurnRunner`
+   * qui la retient, et `resolveGodFavor` qui la rend. La faveur elle-même se
+   * joue À LA TABLE — l'application l'énonce, les joueurs l'appliquent, comme
+   * Quentin l'a tranché pour les cases de ce genre.
+   */
+  const rollFavor = (): void => {
+    const pending = runner.getAwaitingGodFavor();
+    if (!pending) return;
+
+    say(`${runner.currentPlayerName()} lance les 2 dés de la faveur des dieux…`);
+
+    // Le tirage se regarde : on cadre le plateau entier, sinon un dé peut
+    // tomber hors du cadre suivi de sept cases.
+    scene.showWholeBoard();
+
+    favorDice.roll((a, b) => {
+      const roll = runner.resolveGodFavor(a, b);
+
+      const line = roll.favor
+        ? `${roll.a} + ${roll.b} = ${roll.sum} — ${roll.favor.icon} ${roll.favor.name} : ${roll.favor.description}`
+        : `${roll.a} + ${roll.b} = ${roll.sum}`;
+
+      runner.log(line);
+      say(line);
+      renderJournal(runner);
+
+      // Les dés restent posés le temps qu'on lise le résultat, puis
+      // disparaissent : deux dés oubliés sur le plateau se confondraient
+      // avec le dé du tour suivant.
+      window.setTimeout(() => favorDice.setVisible(false), FAVOR_DICE_LINGER_MS);
+
+      refresh();
+    });
+  };
+
   /** Lance le dé, si un lancer est attendu. */
   const roll = (): void => {
-    if (frame !== null) return;
+    if (frame !== null || favorDice.rolling) return;
 
     if (result) result.textContent = '…';
     physics.throw();
@@ -434,7 +494,7 @@ function attachDice(
    * seconde physique. Le module partagé avec le rendu CSS n'est pas touché.
    */
   const throwFromGesture = (request: ThrowRequest): void => {
-    if (frame !== null) return;
+    if (frame !== null || favorDice.rolling) return;
 
     if (result) result.textContent = '…';
     physics.throwWithVelocity(
@@ -452,7 +512,7 @@ function attachDice(
   // lancer est attendu, et reste sourd pendant qu'il roule. Sur un téléphone
   // posé sur la table et passé de main en main, c'est toujours le tour de
   // celui qui le tient — il n'y a donc pas d'autre condition à vérifier.
-  attachDiceGrab(die, scene, () => frame === null, throwFromGesture);
+  attachDiceGrab(die, scene, () => frame === null && !favorDice.rolling, throwFromGesture);
 }
 
 /**
