@@ -70,3 +70,22 @@ describe('3D-60 — les dés de la faveur ne restent pas posés', () => {
     }
   });
 });
+
+describe('3D-61 — les dés de la faveur attendent le joueur', () => {
+  it('sont posés et visibles avant d\'être lancés', () => {
+    // Quentin : « les 2 dés ne doivent PAS se lancer automatiquement. Le
+    // joueur doit les lancer lui-même. »
+    //
+    // Le moment de la faveur commence donc par deux dés POSÉS, en attente
+    // d'un geste — et non par un lancer déjà parti. Si `duringFavor` ne les
+    // montrait pas, il n'y aurait rien à attraper.
+    expect(duringFavor().favor).toBe(true);
+  });
+
+  it('remplacent le dé du tour, qu\'on ne doit plus pouvoir attraper', () => {
+    // Deux jeux de dés attrapables en même temps laisseraient le joueur
+    // lancer le mauvais : le dé du tour ferait avancer un pion alors que la
+    // règle attend une faveur.
+    expect(duringFavor().turn).toBe(false);
+  });
+});

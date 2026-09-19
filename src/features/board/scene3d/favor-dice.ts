@@ -19,6 +19,7 @@ import { Dice3DScene } from './dice-3d-scene';
 import { DicePhysics } from '@/features/dice/DicePhysics';
 import { WORLD_DICE_CONFIG, rollingSpinRate } from './dice-world-config';
 import type { DiceArena } from './dice-arena';
+import type { ThrowRequest } from './dice-gesture';
 
 /**
  * Écart entre les deux points de lancer, en fraction de la largeur de l'aire.
@@ -82,6 +83,25 @@ export class FavorDice {
   }
 
   /**
+   * POSE les deux dés sur le plateau, en attente du geste du joueur.
+   *
+   * Indispensable depuis que le joueur les lance lui-même : leur position
+   * n'était fixée QUE pendant l'animation du lancer. Des dés jamais lancés
+   * restaient donc à l'origine du monde, hors du plateau et l'un dans
+   * l'autre — le joueur n'avait rien à attraper.
+   *
+   * Ils sont posés à leurs deux points de lancer, écartés l'un de l'autre :
+   * deux dés qu'on voit séparément, et qu'on peut viser du doigt.
+   */
+  public rest(): void {
+    for (const die of this.dice) {
+      const start = die.physics.getState().position;
+
+      die.view.setPosition(start.x, Dice3DScene.halfSize, start.y);
+    }
+  }
+
+  /**
    * Lance les deux dés et rend la main quand les DEUX se sont arrêtés.
    *
    * Les deux faces sont lues sur la physique, comme celle du dé du tour :
@@ -89,13 +109,35 @@ export class FavorDice {
    * faveur qui ne correspond pas aux dés posés sur la table rejouerait le
    * défaut que toute la refonte supprime.
    */
-  public roll(done: (a: number, b: number) => void): void {
+  public roll(done: (a: number, b: number) => void, request?: ThrowRequest): void {
     if (this.frame !== null) return;
 
     // La VISIBILITÉ n'est pas décidée ici : `dice-on-stage` en est seul juge,
     // parce qu'elle concerne aussi le dé du tour, qui doit s'effacer pendant
     // la faveur. La régler des deux côtés a déjà donné trois dés à l'écran.
-    for (const die of this.dice) die.physics.throw();
+    //
+    // LE GESTE DU JOUEUR, quand il y en a un. Quentin : « les 2 dés ne
+    // doivent PAS se lancer automatiquement, le joueur doit les lancer
+    // lui-même ». Les deux dés partent du MÊME geste : c'est une seule
+    // poignée qu'on jette.
+    //
+    // La même vitesse pour les deux ne les rend PAS identiques, et je l'ai
+    // mesuré avant de compliquer : `beginRoll` tire une orientation de départ
+    // au hasard pour chaque dé, indépendamment. Deux dés lancés à vitesse
+    // égale donnent 16,7 % de doubles — exactement le taux de deux dés
+    // honnêtes. J'avais d'abord ajouté un écart de trajectoire pour éviter
+    // des dés collés ; il ne corrigeait rien qui existait, et il est retiré.
+    for (const die of this.dice) {
+      if (request) {
+        die.physics.throwWithVelocity(
+          request.velocity,
+          request.verticalVelocity,
+          { x: 0, y: 0 }
+        );
+      } else {
+        die.physics.throw();
+      }
+    }
 
     const step = (): void => {
       let moving = false;

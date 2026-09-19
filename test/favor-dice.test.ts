@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { DicePhysics } from '@/features/dice/DicePhysics';
 import { WORLD_DICE_CONFIG } from '@/features/board/scene3d/dice-world-config';
 import { readFavorRoll } from '@/features/board/scene3d/god-favor-roll';
+import { FavorDice } from '@/features/board/scene3d/favor-dice';
 
 /**
  * 3D-58 — les deux dés de la faveur se posent sur des faces lisibles.
@@ -83,5 +84,81 @@ describe('3D-58 — deux dés lancés ensemble donnent toujours une faveur', () 
 
       expect(roll.favor).not.toBeNull();
     }
+  });
+});
+
+/**
+ * 3D-61 — les deux dés partent du geste du joueur.
+ *
+ * Quentin (20/09/2026) : « les 2 dés de FAVEUR DES DIEUX ne doivent PAS se
+ * lancer automatiquement. Le joueur doit les lancer lui-même (geste, comme le
+ * dé normal). »
+ *
+ * Les deux dés partent du MÊME geste, avec la MÊME vitesse : c'est une seule
+ * poignée qu'on jette.
+ *
+ * J'AI FAILLI COMPLIQUER ÇA POUR RIEN, et la trace en vaut la peine. Je
+ * redoutais que deux dés lancés identiquement s'arrêtent identiquement, donc
+ * un double à chaque tirage — c'est-à-dire la COLÈRE DES DIEUX à chaque
+ * passage sur la case. J'avais ajouté un écart de trajectoire pour l'éviter.
+ *
+ * Mesure faite avant de le garder : sans aucun écart, le taux de doubles est
+ * de 16,7 %, exactement celui de deux dés honnêtes. `beginRoll` tire une
+ * orientation de départ au hasard pour chaque dé, et le couple de rotation
+ * diverge ensuite. Même en forçant les deux dés à partir de la MÊME face et
+ * du MÊME point, le taux ne monte qu'à 26 %.
+ *
+ * L'écart a été retiré : il ne corrigeait rien. Et aucun test n'est écrit
+ * sur cette propriété, parce que aucun défaut réaliste ne la met en défaut —
+ * un test qui ne peut pas échouer donne une confiance que rien ne soutient,
+ * et j'en ai déjà écrit sept de cette sorte sur ce projet.
+ */
+
+describe('3D-61 — les dés posés doivent être attrapables', () => {
+  it('sont posés sur le plateau, et non à l\'origine du monde', () => {
+    // LE DÉFAUT que ce test a trouvé : la position des dés n'était fixée que
+    // PENDANT l'animation du lancer. Tant que Quentin lançait la faveur
+    // automatiquement, ça ne se voyait pas — l'animation démarrait aussitôt.
+    //
+    // Depuis que le joueur les lance lui-même, les dés restent posés en
+    // attente. Sans `rest()`, ils attendaient à l'origine du monde : hors du
+    // plateau, l'un dans l'autre, et le doigt n'avait rien à attraper.
+    const dice = new FavorDice(ARENA);
+    dice.rest();
+
+    for (const view of dice.views) {
+      const { x, z } = view.group.position;
+
+      expect(x).toBeGreaterThan(ARENA.minX);
+      expect(x).toBeLessThan(ARENA.maxX);
+      expect(z).toBeGreaterThan(ARENA.minZ);
+      expect(z).toBeLessThan(ARENA.maxZ);
+    }
+
+    dice.dispose();
+  });
+
+  it('sont posés SUR le plateau, pas enfoncés dedans', () => {
+    const dice = new FavorDice(ARENA);
+    dice.rest();
+
+    for (const view of dice.views) {
+      expect(view.group.position.y).toBeGreaterThan(0);
+    }
+
+    dice.dispose();
+  });
+
+  it('sont assez écartés pour qu\'on vise l\'un ou l\'autre', () => {
+    // Deux dés superposés ne feraient qu'une cible : le joueur croirait en
+    // attraper un et en manquerait l'autre.
+    const dice = new FavorDice(ARENA);
+    dice.rest();
+
+    const [first, second] = dice.views.map(view => view.group.position);
+
+    expect(Math.abs(first.x - second.x)).toBeGreaterThan(100);
+
+    dice.dispose();
   });
 });

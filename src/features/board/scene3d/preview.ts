@@ -431,7 +431,7 @@ function attachDice(
       // APRÈS la marche : le joueur doit d'abord voir où il est tombé, sinon
       // les dés surgissent pendant que le pion bouge encore et plus personne
       // ne sait ce qui a déclenché quoi.
-      if (outcome.godFavor) rollFavor();
+      if (outcome.godFavor) offerFavorDice();
     });
 
     // Retour SOUPLE à la vue du plateau : un saut de caméra à l'instant où
@@ -454,16 +454,18 @@ function attachDice(
   };
 
   /**
-   * Fait tirer la faveur des dieux, deux dés dans la même scène.
+   * POSE les deux dés de la faveur sur le plateau, et attend le joueur.
    *
-   * La main reste au joueur du temple pendant le tirage : c'est `TurnRunner`
-   * qui la retient, et `resolveGodFavor` qui la rend. La faveur elle-même se
-   * joue À LA TABLE — l'application l'énonce, les joueurs l'appliquent, comme
-   * Quentin l'a tranché pour les cases de ce genre.
+   * Elle ne les lance PAS. Quentin : « les 2 dés ne doivent pas se lancer
+   * automatiquement, le joueur doit les lancer lui-même. » C'est `throwFavor`
+   * qui les jette, quand le geste arrive.
+   *
+   * La main reste au joueur du temple pendant tout ce temps : c'est
+   * `TurnRunner` qui la retient, et `resolveGodFavor` qui la rend.
    */
   let favorLinger: number | null = null;
 
-  const rollFavor = (): void => {
+  const offerFavorDice = (): void => {
     const pending = runner.getAwaitingGodFavor();
     if (!pending) return;
 
@@ -475,7 +477,9 @@ function attachDice(
       favorLinger = null;
     }
 
-    say(`${runner.currentPlayerName()} lance les 2 dés de la faveur des dieux…`);
+    // On DIT au joueur ce qu'on attend de lui. Deux dés qui apparaissent
+    // sans consigne se regardent sans qu'on sache qu'il faut les jeter.
+    say(`\u{26A1} ${runner.currentPlayerName()} — attrape les 2 dés et lance-les !`);
 
     // Le tirage se regarde : on cadre le plateau entier, sinon un dé peut
     // tomber hors du cadre suivi de sept cases.
@@ -485,6 +489,22 @@ function attachDice(
     // sur le plateau, et la somme annoncée n'est plus recomptable.
     showDice(duringFavor());
 
+    // Et les deux dés sont POSÉS à leurs points de lancer. Sans cela leur
+    // position n'est fixée que pendant l'animation : des dés jamais lancés
+    // resteraient à l'origine du monde, hors du plateau et l'un dans
+    // l'autre, sans rien à attraper.
+    favorDice.rest();
+  };
+
+  /**
+   * Lance les deux dés de la faveur, du geste du joueur.
+   *
+   * Quentin : « les 2 dés ne doivent PAS se lancer automatiquement, le joueur
+   * doit les lancer lui-même ». C'est la même exigence que pour le dé du tour
+   * (#49) : on ne joue pas à la place du joueur, et un lancer qu'on n'a pas
+   * fait soi-même ne se conteste pas — dans un jeu à boire, ça compte.
+   */
+  const throwFavor = (request: ThrowRequest): void => {
     favorDice.roll((a, b) => {
       const roll = runner.resolveGodFavor(a, b);
 
@@ -505,12 +525,19 @@ function attachDice(
       }, FAVOR_DICE_LINGER_MS);
 
       refresh();
-    });
+    }, request);
   };
 
   /** Lance le dé, si un lancer est attendu. */
   const roll = (): void => {
     if (frame !== null || favorDice.rolling) return;
+
+    // Le bouton sert aussi la faveur : c'est le repli de ceux qui ne font
+    // pas le geste, et il ne doit pas laisser la partie bloquée.
+    if (runner.getAwaitingGodFavor()) {
+      throwFavor(swipeToThrow({ dx: 0, dy: -120, ms: 120, worldPerPixel: 1 }));
+      return;
+    }
 
     if (result) result.textContent = '…';
     physics.throw();
@@ -526,6 +553,14 @@ function attachDice(
    */
   const throwFromGesture = (request: ThrowRequest): void => {
     if (frame !== null || favorDice.rolling) return;
+
+    // LE GESTE VA AUX DÉS QUI ATTENDENT. Quand la faveur est en attente,
+    // c'est la paire qu'on jette ; sinon c'est le dé du tour. Le joueur
+    // attrape ce qu'il voit, sans avoir à choisir lequel.
+    if (runner.getAwaitingGodFavor()) {
+      throwFavor(request);
+      return;
+    }
 
     if (result) result.textContent = '…';
     physics.throwWithVelocity(
@@ -543,7 +578,12 @@ function attachDice(
   // lancer est attendu, et reste sourd pendant qu'il roule. Sur un téléphone
   // posé sur la table et passé de main en main, c'est toujours le tour de
   // celui qui le tient — il n'y a donc pas d'autre condition à vérifier.
-  attachDiceGrab(die, scene, () => frame === null && !favorDice.rolling, throwFromGesture);
+  attachDiceGrab(
+    () => (runner.getAwaitingGodFavor() ? favorDice.views : [die]),
+    scene,
+    () => frame === null && !favorDice.rolling,
+    throwFromGesture
+  );
 }
 
 /**
@@ -704,7 +744,7 @@ function easeBack(
  * rotation n'est donc pas désactivée, elle est seulement précédée.
  */
 function attachDiceGrab(
-  die: Dice3DScene,
+  dice: () => Dice3DScene[],
   scene: BoardScene,
   canRoll: () => boolean,
   throwDice: (request: ThrowRequest) => void
@@ -712,7 +752,12 @@ function attachDiceGrab(
   const container = scene.viewport;
   const raycaster = new Raycaster();
 
-  /** Le doigt touche-t-il le dé ? */
+  /**
+   * Le doigt touche-t-il l'un des dés à lancer ?
+   *
+   * La faveur des dieux en pose DEUX : attraper l'un ou l'autre lance la
+   * paire. Un joueur ne cherche pas lequel des deux est « le bon ».
+   */
   const hitsDie = (clientX: number, clientY: number): boolean => {
     const box = container.getBoundingClientRect();
     const pointer = new Vector2(
@@ -722,7 +767,12 @@ function attachDiceGrab(
 
     raycaster.setFromCamera(pointer, scene.camera);
 
-    return raycaster.intersectObject(die.group, true).length > 0;
+    return dice().some(die => raycaster.intersectObject(die.group, true).length > 0);
+  };
+
+  /** Le retour visuel s'applique à tous les dés que le geste va lancer. */
+  const setHeld = (held: boolean): void => {
+    for (const die of dice()) die.setHeld(held);
   };
 
   let holding = false;
@@ -734,7 +784,7 @@ function attachDiceGrab(
     if (!holding) return;
 
     holding = false;
-    die.setHeld(false);
+    setHeld(false);
 
     const request = swipeToThrow({
       dx: clientX - startX,
@@ -767,7 +817,7 @@ function attachDiceGrab(
       startedAt = performance.now();
 
       // Le retour visuel : on VOIT qu'on tient le dé.
-      die.setHeld(true);
+      setHeld(true);
     },
     true
   );
@@ -778,7 +828,7 @@ function attachDiceGrab(
   window.addEventListener('pointercancel', () => {
     if (!holding) return;
     holding = false;
-    die.setHeld(false);
+    setHeld(false);
   });
 }
 
