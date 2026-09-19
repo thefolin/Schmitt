@@ -8,6 +8,7 @@ import {
   Color,
 } from 'three';
 import { DICE_FACES } from '@/features/dice/dice-faces';
+import { GRAB_LIFT } from './dice-gesture';
 import type { Quaternion } from '@/features/dice/quaternion';
 
 /**
@@ -61,6 +62,7 @@ export class Dice3DScene {
   readonly group = new Group();
 
   private readonly body: Mesh;
+  private held = false;
 
   constructor() {
     this.body = new Mesh(
@@ -93,6 +95,29 @@ export class Dice3DScene {
 
   public setVisible(visible: boolean): void {
     this.group.visible = visible;
+  }
+
+  /**
+   * Le dé est-il tenu en main ?
+   *
+   * Quentin veut un retour visuel : « le doigt appuie sur le dé → le saisir,
+   * feedback visuel ». Sans lui, rien ne distingue un dé qu'on tient d'un dé
+   * qu'on a seulement effleuré, et le joueur ne sait pas si son geste a pris.
+   *
+   * Le dé SE SOULÈVE et s'éclaircit : deux signaux plutôt qu'un, parce que la
+   * hauteur seule se voit mal sur un écran de téléphone en plongée, et que la
+   * couleur seule ne dit pas « en main ».
+   */
+  public setHeld(held: boolean): void {
+    this.held = held;
+    this.body.position.y = held ? GRAB_LIFT : 0;
+
+    const material = this.body.material as MeshLambertMaterial;
+    material.emissive.set(held ? 0x33405c : 0x000000);
+  }
+
+  public isHeld(): boolean {
+    return this.held;
   }
 
   /** Demi-arête, pour poser le dé sur une surface sans l'y enfoncer. */

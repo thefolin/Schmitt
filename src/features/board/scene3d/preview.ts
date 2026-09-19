@@ -14,6 +14,7 @@ import { WORLD_DICE_CONFIG, rollingSpinRate } from './dice-world-config';
 import { diceArena } from './dice-arena';
 import { walkPath } from './pawn-path';
 import { walkFrame } from './pawn-walk';
+import { swipeToThrow, type ThrowRequest } from './dice-gesture';
 import { isHandheld, readDeviceOverride, type DeviceHints } from './device';
 import { GameLogic } from '@/features/game/game.logic';
 import { TurnRunner } from './turn-runner';
@@ -418,6 +419,25 @@ function attachDice(
     frame = requestAnimationFrame(step);
   };
 
+  /**
+   * Lance le dé avec la vigueur du geste (#49).
+   *
+   * `throwWithVelocity` existe déjà dans `DicePhysics` et tire la force du
+   * couple depuis la vitesse : on s'appuie dessus plutôt que d'écrire une
+   * seconde physique. Le module partagé avec le rendu CSS n'est pas touché.
+   */
+  const throwFromGesture = (request: ThrowRequest): void => {
+    if (frame !== null) return;
+
+    if (result) result.textContent = '…';
+    physics.throwWithVelocity(
+      request.velocity,
+      request.verticalVelocity,
+      { x: 0, y: 0 }
+    );
+    frame = requestAnimationFrame(step);
+  };
+
   document.getElementById('roll')?.addEventListener('click', roll);
 
   // ATTRAPER LE DÉ AU DOIGT plutôt que par un bouton. Le déclenchement se
@@ -425,7 +445,7 @@ function attachDice(
   // lancer est attendu, et reste sourd pendant qu'il roule. Sur un téléphone
   // posé sur la table et passé de main en main, c'est toujours le tour de
   // celui qui le tient — il n'y a donc pas d'autre condition à vérifier.
-  attachDiceGrab(die, scene, () => frame === null, roll);
+  attachDiceGrab(die, scene, () => frame === null, throwFromGesture);
 }
 
 /**
@@ -589,7 +609,7 @@ function attachDiceGrab(
   die: Dice3DScene,
   scene: BoardScene,
   canRoll: () => boolean,
-  roll: () => void
+  throwDice: (request: ThrowRequest) => void
 ): void {
   const container = scene.viewport;
   const raycaster = new Raycaster();
@@ -607,23 +627,63 @@ function attachDiceGrab(
     return raycaster.intersectObject(die.group, true).length > 0;
   };
 
-  const tryGrab = (clientX: number, clientY: number): boolean => {
-    if (!canRoll()) return false;
-    if (!hitsDie(clientX, clientY)) return false;
+  let holding = false;
+  let startX = 0;
+  let startY = 0;
+  let startedAt = 0;
 
-    roll();
-    return true;
+  const release = (clientX: number, clientY: number): void => {
+    if (!holding) return;
+
+    holding = false;
+    die.setHeld(false);
+
+    const request = swipeToThrow({
+      dx: clientX - startX,
+      dy: clientY - startY,
+      ms: performance.now() - startedAt,
+      // Combien d'unités monde vaut un pixel, ici et maintenant : sans
+      // cette échelle, le même geste lancerait deux fois plus fort en vue
+      // rapprochée qu'en vue d'ensemble.
+      worldPerPixel: 1 / Math.max(0.0001, scene.worldToScreenPixels(1)),
+    });
+
+    // Un simple appui n'est pas un lancer : le joueur a hésité, on repose le
+    // dé sans rien déclencher.
+    if (request.thrown) throwDice(request);
   };
 
-  container.addEventListener('pointerdown', event => {
-    // Le dé passe AVANT la caméra : s'il est touché, le geste lui revient et
-    // la vue ne doit pas tourner en même temps.
-    if (tryGrab(event.clientX, event.clientY)) {
+  container.addEventListener(
+    'pointerdown',
+    event => {
+      if (!canRoll() || !hitsDie(event.clientX, event.clientY)) return;
+
+      // Le dé passe AVANT la caméra : tant qu'on le tient, la vue ne tourne
+      // pas. C'est l'exigence « le plateau ne bouge pas pendant la prise ».
       event.stopPropagation();
       event.preventDefault();
-    }
-  }, true);
+
+      holding = true;
+      startX = event.clientX;
+      startY = event.clientY;
+      startedAt = performance.now();
+
+      // Le retour visuel : on VOIT qu'on tient le dé.
+      die.setHeld(true);
+    },
+    true
+  );
+
+  // Le relâchement est écouté sur la fenêtre : un doigt qui quitte le canvas
+  // en cours de geste doit quand même lancer, sinon le dé reste en main.
+  window.addEventListener('pointerup', event => release(event.clientX, event.clientY));
+  window.addEventListener('pointercancel', () => {
+    if (!holding) return;
+    holding = false;
+    die.setHeld(false);
+  });
 }
+
 
 /**
  * Invite à tourner le téléphone en portrait.
