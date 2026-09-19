@@ -15,6 +15,7 @@ import { diceArena } from './dice-arena';
 import { walkPath } from './pawn-path';
 import { walkFrame } from './pawn-walk';
 import { swipeToThrow, type ThrowRequest } from './dice-gesture';
+import { describeTurn, JOURNAL_MAX } from './turn-journal';
 import { isHandheld, readDeviceOverride, type DeviceHints } from './device';
 import { GameLogic } from '@/features/game/game.logic';
 import { TurnRunner } from './turn-runner';
@@ -399,13 +400,13 @@ function attachDice(
     // le dé s'immobilise ferait perdre le résultat de vue.
     easeBack(scene, camX, camZ, ROLL_SPAN, follow);
 
-    const parts = [`${outcome.playerName} fait ${outcome.dice} : ${outcome.from} → ${outcome.to}`];
-    if (outcome.effect) parts.push(`flèche → ${outcome.effect.to}`);
-    if (outcome.schmittPower) parts.push('\u{26A1} pouvoir du Schmitt, demi-tour !');
-    if (outcome.returning) parts.push('(retour)');
-    if (outcome.winner) parts.push(`\u{1F3C6} ${outcome.winner} gagne !`);
-
-    say(parts.join(' · '));
+    // Le tour est raconté par `describeTurn`, et consigné dans l'historique
+    // que GameLogic tient déjà. On ne tient pas un second journal à côté :
+    // deux récits de la même partie finiraient par diverger.
+    const line = describeTurn(outcome);
+    runner.log(line);
+    say(line);
+    renderJournal(runner);
 
     refresh();
   };
@@ -704,6 +705,25 @@ function showRotateHint(scene: BoardScene, device: DeviceHints): void {
   // personne ne tournera son moniteur — et un conseil faux use la confiance
   // plus qu'il n'aide.
   hint.hidden = scene.prefersWholeBoard() || !isHandheld(device);
+}
+
+/**
+ * Affiche les derniers événements de la partie.
+ *
+ * La source est l'historique de `GameLogic` — celui que le jeu tient depuis
+ * toujours — et non une liste tenue par la scène.
+ */
+function renderJournal(runner: TurnRunner): void {
+  const list = document.getElementById('journal');
+  if (!list) return;
+
+  list.replaceChildren(
+    ...runner.history().slice(-JOURNAL_MAX).reverse().map(entry => {
+      const line = document.createElement('li');
+      line.textContent = entry;
+      return line;
+    })
+  );
 }
 
 /** Raconte le dernier tour joué. */

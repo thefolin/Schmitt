@@ -186,6 +186,22 @@ export class TurnRunner {
     return this.logic.getLastPosition();
   }
 
+  /**
+   * Consigne un événement dans l'historique de la PARTIE.
+   *
+   * On passe par `GameLogic`, qui tient cet historique depuis toujours,
+   * plutôt que d'en tenir un second dans la scène : deux récits de la même
+   * partie finiraient par diverger.
+   */
+  public log(message: string): void {
+    this.logic.logEvent(message);
+  }
+
+  /** L'historique de la partie, du plus ancien au plus récent. */
+  public history(): string[] {
+    return this.logic.getHistory();
+  }
+
   /** Qui doit jouer maintenant. */
   public currentPlayerName(): string {
     return this.logic.getPlayers()[this.logic.getCurrentPlayerIndex()]?.name ?? '';
