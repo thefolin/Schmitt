@@ -92,7 +92,9 @@ export class FavorDice {
   public roll(done: (a: number, b: number) => void): void {
     if (this.frame !== null) return;
 
-    this.setVisible(true);
+    // La VISIBILITÉ n'est pas décidée ici : `dice-on-stage` en est seul juge,
+    // parce qu'elle concerne aussi le dé du tour, qui doit s'effacer pendant
+    // la faveur. La régler des deux côtés a déjà donné trois dés à l'écran.
     for (const die of this.dice) die.physics.throw();
 
     const step = (): void => {

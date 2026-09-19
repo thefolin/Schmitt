@@ -13,6 +13,7 @@ import { DicePhysics } from '@/features/dice/DicePhysics';
 import { WORLD_DICE_CONFIG, rollingSpinRate } from './dice-world-config';
 import { diceArena } from './dice-arena';
 import { FavorDice } from './favor-dice';
+import { duringFavor, betweenFavors, type DiceVisibility } from './dice-on-stage';
 import { walkPath } from './pawn-path';
 import { walkFrame } from './pawn-walk';
 import { swipeToThrow, type ThrowRequest } from './dice-gesture';
@@ -325,6 +326,19 @@ function attachDice(
   const favorDice = new FavorDice(arena);
   for (const view of favorDice.views) scene.world.add(view.group);
 
+  /**
+   * Applique qui est posé sur le plateau.
+   *
+   * JAMAIS TROIS DÉS. Le dé du tour et les deux dés de la faveur sont trois
+   * objets distincts : montrer la faveur sans retirer le dé du tour en
+   * laissait trois sur le plateau, et la somme annoncée ne correspondait plus
+   * à une paire lisible.
+   */
+  const showDice = (visibility: DiceVisibility): void => {
+    die.setVisible(visibility.turn);
+    favorDice.setVisible(visibility.favor);
+  };
+
   let frame: number | null = null;
 
   /**
@@ -447,15 +461,29 @@ function attachDice(
    * joue À LA TABLE — l'application l'énonce, les joueurs l'appliquent, comme
    * Quentin l'a tranché pour les cases de ce genre.
    */
+  let favorLinger: number | null = null;
+
   const rollFavor = (): void => {
     const pending = runner.getAwaitingGodFavor();
     if (!pending) return;
+
+    // Le plateau porte DEUX cases « faveur des dieux » : deux tirages peuvent
+    // s'enchaîner à moins de quatre secondes. Le minuteur du tirage précédent
+    // effacerait alors les dés du nouveau en plein vol.
+    if (favorLinger !== null) {
+      window.clearTimeout(favorLinger);
+      favorLinger = null;
+    }
 
     say(`${runner.currentPlayerName()} lance les 2 dés de la faveur des dieux…`);
 
     // Le tirage se regarde : on cadre le plateau entier, sinon un dé peut
     // tomber hors du cadre suivi de sept cases.
     scene.showWholeBoard();
+
+    // LE DÉ DU TOUR S'EFFACE le temps de la faveur : sinon il en reste trois
+    // sur le plateau, et la somme annoncée n'est plus recomptable.
+    showDice(duringFavor());
 
     favorDice.roll((a, b) => {
       const roll = runner.resolveGodFavor(a, b);
@@ -468,10 +496,13 @@ function attachDice(
       say(line);
       renderJournal(runner);
 
-      // Les dés restent posés le temps qu'on lise le résultat, puis
-      // disparaissent : deux dés oubliés sur le plateau se confondraient
-      // avec le dé du tour suivant.
-      window.setTimeout(() => favorDice.setVisible(false), FAVOR_DICE_LINGER_MS);
+      // Les dés restent posés le temps qu'on lise le résultat, puis rendent
+      // la place au dé du tour : deux dés oubliés sur le plateau se
+      // confondraient avec celui du tour suivant.
+      favorLinger = window.setTimeout(() => {
+        favorLinger = null;
+        showDice(betweenFavors());
+      }, FAVOR_DICE_LINGER_MS);
 
       refresh();
     });

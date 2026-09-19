@@ -178,3 +178,42 @@ describe('3D-58 — sur le PLATEAU OFFICIEL, pas seulement sur un plateau de tes
     expect(r.getAwaitingGodFavor()).toEqual({ player: 0 });
   });
 });
+
+describe('3D-60 — le plateau officiel porte DEUX cases faveur', () => {
+  it('les trouve toutes les deux', () => {
+    // Elles sont à 14 cases d'écart. Avec plusieurs joueurs, deux tirages
+    // peuvent donc s'enchaîner à quelques secondes — c'est ce qui rend le
+    // minuteur d'effacement des dés dangereux s'il n'est pas annulé.
+    const favors = TILE_CONFIGS
+      .map((tile, index) => ({ tile, index }))
+      .filter(({ tile }) => tile.type === 'power');
+
+    expect(favors).toHaveLength(2);
+    for (const { tile } of favors) expect(tile.name).toBe('FAVEUR DES DIEUX');
+  });
+
+  it('déclenche le tirage sur CHACUNE', () => {
+    // Pas seulement sur la première : une case oubliée resterait muette, ce
+    // qui est exactement le défaut de départ.
+    const board = TILE_CONFIGS as TileConfig[];
+
+    for (const [rank, tile] of board.entries()) {
+      if (tile.type !== 'power') continue;
+
+      const g = new GameLogic();
+      g.setBoardSize(board.length);
+      g.startGame([
+        { name: 'Alice', color: '#e2483d' },
+        { name: 'Bastien', color: '#3d7fc4' },
+      ]);
+
+      const r = new TurnRunner(g);
+      r.setBoard(board);
+
+      const outcome = r.playTurn(rank);
+
+      expect(outcome.godFavor).toBe(true);
+      expect(r.getAwaitingGodFavor()).not.toBeNull();
+    }
+  });
+});
