@@ -208,6 +208,35 @@ export class BoardScene {
     return (worldLength / visibleHeight) * screenHeight;
   }
 
+  /**
+   * Vaut-il mieux montrer tout le plateau, ou suivre le pion ?
+   *
+   * La réponse dépend de la FORME DE L'ÉCRAN, et elle est mesurée, pas
+   * décidée d'avance. En paysage, le plateau entier passe le critère des
+   * 48 px sur tous les appareils visés — 67 px sur un Pixel 10, 58 sur un
+   * iPhone SE, 56 sur un 5 pouces. Mieux : la vue d'ensemble y est MEILLEURE
+   * que la vue suivie (67,2 contre 63,8 px), parce que le plateau officiel et
+   * un écran paysage ont la même forme.
+   *
+   * En portrait le plateau entier tombe à 40 px, sous la cible tactile : la
+   * vue suivie de #45 y reste nécessaire. C'est le problème qu'elle résolvait,
+   * et il ne se pose qu'en portrait.
+   *
+   * Le principe est celui de #41 : on ne fige pas un choix qui dépend du
+   * contexte, on le recalcule.
+   */
+  public prefersWholeBoard(): boolean {
+    const viewport = this.measureViewport();
+    const free = Math.max(
+      1,
+      viewport.height - this.hudInsets.top - this.hudInsets.bottom - this.safeArea.top -
+        this.safeArea.bottom
+    );
+
+    // Un écran plus large que haut : le plateau officiel y tient en entier.
+    return viewport.width > free;
+  }
+
   /** Le cadrage retenu : orientation et échelle. Exposé pour être mesuré. */
   public getFraming(): Framing {
     return this.framing;

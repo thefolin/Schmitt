@@ -94,7 +94,20 @@ async function main(): Promise<void> {
   const die = new Dice3DScene();
   scene.world.add(die.group);
 
-  scene.followTile(runner.tileToFollow());
+  /**
+   * Choisit la vue d'après la forme de l'écran.
+   *
+   * En paysage le plateau entier se lit (67 px sur un Pixel 10) et la vue
+   * d'ensemble y est meilleure que la vue suivie : on montre tout. En
+   * portrait le plateau entier tombe à 40 px, sous la cible tactile, et la
+   * vue suivie reste nécessaire. Recalculé à chaque rotation de l'appareil.
+   */
+  const applyPreferredView = (): void => {
+    if (scene.prefersWholeBoard()) scene.showWholeBoard();
+    else scene.followTile(runner.tileToFollow());
+  };
+
+  applyPreferredView();
 
   scene.start();
 
@@ -102,13 +115,17 @@ async function main(): Promise<void> {
     report(status, scene, positions.length);
     renderProgress(runner.tileToFollow(), positions.length);
     announce(runner);
+    labelViewButton(scene);
   };
 
   // Le tour complet : lancer → avancer → joueur suivant (#46).
-  attachDice(die, positions, tiles, runner, scene, refresh);
+  attachDice(die, positions, tiles, runner, scene, applyPreferredView, refresh);
 
+  // Basculer entre « tout voir » et « suivre le pion », quand le joueur
+  // veut autre chose que ce que la forme de l'écran suggère.
   document.getElementById('whole')?.addEventListener('click', () => {
-    scene.showWholeBoard();
+    if (scene.isFollowing()) scene.showWholeBoard();
+    else scene.followTile(runner.tileToFollow());
     refresh();
   });
 
@@ -132,6 +149,10 @@ async function main(): Promise<void> {
     const insets = measureHudInsets(overrides);
     scene.setHudInsets(insets);
     showInsets(insets, overrides);
+    // La rotation de l'appareil change la vue qui convient : on la recalcule
+    // plutôt que de laisser le joueur sur un cadrage choisi pour l'autre
+    // orientation.
+    applyPreferredView();
     refresh();
   };
 
@@ -266,6 +287,7 @@ function attachDice(
   tiles: BoardTiles3D,
   runner: TurnRunner,
   scene: BoardScene,
+  follow: () => void,
   refresh: () => void
 ): void {
   // L'aire de jeu, en unités monde. Le dé part de son CENTRE, et c'est le
@@ -340,7 +362,7 @@ function attachDice(
     const outcome = runner.playTurn(face);
 
     tiles.setPawns(runner.pawns());
-    scene.followTile(runner.tileToFollow());
+    follow();
     centre = placeArena();
 
     const parts = [`${outcome.playerName} fait ${outcome.dice} : ${outcome.from} → ${outcome.to}`];
@@ -368,6 +390,19 @@ function attachDice(
 function say(message: string): void {
   const line = document.getElementById('turn-log');
   if (line) line.textContent = message;
+}
+
+/**
+ * Met le bouton de vue au bon libellé.
+ *
+ * Un bouton qui dit « Tout le plateau » alors qu'on voit déjà tout le plateau
+ * ne dit pas ce qu'il fait. Il annonce donc la vue vers laquelle il bascule.
+ */
+function labelViewButton(scene: BoardScene): void {
+  const button = document.getElementById('whole');
+  if (!button) return;
+
+  button.textContent = scene.isFollowing() ? 'Tout le plateau' : 'Suivre le pion';
 }
 
 /** Annonce à qui est le tour. */
