@@ -1,5 +1,11 @@
 import { BoardScene } from './board-scene';
 import { buildJourneyProgress } from './journey-progress';
+import {
+  readInsetOverrides,
+  applySimulatedSafeArea,
+  describeInsets,
+  type InsetOverrides,
+} from './debug-insets';
 import { BoardTiles3D } from './board-tiles-3d';
 import { loadTileConfigs, TILE_CONFIGS } from '@/features/tiles/tile.config';
 import { fetchBoardLayout } from '../camera/board-layout.config';
@@ -18,6 +24,13 @@ async function main(): Promise<void> {
   const status = document.getElementById('status');
   if (!container) return;
 
+  // Outillage de recette : sans lui, un défaut de cadrage sur téléphone se
+  // corrige à l'aveugle, par l'intermédiaire de quelqu'un qui n'a pas le code
+  // sous les yeux. Sans paramètre d'URL, rien ne change.
+  const overrides = readInsetOverrides(window.location.search);
+  applySimulatedSafeArea(overrides);
+  if (overrides.outline) document.body.classList.add('debug-outline');
+
   const scene = new BoardScene({
     container,
     // Les bandeaux sont MESURÉS, jamais devinés. Une constante en dur ignore
@@ -25,7 +38,7 @@ async function main(): Promise<void> {
     // la barre de progression occupe le bas — le plateau se cadrait alors
     // dans une surface qui n'existe pas. Invisible sur un écran large, où le
     // bandeau tient sur une ligne.
-    hudInsets: measureHudInsets(),
+    hudInsets: measureHudInsets(overrides),
   });
 
   if (!scene.isAvailable()) {
@@ -97,7 +110,9 @@ async function main(): Promise<void> {
    * `resize` seul ne rapporte pas toujours.
    */
   const remeasure = () => {
-    scene.setHudInsets(measureHudInsets());
+    const insets = measureHudInsets(overrides);
+    scene.setHudInsets(insets);
+    showInsets(insets, overrides);
     refresh();
   };
 
@@ -128,7 +143,7 @@ async function main(): Promise<void> {
  * encoches système, elles, sont ajoutées par la scène — elle les lit depuis le
  * CSS, seul endroit où le navigateur les expose.
  */
-function measureHudInsets(): { top: number; bottom: number } {
+function measureHudInsets(overrides: InsetOverrides): { top: number; bottom: number } {
   const height = (id: string): number => {
     const element = document.getElementById(id);
     if (!element) return 0;
@@ -137,7 +152,10 @@ function measureHudInsets(): { top: number; bottom: number } {
     return Math.max(0, Math.round(box.height));
   };
 
-  return { top: height('bar'), bottom: height('foot') };
+  return {
+    top: overrides.top ?? height('bar'),
+    bottom: overrides.bottom ?? height('foot'),
+  };
 }
 
 /** Affiche ce que le cadrage a décidé, pour pouvoir en juger. */
@@ -185,6 +203,34 @@ function renderProgress(position: number, total: number): void {
   wrap.hidden = false;
   if (bar) bar.style.width = `${progress.ratio * 100}%`;
   if (label) label.textContent = progress.label;
+}
+
+/**
+ * Affiche les marges retenues et trace le cadre visé.
+ *
+ * Le cadre rend la question vérifiable au lieu d'être une appréciation : on
+ * voit si le plateau est centré DANS LUI, sans avoir à juger « à vue » sur
+ * une capture d'écran.
+ */
+function showInsets(
+  insets: { top: number; bottom: number },
+  overrides: InsetOverrides
+): void {
+  const line = document.getElementById('insets');
+  if (line) {
+    line.textContent = describeInsets(insets, {
+      width: Math.round(window.visualViewport?.width ?? window.innerWidth),
+      height: Math.round(window.visualViewport?.height ?? window.innerHeight),
+    });
+  }
+
+  if (!overrides.outline) return;
+
+  const frame = document.getElementById('frame');
+  if (!frame) return;
+
+  frame.style.top = `${insets.top}px`;
+  frame.style.bottom = `${insets.bottom}px`;
 }
 
 /** Avancer, reculer, et voir tout le plateau. */

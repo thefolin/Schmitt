@@ -39,10 +39,17 @@ function ensureProbe(): HTMLElement {
     'width:0',
     'height:0',
     // Les quatre encoches, reportées sur des propriétés qu'on sait relire.
-    'padding-top:env(safe-area-inset-top, 0px)',
-    'padding-bottom:env(safe-area-inset-bottom, 0px)',
-    'padding-left:env(safe-area-inset-left, 0px)',
-    'padding-right:env(safe-area-inset-right, 0px)',
+    //
+    // La sonde passe par les MÊMES variables que la feuille de style, et non
+    // directement par `env()` : c'est ce qui permet à la recette de simuler
+    // une encoche sur un navigateur de bureau, où `env()` vaut toujours zéro.
+    // Sans cela, une encoche simulée décalerait les bandeaux sans décaler le
+    // cadrage de la scène — et on vérifierait un comportement qui n'est pas
+    // celui de l'appareil.
+    'padding-top:var(--safe-top, env(safe-area-inset-top, 0px))',
+    'padding-bottom:var(--safe-bottom, env(safe-area-inset-bottom, 0px))',
+    'padding-left:var(--safe-left, env(safe-area-inset-left, 0px))',
+    'padding-right:var(--safe-right, env(safe-area-inset-right, 0px))',
   ].join(';');
 
   document.body.appendChild(probe);

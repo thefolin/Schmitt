@@ -9,6 +9,14 @@
            son cadrage et sa lisibilité. Le HUD du jeu viendra plus tard. */
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
+        /* Les encoches système, reportées dans des variables pour que la
+           recette puisse en simuler sur un navigateur de bureau, où
+           env(safe-area-inset-*) vaut toujours zéro. */
+        :root {
+            --safe-top: env(safe-area-inset-top, 0px);
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+        }
+
         html, body {
             height: 100%;
             overflow: hidden;
@@ -40,10 +48,41 @@
             justify-content: space-between;
             gap: 12px;
             padding: 12px 16px;
-            padding-top: max(12px, env(safe-area-inset-top, 0px));
+            padding-top: calc(12px + var(--safe-top));
             background: rgba(13, 21, 36, 0.82);
             backdrop-filter: blur(8px);
             border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        /* Ce que le cadrage a mesuré : évite de refaire la soustraction de
+           tête en lisant une capture d'écran. */
+        #insets {
+            display: block;
+            margin-top: 2px;
+            font-size: 11px;
+            color: #7d8aa6;
+        }
+
+        /* Le cadre de contrôle : le plateau doit être centré DANS LUI. */
+        #frame { display: none; }
+
+        .debug-outline #frame {
+            display: block;
+            position: fixed;
+            left: 0;
+            right: 0;
+            z-index: 5;
+            pointer-events: none;
+            border: 1px dashed rgba(212, 175, 55, 0.55);
+        }
+
+        .debug-outline #frame::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            border-top: 1px dashed rgba(212, 175, 55, 0.35);
         }
 
         #status {
@@ -87,7 +126,7 @@
             align-items: center;
             gap: 14px;
             padding: 10px 16px;
-            padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
+            padding-bottom: calc(10px + var(--safe-bottom));
             background: rgba(13, 21, 36, 0.82);
             backdrop-filter: blur(8px);
             border-top: 1px solid rgba(255, 255, 255, 0.08);
@@ -135,10 +174,15 @@
 <body>
     <div id="scene"></div>
 
+    <!-- Cadre de contrôle, visible avec ?debug=1 : le plateau doit être
+         centré dans lui, et sa ligne médiane passer au milieu du plateau. -->
+    <div id="frame"></div>
+
     <div class="bar" id="bar">
         <span>
             <span id="status">Chargement du plateau…</span>
             <span id="hint">glisser pour tourner · clic droit pour déplacer · molette pour zoomer</span>
+            <span id="insets"></span>
         </span>
         <button id="reset" type="button">Recadrer</button>
     </div>
