@@ -1235,8 +1235,26 @@ function attachDice(
       // déjà occupée, et deux séquences en vol se marcheraient dessus.
       if (frame !== null || walking || favorDice.rolling || awaitingValidation) return;
 
+      // L'ÉCRAN S'OUVRE DIRECTEMENT, avec deux faces posées.
+      //
+      // Il passait d'abord par `offerAphroditeDice`, qui suit le vrai
+      // chemin : les dés se posent sur le plateau et le joueur les lance
+      // lui-même. C'était plus fidèle, et INUTILISABLE — vu de l'écran, le
+      // bouton ne faisait rien. Les dés se posaient discrètement sur le
+      // plateau, et la seule consigne partait dans `#turn-log`, qui vit
+      // depuis la refonte du HUD À L'INTÉRIEUR du panneau d'historique,
+      // masqué par défaut. Rien ne disait au joueur ce qu'on attendait de
+      // lui.
+      //
+      // Le bouton sert à REGARDER L'ÉCRAN, pas à éprouver la séquence
+      // complète : on l'ouvre donc sans détour. Le vrai chemin reste celui
+      // qu'emprunte une faveur tirée en jouant, et `?favor=4` permet de
+      // l'éprouver de bout en bout.
+      //
+      // 1 et 3 : la somme qui désigne Aphrodite, et deux faces distinctes
+      // pour que les deux colonnes soient utilisables.
       awaitingValidation = true;
-      offerAphroditeDice();
+      openAphrodite(1, 3);
     });
   }
 

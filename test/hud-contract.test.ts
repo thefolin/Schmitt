@@ -165,15 +165,36 @@ describe('HUD — le bouton de recette d\'Aphrodite', () => {
     expect(page).not.toMatch(/<button id="test-aphrodite"[^>]*\bhidden\b/);
   });
 
-  it('passe par le VRAI chemin de la faveur', () => {
-    // Un raccourci qui ouvrirait l'écran directement testerait autre chose
-    // que le jeu : c'est le lancer des deux dés, la suspension du tour et
-    // le retour à la partie qu'on veut éprouver, pas seulement l'affichage.
+  it('ouvre l\'écran DIRECTEMENT, sans passer par le lancer', () => {
+    // IL PASSAIT D'ABORD PAR LE VRAI CHEMIN — dés posés, joueur qui les
+    // lance — et le bouton paraissait mort : les dés se posaient
+    // discrètement, et la seule consigne partait dans `#turn-log`, qui vit
+    // depuis la refonte du HUD à l'intérieur du panneau d'historique,
+    // masqué par défaut.
+    //
+    // Le bouton sert à REGARDER L'ÉCRAN. Le vrai chemin reste celui d'une
+    // faveur tirée en jouant, et `?favor=4` l'éprouve de bout en bout.
     const handler = scene.slice(
-      scene.indexOf("const aphroditeTest"),
+      scene.indexOf('const aphroditeTest'),
       scene.indexOf("document.getElementById('roll')")
     );
 
-    expect(handler).toContain('offerAphroditeDice()');
+    expect(handler).toContain('openAphrodite(');
+    expect(handler).not.toContain('offerAphroditeDice()');
+  });
+
+  it('ouvre sur une somme qui désigne bien Aphrodite', () => {
+    // Deux faces DISTINCTES, et de somme 4 : un double serait la Colère des
+    // dieux, et deux faces égales rendraient les colonnes indiscernables.
+    const handler = scene.slice(
+      scene.indexOf('const aphroditeTest'),
+      scene.indexOf("document.getElementById('roll')")
+    );
+
+    const call = /openAphrodite\((\d+),\s*(\d+)\)/.exec(handler)!;
+    const [a, b] = [Number(call[1]), Number(call[2])];
+
+    expect(a + b).toBe(4);
+    expect(a).not.toBe(b);
   });
 });
