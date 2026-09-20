@@ -80,6 +80,22 @@ export interface TurnOutcome {
    * suivant tant que les deux dés ne sont pas tombés.
    */
   godFavor: boolean;
+  /**
+   * Le joueur devient-il le Poulet — ou monte-t-il en grade ?
+   *
+   * `rank` vaut 1 pour le Petit Poulet, 2 pour le Gros. La promotion se fait
+   * en retombant sur la case sans qu'un autre joueur soit passé entre-temps,
+   * et elle change la règle : le Gros Poulet DISTRIBUE au lieu de boire.
+   */
+  chicken: { rank: 1 | 2 } | null;
+  /**
+   * La sentence du Poulet sur le jet qui vient d'être fait.
+   *
+   * « À chaque 3 ou 6 de N'IMPORTE QUEL joueur » : elle ne concerne donc pas
+   * celui qui joue, mais le Poulet en titre — c'est pourquoi elle porte son
+   * propre nom plutôt que de se confondre avec les gorgées de la case.
+   */
+  chickenPenalty: { name: string; distributes: boolean; roll: number } | null;
 }
 
 /**
@@ -186,6 +202,12 @@ export class TurnRunner {
     const returning = before?.isReturning ?? false;
     const playerName = before?.name ?? '';
 
+    // LA SENTENCE DU POULET, avant tout déplacement. « À chaque 3 ou 6 de
+    // n'importe quel joueur » : elle ne dépend ni de la case d'arrivée ni de
+    // qui lance, seulement de la face sortie. Le rendu CSS la place au même
+    // endroit, juste après le jet.
+    const penalty = this.logic.applyChickenPenalty(dice);
+
     const to = this.logic.movePlayer(player, dice);
 
     // Les effets de la case où le pion vient de se poser. Chacun est
@@ -201,6 +223,12 @@ export class TurnRunner {
     // gorgées passent par `addDrinks`, seul endroit où le bouclier d'Athéna
     // intercepte : les compter ici laisserait passer le bouclier.
     const drinking = this.applyDrinking(player, landed);
+
+    // LA CASE POULET pose le statut, et promeut celui qui y retombe. Elle
+    // était laissée de côté en attendant les badges (SCH-17) : sans elle,
+    // `chickenRank` restait à zéro pour tout le monde et le badge du Poulet
+    // ne pouvait jamais s'afficher.
+    const chicken = this.applyChicken(player, landed);
 
     const winner = this.logic.checkVictory();
 
@@ -226,8 +254,29 @@ export class TurnRunner {
       effect,
       schmittPower,
       winner: winner ? winner.name : null,
+      chicken,
+      chickenPenalty: penalty
+        ? { name: penalty.name, distributes: penalty.distributes, roll: dice }
+        : null,
       ...drinking,
     };
+  }
+
+  /**
+   * Pose le statut de Poulet quand le pion s'arrête sur la case.
+   *
+   * Le rang est calculé par `GameLogic` : y retomber sans qu'un autre joueur
+   * soit passé entre-temps promeut en GROS POULET, qui distribue au lieu de
+   * boire. Ce module ne décide de rien, il déclenche.
+   */
+  private applyChicken(player: number, position: number): { rank: 1 | 2 } | null {
+    const tile = this.board[position];
+    if (!tile) return null;
+    if (tile.type !== 'chicken' && tile.type !== 'big_chicken') return null;
+
+    const rank = this.logic.setChicken(player);
+
+    return rank >= 2 ? { rank: 2 } : { rank: 1 };
   }
 
   /**
@@ -252,10 +301,9 @@ export class TurnRunner {
     const tile = this.board[position];
     if (!tile) return empty;
 
-    // Le Poulet n'est pas un effet de boisson : il pose un STATUT, avec sa
-    // promotion en Gros Poulet et son report sur les pions. Il relève de
-    // l'étape des badges, pas de celle-ci — le brancher à moitié ici ferait
-    // porter la règle à deux endroits.
+    // Le Poulet n'est pas un effet de boisson : il pose un STATUT, traité
+    // par `applyChicken`. Il ne sert donc aucune gorgée ICI — sa sentence
+    // tombe sur les jets suivants, pas sur la case elle-même.
     if (tile.type === 'chicken' || tile.type === 'big_chicken') return empty;
 
     // LA CASE DU TEMPLE appelle les deux dés. Elle tombait jusqu'ici dans le

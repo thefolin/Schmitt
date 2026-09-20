@@ -55,6 +55,24 @@ export function describeTurn(outcome: TurnOutcome): string {
   if (outcome.distribute) parts.push(`distribue ${outcome.distribute.amount} ${GULP}`);
   if (outcome.everyone) parts.push(`tournée générale — tout le monde boit ${GULP}`);
   if (outcome.tableRule) parts.push('à jouer à la table');
+  // LE POULET, et sa promotion. Bastien avait signalé que passer Gros Poulet
+  // « passait totalement inaperçu » — or c'est ce qui renverse la règle :
+  // le Gros Poulet distribue au lieu de boire.
+  if (outcome.chicken) {
+    parts.push(
+      outcome.chicken.rank >= 2
+        ? '\u{1F414} GROS POULET — il distribue désormais'
+        : '\u{1F414} devient le Poulet'
+    );
+  }
+  if (outcome.chickenPenalty) {
+    const { name, distributes } = outcome.chickenPenalty;
+    parts.push(
+      distributes
+        ? `\u{1F414} ${name} (Gros Poulet) distribue 1 ${GULP}`
+        : `\u{1F414} ${name} (Poulet) boit 1 ${GULP}`
+    );
+  }
   // La faveur est ANNONCÉE avant d'être tirée : le joueur doit savoir
   // pourquoi deux dés apparaissent sur le plateau.
   if (outcome.godFavor) parts.push('\u{26A1} faveur des dieux — lancez les 2 dés');

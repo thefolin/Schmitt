@@ -49,6 +49,21 @@ function gulps(amount: number): string {
  * même tour, qui finiraient par diverger.
  */
 export function tableAnnouncement(outcome: TurnOutcome): TableAnnouncement | null {
+  // LA SENTENCE DU POULET D'ABORD. Elle concerne un AUTRE joueur que celui
+  // qui vient de jouer — « à chaque 3 ou 6 de n'importe quel joueur » — et
+  // c'est précisément ce qui la fait oublier : personne ne la guette. Elle
+  // passe donc avant l'action du joueur courant, qui est déjà attendue.
+  if (outcome.chickenPenalty) {
+    const { name, distributes, roll } = outcome.chickenPenalty;
+
+    return {
+      playerName: name,
+      text: distributes
+        ? `\u{1F414} ${roll} — ${name} est GROS POULET : il distribue 1 ${GULP}`
+        : `\u{1F414} ${roll} — ${name} est le Poulet : il boit 1 ${GULP}`,
+    };
+  }
+
   if (outcome.distribute) {
     return {
       playerName: outcome.playerName,
