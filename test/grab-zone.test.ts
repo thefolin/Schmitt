@@ -3,6 +3,7 @@ import {
   grabProbes,
   gestureOwner,
   followsFinger,
+  shortestTurn,
   GRAB_PADDING_PX,
 } from '@/features/board/scene3d/grab-zone';
 
@@ -118,5 +119,49 @@ describe('3D-65 — le dé lâché vit sa vie', () => {
     for (const holding of [true, false]) {
       expect(followsFinger(holding, rolling)).toBe(false);
     }
+  });
+});
+
+describe('3D-73 — la rotation à deux doigts ne fait pas de tour complet', () => {
+  it('rend un petit écart tel quel', () => {
+    expect(shortestTurn(12)).toBeCloseTo(12, 6);
+    expect(shortestTurn(-30)).toBeCloseTo(-30, 6);
+  });
+
+  it('ramène un écart de 350° à -10°', () => {
+    // LE CAS QUI CASSE, et il ne se voit qu'au moment précis où les doigts
+    // franchissent la verticale : l'angle saute de +180 à −180, la différence
+    // brute vaut 350, et le plateau ferait presque un tour complet en une
+    // seule image. Le joueur verrait la vue partir en vrille.
+    expect(shortestTurn(350)).toBeCloseTo(-10, 6);
+  });
+
+  it('ramène un écart de -350° à +10°', () => {
+    expect(shortestTurn(-350)).toBeCloseTo(10, 6);
+  });
+
+  it('ne renvoie jamais plus d\'un demi-tour', () => {
+    // L'INVARIANT : quel que soit l'écart mesuré, la vue ne tourne jamais de
+    // plus de 180° d'un coup.
+    for (let delta = -1080; delta <= 1080; delta += 7) {
+      const turn = shortestTurn(delta);
+
+      expect(turn).toBeGreaterThanOrEqual(-180);
+      expect(turn).toBeLessThanOrEqual(180);
+    }
+  });
+
+  it('garde le SENS du geste', () => {
+    // Un demi-tour inversé ferait tourner le plateau à l'opposé de la main,
+    // ce qui est pire qu'un saut : le joueur corrigerait dans le mauvais sens.
+    expect(shortestTurn(20)).toBeGreaterThan(0);
+    expect(shortestTurn(-20)).toBeLessThan(0);
+    expect(shortestTurn(370)).toBeGreaterThan(0);
+    expect(shortestTurn(-370)).toBeLessThan(0);
+  });
+
+  it('ne bouge pas quand les doigts ne pivotent pas', () => {
+    expect(shortestTurn(0)).toBe(0);
+    expect(shortestTurn(360)).toBeCloseTo(0, 6);
   });
 });

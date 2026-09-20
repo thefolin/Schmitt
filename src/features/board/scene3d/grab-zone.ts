@@ -78,6 +78,22 @@ export function followsFinger(holding: boolean, awaitingThrow: boolean): boolean
   return holding && awaitingThrow;
 }
 
+/**
+ * Le plus court chemin angulaire, en degrés.
+ *
+ * Sert à la rotation à deux doigts (#73). L'angle formé par les doigts saute
+ * de +180 à −180 quand ils passent la verticale : la différence brute
+ * vaudrait alors 360, et le plateau ferait un tour complet en une image.
+ * L'écart est donc ramené dans [−180, 180].
+ *
+ * Pure, donc vérifiable sans écran — et c'est le genre de calcul dont le
+ * défaut ne se voit qu'au moment précis où les doigts franchissent la
+ * verticale, c'est-à-dire rarement et brutalement.
+ */
+export function shortestTurn(delta: number): number {
+  return ((((delta + 180) % 360) + 360) % 360) - 180;
+}
+
 /** Qui prend un geste qui commence à cet endroit. */
 export type GestureOwner = 'dice' | 'camera';
 

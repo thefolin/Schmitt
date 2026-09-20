@@ -14,7 +14,7 @@ import { WORLD_DICE_CONFIG, rollingSpinRate, DIE_EDGE } from './dice-world-confi
 import { diceArena } from './dice-arena';
 import { FavorDice } from './favor-dice';
 import { duringFavor, betweenFavors, type DiceVisibility } from './dice-on-stage';
-import { grabProbes, gestureOwner, followsFinger } from './grab-zone';
+import { grabProbes, gestureOwner, followsFinger, shortestTurn } from './grab-zone';
 import { collideWithFixed, type MovingBody } from './collisions';
 import { walkPath } from './pawn-path';
 import { walkFrame } from './pawn-walk';
@@ -1317,12 +1317,21 @@ function attachControls(
     panning = false;
   });
 
+  /**
+   * L'angle entre les deux doigts, pour la rotation à deux doigts.
+   *
+   * Conservé d'une image à l'autre : c'est sa VARIATION qui fait tourner la
+   * vue, pas sa valeur.
+   */
+  let twist = 0;
+
   container.addEventListener(
     'touchstart',
     e => {
       if (e.touches.length === 1) start(e.touches[0].clientX, e.touches[0].clientY);
       else if (e.touches.length === 2) {
         pinch = distance(e.touches);
+        twist = angleBetween(e.touches);
         start(center(e.touches).x, center(e.touches).y);
       }
     },
@@ -1332,19 +1341,37 @@ function attachControls(
   container.addEventListener(
     'touchmove',
     e => {
-      // Un doigt tourne.
+      // UN DOIGT DÉPLACE, comme sur une carte. Quentin : « il ne faudrait
+      // pas inverser les contrôles pour le téléphone comme sur Google Maps ? »
+      //
+      // C'était l'inverse : un doigt faisait TOURNER la vue, ce qui est le
+      // geste le plus fréquent appliqué à l'action la plus déroutante. Sur un
+      // plateau vu en plongée, un doigt qui glisse doit déplacer ce qu'on
+      // regarde — c'est ce que fait toute carte, et ce que la main attend.
       if (e.touches.length === 1) {
-        move(e.touches[0].clientX, e.touches[0].clientY, false);
+        move(e.touches[0].clientX, e.touches[0].clientY, true);
         return;
       }
 
-      // Deux doigts pincent pour zoomer ET glissent pour déplacer : les deux
-      // gestes se font naturellement en même temps, les séparer obligerait à
-      // lever un doigt au milieu.
+      // DEUX DOIGTS : pincer pour zoomer, PIVOTER POUR TOURNER, glisser pour
+      // déplacer. Les trois se font naturellement en même temps, et les
+      // séparer obligerait à lever un doigt au milieu du geste.
+      //
+      // C'est la convention des cartes, et celle que Quentin attend : la
+      // rotation passe des un-doigt aux deux-doigts, où elle est DÉLIBÉRÉE.
+      // On ne fait pas pivoter deux doigts par accident.
       if (e.touches.length === 2 && pinch > 0) {
         const next = distance(e.touches);
         scene.setUserZoom(scene.getUserZoom() * (next / pinch));
         pinch = next;
+
+        // La rotation suit l'angle des doigts, au degré près : le plateau
+        // tourne EXACTEMENT comme la main, sans facteur d'amplification qui
+        // donnerait l'impression de patiner.
+        const turned = angleBetween(e.touches);
+        scene.orbitBy(shortestTurn(turned - twist), 0);
+        twist = turned;
+
         const mid = center(e.touches);
         move(mid.x, mid.y, true);
         onChange();
@@ -1386,6 +1413,21 @@ function distance(touches: TouchList): number {
   const dx = touches[0].clientX - touches[1].clientX;
   const dy = touches[0].clientY - touches[1].clientY;
   return Math.hypot(dx, dy);
+}
+
+/**
+ * L'angle de la droite qui joint les deux doigts, en degrés.
+ *
+ * C'est sa VARIATION qui fait tourner la vue : deux doigts qu'on pivote
+ * font pivoter le plateau du même angle, comme sur une carte. La valeur
+ * absolue ne veut rien dire — elle dépend de la façon dont on a posé la
+ * main.
+ */
+function angleBetween(touches: TouchList): number {
+  const dx = touches[1].clientX - touches[0].clientX;
+  const dy = touches[1].clientY - touches[0].clientY;
+
+  return (Math.atan2(dy, dx) * 180) / Math.PI;
 }
 
 void main();
