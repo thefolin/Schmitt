@@ -14,7 +14,23 @@ import { WORLD_DICE_CONFIG, rollingSpinRate, DIE_EDGE } from './dice-world-confi
 import { diceArena } from './dice-arena';
 import { FavorDice } from './favor-dice';
 import { duringFavor, betweenFavors, type DiceVisibility } from './dice-on-stage';
-import { grabProbes, gestureOwner, followsFinger, shortestTurn } from './grab-zone';
+import {
+  grabProbes,
+  gestureOwner,
+  followsFinger,
+  shortestTurn,
+  commonDrift,
+} from './grab-zone';
+
+/**
+ * Degrés d'inclinaison par pixel de glissement commun.
+ *
+ * La même valeur que la souris (`TILT_PER_PIXEL` dans `board-scene`) : un
+ * geste vertical doit incliner d'autant, qu'il vienne d'un doigt ou d'une
+ * souris. Deux réglages différents pour le même mouvement donneraient deux
+ * appareils qui ne se ressemblent pas.
+ */
+const TILT_PER_PIXEL = 0.3;
 import { collideWithFixed, type MovingBody } from './collisions';
 import { walkPath } from './pawn-path';
 import { walkFrame } from './pawn-walk';
@@ -1325,6 +1341,15 @@ function attachControls(
    */
   let twist = 0;
 
+  /**
+   * Où étaient les deux doigts à l'image précédente.
+   *
+   * L'inclinaison se lit sur leur glissement COMMUN : il faut donc comparer
+   * chaque doigt à lui-même, et non au centre des deux, qui bouge aussi quand
+   * ils pivotent.
+   */
+  let twoFingers = { first: { y: 0 }, second: { y: 0 } };
+
   container.addEventListener(
     'touchstart',
     e => {
@@ -1332,6 +1357,10 @@ function attachControls(
       else if (e.touches.length === 2) {
         pinch = distance(e.touches);
         twist = angleBetween(e.touches);
+        twoFingers = {
+          first: { y: e.touches[0].clientY },
+          second: { y: e.touches[1].clientY },
+        };
         start(center(e.touches).x, center(e.touches).y);
       }
     },
@@ -1353,13 +1382,17 @@ function attachControls(
         return;
       }
 
-      // DEUX DOIGTS : pincer pour zoomer, PIVOTER POUR TOURNER, glisser pour
-      // déplacer. Les trois se font naturellement en même temps, et les
-      // séparer obligerait à lever un doigt au milieu du geste.
+      // DEUX DOIGTS : pincer pour zoomer, pivoter pour TOURNER, glisser
+      // ensemble pour INCLINER. Les trois se font naturellement en même temps
+      // et se lisent séparément — les séparer obligerait à lever un doigt au
+      // milieu du geste.
       //
-      // C'est la convention des cartes, et celle que Quentin attend : la
-      // rotation passe des un-doigt aux deux-doigts, où elle est DÉLIBÉRÉE.
-      // On ne fait pas pivoter deux doigts par accident.
+      // C'est le jeu de gestes d'une carte en 3D. Quentin : « on est en 3D,
+      // il faudrait l'adapter ». Ma première version avait mis « deux doigts
+      // glissent → déplace », ce qui DOUBLAIT le geste à un doigt et laissait
+      // l'inclinaison sans aucun geste — alors que c'est précisément le
+      // réglage qu'il cherchait en disant « il faut bien trouver le bon
+      // angle ».
       if (e.touches.length === 2 && pinch > 0) {
         const next = distance(e.touches);
         scene.setUserZoom(scene.getUserZoom() * (next / pinch));
@@ -1369,11 +1402,27 @@ function attachControls(
         // tourne EXACTEMENT comme la main, sans facteur d'amplification qui
         // donnerait l'impression de patiner.
         const turned = angleBetween(e.touches);
-        scene.orbitBy(shortestTurn(turned - twist), 0);
-        twist = turned;
 
-        const mid = center(e.touches);
-        move(mid.x, mid.y, true);
+        // L'INCLINAISON suit le glissement COMMUN des deux doigts. Deux
+        // doigts qui pivotent ont une moyenne de déplacement nulle — l'un
+        // monte, l'autre descend — donc les deux gestes ne se confondent pas.
+        //
+        // Le sens est celui de Maps : tirer vers le HAUT couche la vue vers
+        // l'horizon, tirer vers le BAS la ramène au-dessus du plateau.
+        const drift = commonDrift(
+          { y: e.touches[0].clientY },
+          { y: e.touches[1].clientY },
+          twoFingers
+        );
+
+        scene.orbitBy(shortestTurn(turned - twist), -drift * TILT_PER_PIXEL);
+
+        twist = turned;
+        twoFingers = {
+          first: { y: e.touches[0].clientY },
+          second: { y: e.touches[1].clientY },
+        };
+
         onChange();
       }
     },

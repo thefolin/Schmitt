@@ -4,6 +4,7 @@ import {
   gestureOwner,
   followsFinger,
   shortestTurn,
+  commonDrift,
   GRAB_PADDING_PX,
 } from '@/features/board/scene3d/grab-zone';
 
@@ -163,5 +164,61 @@ describe('3D-73 — la rotation à deux doigts ne fait pas de tour complet', () 
   it('ne bouge pas quand les doigts ne pivotent pas', () => {
     expect(shortestTurn(0)).toBe(0);
     expect(shortestTurn(360)).toBeCloseTo(0, 6);
+  });
+});
+
+describe('3D-74 — deux doigts qui glissent ensemble inclinent la vue', () => {
+  /** Deux doigts posés l'un au-dessus de l'autre. */
+  const posed = { first: { y: 300 }, second: { y: 500 } };
+
+  it('lit le glissement commun quand les deux doigts montent', () => {
+    // Le geste de Maps : deux doigts qui remontent l'écran couchent la vue
+    // vers l'horizon.
+    const drift = commonDrift({ y: 250 }, { y: 450 }, posed);
+
+    expect(drift).toBeCloseTo(-50, 6);
+  });
+
+  it('le lit aussi quand ils descendent', () => {
+    const drift = commonDrift({ y: 360 }, { y: 560 }, posed);
+
+    expect(drift).toBeCloseTo(60, 6);
+  });
+
+  it('IGNORE un pivot pur', () => {
+    // LA PROPRIÉTÉ QUI SÉPARE LES DEUX GESTES, et sans laquelle ils se
+    // confondraient : quand les doigts pivotent, l'un monte pendant que
+    // l'autre descend. Leur moyenne est nulle, donc la vue ne s'incline pas
+    // pendant qu'on la tourne.
+    const drift = commonDrift({ y: 240 }, { y: 560 }, posed);
+
+    expect(drift).toBeCloseTo(0, 6);
+  });
+
+  it('ne bouge pas quand les doigts ne bougent pas', () => {
+    expect(commonDrift({ y: 300 }, { y: 500 }, posed)).toBe(0);
+  });
+
+  it('lit un glissement même quand les doigts pivotent EN MÊME TEMPS', () => {
+    // Les deux gestes doivent pouvoir se faire ensemble, comme sur une
+    // carte : les séparer obligerait à lever un doigt au milieu.
+    //
+    // Ici les deux doigts descendent de 40 en moyenne, tout en pivotant.
+    const drift = commonDrift({ y: 300 }, { y: 580 }, posed);
+
+    expect(drift).toBeCloseTo(40, 6);
+  });
+
+  it('donne le même résultat quel que soit l\'ordre des doigts', () => {
+    // Le système ne garantit pas dans quel ordre les touches arrivent : un
+    // geste ne doit pas s'inverser selon le doigt posé en premier.
+    const straight = commonDrift({ y: 250 }, { y: 450 }, posed);
+    const swapped = commonDrift(
+      { y: 450 },
+      { y: 250 },
+      { first: { y: 500 }, second: { y: 300 } }
+    );
+
+    expect(swapped).toBeCloseTo(straight, 6);
   });
 });

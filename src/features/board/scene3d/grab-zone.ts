@@ -94,6 +94,34 @@ export function shortestTurn(delta: number): number {
   return ((((delta + 180) % 360) + 360) % 360) - 180;
 }
 
+/**
+ * Combien deux doigts ont GLISSÉ ENSEMBLE, verticalement.
+ *
+ * Quentin : « on est en 3D, il faudrait l'adapter ».
+ *
+ * C'est le geste que Google Maps réserve à l'INCLINAISON : deux doigts qui
+ * montent ou descendent parallèlement font basculer la vue entre le dessus et
+ * la rasance. Sur un plateau de jeu c'est le réglage qui compte le plus — le
+ * « bon angle » que Quentin cherchait — et il n'avait AUCUN geste jusqu'ici.
+ *
+ * Le glissement commun se distingue du pivot par ceci : quand les doigts
+ * PIVOTENT, l'un monte pendant que l'autre descend, et la moyenne de leurs
+ * déplacements est nulle. Quand ils glissent ENSEMBLE, les deux vont du même
+ * côté et la moyenne vaut leur déplacement. Prendre la moyenne sépare donc
+ * les deux gestes sans avoir à choisir entre eux : ils peuvent se faire en
+ * même temps, comme sur une carte.
+ */
+export function commonDrift(
+  first: { y: number },
+  second: { y: number },
+  previous: { first: { y: number }; second: { y: number } }
+): number {
+  const movedFirst = first.y - previous.first.y;
+  const movedSecond = second.y - previous.second.y;
+
+  return (movedFirst + movedSecond) / 2;
+}
+
 /** Qui prend un geste qui commence à cet endroit. */
 export type GestureOwner = 'dice' | 'camera';
 
