@@ -548,10 +548,31 @@ export class BoardScene {
     return this.userZoom;
   }
 
-  /** Déplacement manuel, en pixels écran (#15). */
+  /**
+   * Déplacement manuel, en pixels écran (#15).
+   *
+   * LE GESTE SUIT LA CAMÉRA, et non les axes du monde.
+   *
+   * LE DÉFAUT QUE CELA CORRIGE : le glissement était ajouté tel quel sur X
+   * et Z, si bien que la vue partait TOUJOURS dans la même direction du
+   * monde quel que soit l'angle de la caméra. Mesuré : à 0°, 90°, 180° et
+   * 270°, un glissement de 100 px vers la droite déplaçait la visée de
+   * dx = -370 et dz = 0 dans les quatre cas. Une fois la vue retournée, le
+   * plateau partait donc à l'envers sous le doigt — le retour de Quentin.
+   *
+   * On tourne le déplacement de l'angle de la caméra avant de l'accumuler :
+   * « vers la droite de l'écran » devient la droite de l'écran, où qu'on
+   * regarde. Seul `orbitYaw` entre en jeu ; `framing.yawDeg` tourne le monde
+   * lui-même, et la caméra en tient donc déjà compte.
+   */
   public panBy(dxPx: number, dyPx: number): void {
-    this.userPan.x -= dxPx;
-    this.userPan.y += dyPx;
+    const yaw = MathUtils.degToRad(this.orbitYaw);
+    const cos = Math.cos(yaw);
+    const sin = Math.sin(yaw);
+
+    this.userPan.x -= dxPx * cos + dyPx * sin;
+    this.userPan.y += dyPx * cos - dxPx * sin;
+
     this.layout();
   }
 

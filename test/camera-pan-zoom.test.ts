@@ -183,3 +183,123 @@ describe('caméra — elle ne part pas à l\'infini', () => {
     expect(Math.abs(home.x)).toBeLessThan(9000);
   });
 });
+
+/**
+ * LE GESTE SUIT LA CAMÉRA.
+ *
+ * Retour de Quentin : « quand on retourne la caméra, les gestes ne suivent
+ * plus l'orientation ». Le déplacement était ajouté tel quel sur les axes du
+ * MONDE : mesuré, un glissement de 100 px vers la droite déplaçait la visée
+ * de dx = -370 et dz = 0 à 0°, 90°, 180° ET 270° — la même direction du
+ * monde dans les quatre cas. Vue de face c'était juste ; vue retournée, le
+ * plateau partait à l'envers sous le doigt.
+ *
+ * Ce qui se vérifie ici est une INVARIANCE, et non quatre valeurs attendues
+ * écrites à la main : le déplacement doit aller du même côté DE L'ÉCRAN quel
+ * que soit l'angle. Reproduire le calcul dans le test n'aurait rien prouvé.
+ */
+describe('caméra — le déplacement suit l\'orientation de la vue', () => {
+  /** Le vecteur « vers la droite de l'écran », au sol, vu d'où l'on regarde. */
+  function screenRight(): { x: number; z: number } {
+    const camera = scene.getCameraPosition();
+    const aim = scene.getAimPoint();
+
+    const fx = aim.x - camera.x;
+    const fz = aim.z - camera.z;
+    const length = Math.hypot(fx, fz);
+
+    // La droite de l'écran est la visée tournée d'un quart de tour au sol.
+    return { x: fz / length, z: -fx / length };
+  }
+
+  /** De combien la visée avance-t-elle vers la droite de l'écran ? */
+  function slideRight(dxPx: number): number {
+    const right = screenRight();
+    const before = scene.getAimPoint();
+
+    scene.panBy(dxPx, 0);
+
+    const after = scene.getAimPoint();
+
+    return (after.x - before.x) * right.x + (after.z - before.z) * right.z;
+  }
+
+  it('va du même côté de l\'écran à toutes les orientations', () => {
+    const slides = [0, 90, 180, 270].map(yaw => {
+      scene.resetView();
+      scene.orbitBy(yaw, 0);
+
+      return slideRight(100);
+    });
+
+    // Tous du même signe, et de même ampleur : c'est ce que « suivre la
+    // caméra » veut dire. Avant correction, les quatre valeurs étaient
+    // identiques en coordonnées du MONDE, donc opposées à l'écran.
+    for (const slide of slides) {
+      expect(Math.sign(slide)).toBe(Math.sign(slides[0]));
+      expect(Math.abs(slide - slides[0])).toBeLessThan(1);
+    }
+  });
+
+  /** De combien la visée avance-t-elle vers le HAUT de l'écran ? */
+  function slideUp(dyPx: number): number {
+    const camera = scene.getCameraPosition();
+    const before = scene.getAimPoint();
+
+    // « Vers le haut de l'écran », au sol, c'est s'éloigner de la caméra.
+    const fx = before.x - camera.x;
+    const fz = before.z - camera.z;
+    const length = Math.hypot(fx, fz);
+
+    scene.panBy(0, dyPx);
+
+    const after = scene.getAimPoint();
+
+    return ((after.x - before.x) * fx + (after.z - before.z) * fz) / length;
+  }
+
+  it('suit la caméra AUSSI dans le sens vertical', () => {
+    // SANS CE TEST, une erreur de signe sur la seule composante verticale
+    // passait inaperçue : le glissement horizontal restait juste, et le
+    // vertical partait à l'envers dès que la vue était tournée.
+    const slides = [0, 90, 180, 270].map(yaw => {
+      scene.resetView();
+      scene.orbitBy(yaw, 0);
+
+      return slideUp(100);
+    });
+
+    for (const slide of slides) {
+      expect(Math.sign(slide)).toBe(Math.sign(slides[0]));
+      expect(Math.abs(slide - slides[0])).toBeLessThan(1);
+    }
+  });
+
+  it('inverse le déplacement quand on inverse le geste', () => {
+    scene.resetView();
+    scene.orbitBy(180, 0);
+
+    const right = slideRight(100);
+    scene.resetView();
+    scene.orbitBy(180, 0);
+    const left = slideRight(-100);
+
+    expect(Math.sign(right)).toBe(-Math.sign(left));
+  });
+
+  it('garde le geste juste à une orientation quelconque', () => {
+    // Les angles ronds pourraient masquer une erreur de signe qui ne se voit
+    // qu'entre deux quadrants.
+    const slides = [37, 154, 221, 318].map(yaw => {
+      scene.resetView();
+      scene.orbitBy(yaw, 0);
+
+      return slideRight(100);
+    });
+
+    for (const slide of slides) {
+      expect(Math.sign(slide)).toBe(Math.sign(slides[0]));
+      expect(Math.abs(slide - slides[0])).toBeLessThan(1);
+    }
+  });
+});
