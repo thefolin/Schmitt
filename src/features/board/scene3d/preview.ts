@@ -10,11 +10,12 @@ import {
 import { BoardTiles3D } from './board-tiles-3d';
 import { Dice3DScene } from './dice-3d-scene';
 import { DicePhysics } from '@/features/dice/DicePhysics';
-import { WORLD_DICE_CONFIG, rollingSpinRate } from './dice-world-config';
+import { WORLD_DICE_CONFIG, rollingSpinRate, DIE_EDGE } from './dice-world-config';
 import { diceArena } from './dice-arena';
 import { FavorDice } from './favor-dice';
 import { duringFavor, betweenFavors, type DiceVisibility } from './dice-on-stage';
 import { grabProbes, gestureOwner, followsFinger } from './grab-zone';
+import { collideWithFixed, type MovingBody } from './collisions';
 import { walkPath } from './pawn-path';
 import { walkFrame } from './pawn-walk';
 import { swipeToThrow, GRAB_LIFT, type ThrowRequest } from './dice-gesture';
@@ -359,7 +360,7 @@ function attachDice(
   // LES DEUX DÉS DU TEMPLE. Objet distinct du dé du tour : celui-ci garde sa
   // physique et sa chaîne « la face vue est celle dont on avance ». Ils
   // restent invisibles tant que personne ne se pose sur le temple.
-  const favorDice = new FavorDice(arena);
+  const favorDice = new FavorDice(arena, () => tiles.pawnObstacles());
   for (const view of favorDice.views) scene.world.add(view.group);
 
   /**
@@ -461,6 +462,12 @@ function attachDice(
     const state = physics.update(16);
 
     applyRolling(state);
+
+    // LE DÉ HEURTE LES PIONS. `DicePhysics` ne gère que les bords : sans
+    // cette passe, le dé traversait les pions comme s'ils n'existaient pas.
+    // Le choc est résolu APRÈS le pas de simulation, comme le roulement, pour
+    // ne pas toucher au module partagé avec le rendu CSS de `main`.
+    hitPawns(state, tiles);
 
     camX += (state.position.x - camX) * 0.08;
     camZ += (state.position.y - camZ) * 0.08;
@@ -680,6 +687,47 @@ function attachDice(
     () => frame === null && !walking && !favorDice.rolling,
     throwFromGesture
   );
+}
+
+/**
+ * Fait rebondir le dé sur les pions posés sur le plateau.
+ *
+ * Quentin : « il faut que les pions et cases aient leur boîte de collision ».
+ *
+ * Les pions NE BOUGENT PAS : leur position est celle d'un joueur sur le
+ * parcours, c'est-à-dire une donnée de règle. Les pousser depuis le rendu
+ * reviendrait à faire avancer un joueur parce qu'un dé l'a heurté.
+ *
+ * L'état de `DicePhysics` est mutable — c'est déjà ce dont le roulement se
+ * sert — donc corriger position et vitesse suffit : le pas suivant repart de
+ * la situation corrigée.
+ */
+function hitPawns(state: ReturnType<DicePhysics['update']>, tiles: BoardTiles3D): void {
+  const obstacles = tiles.pawnObstacles();
+  if (obstacles.length === 0) return;
+
+  const body: MovingBody = {
+    x: state.position.x,
+    z: state.position.y,
+    height: state.height,
+    vx: state.velocity.x,
+    vz: state.velocity.y,
+    // La DEMI-DIAGONALE de la face, et non la demi-arête : un cube qui tourne
+    // présente tantôt sa face, tantôt son coin.
+    radius: (DIE_EDGE * Math.SQRT2) / 2,
+  };
+
+  let touched = false;
+  for (const obstacle of obstacles) {
+    if (collideWithFixed(body, obstacle)) touched = true;
+  }
+
+  if (!touched) return;
+
+  state.position.x = body.x;
+  state.position.y = body.z;
+  state.velocity.x = body.vx;
+  state.velocity.y = body.vz;
 }
 
 /**

@@ -20,6 +20,40 @@ import { DicePhysics } from '@/features/dice/DicePhysics';
 import { WORLD_DICE_CONFIG, rollingSpinRate } from './dice-world-config';
 import type { DiceArena } from './dice-arena';
 import type { ThrowRequest } from './dice-gesture';
+import { collideBodies, collideWithFixed, type MovingBody, type FixedBody } from './collisions';
+import { DIE_EDGE } from './dice-world-config';
+
+/**
+ * Le corps d'un dé, vu d'au-dessus, tel que les chocs le voient.
+ *
+ * Le rayon est la DEMI-DIAGONALE de la face plutôt que la demi-arête : un
+ * cube qui tourne présente tantôt sa face, tantôt son coin. Prendre la
+ * demi-arête laisserait les coins se traverser ; prendre la demi-diagonale
+ * fait se toucher les dés un peu tôt, ce qui est le défaut le moins visible
+ * des deux.
+ */
+function bodyOf(physics: DicePhysics): MovingBody {
+  const state = physics.getState();
+
+  return {
+    x: state.position.x,
+    z: state.position.y,
+    height: state.height,
+    vx: state.velocity.x,
+    vz: state.velocity.y,
+    radius: (DIE_EDGE * Math.SQRT2) / 2,
+  };
+}
+
+/** Reporte un corps corrigé dans l'état de la physique. */
+function applyBody(physics: DicePhysics, body: MovingBody): void {
+  const state = physics.getState();
+
+  state.position.x = body.x;
+  state.position.y = body.z;
+  state.velocity.x = body.vx;
+  state.velocity.y = body.vz;
+}
 
 /**
  * Écart entre les deux points de lancer, en fraction de la largeur de l'aire.
@@ -40,7 +74,16 @@ export class FavorDice {
   private readonly dice: FavorDie[] = [];
   private frame: number | null = null;
 
-  constructor(private readonly arena: DiceArena) {
+  constructor(
+    private readonly arena: DiceArena,
+    /**
+     * Les pions à heurter, relus à chaque image.
+     *
+     * Une FONCTION et non une liste figée : les pions marchent, et un
+     * obstacle mémorisé au lancer resterait là où le pion n'est plus.
+     */
+    private readonly obstacles: () => FixedBody[] = () => []
+  ) {
     const midX = (arena.minX + arena.maxX) / 2;
     const midZ = (arena.minZ + arena.maxZ) / 2;
     const width = arena.maxX - arena.minX;
@@ -201,6 +244,16 @@ export class FavorDice {
         else if (state.hasFallen) die.physics.resetFall();
       }
 
+      // LES DEUX DÉS SE TOUCHENT. `DicePhysics` ne gère que les bords : sans
+      // cette passe, ils se traversaient sans se voir. Le choc est résolu
+      // APRÈS le pas de simulation, comme le roulement, pour ne pas toucher
+      // au module partagé avec le rendu CSS de `main`.
+      this.resolveContact();
+
+      // LES PIONS FONT OBSTACLE aux dés de faveur aussi : ils roulent sur le
+      // même plateau que le dé du tour.
+      this.resolvePawns();
+
       if (moving) {
         this.frame = requestAnimationFrame(step);
         return;
@@ -214,6 +267,52 @@ export class FavorDice {
     };
 
     this.frame = requestAnimationFrame(step);
+  }
+
+  /**
+   * Fait se heurter les deux dés, et repose leur rendu si besoin.
+   *
+   * L'état de `DicePhysics` est mutable — c'est déjà ce dont le roulement se
+   * sert pour imposer la rotation — donc corriger position et vitesse ici
+   * suffit : le pas suivant repartira de la situation corrigée.
+   */
+  private resolveContact(): void {
+    const [first, second] = this.dice;
+    if (!first || !second) return;
+
+    const a = bodyOf(first.physics);
+    const b = bodyOf(second.physics);
+
+    if (!collideBodies(a, b)) return;
+
+    applyBody(first.physics, a);
+    applyBody(second.physics, b);
+
+    // Le rendu suit la correction dans la même image : sans cela les dés
+    // s'interpénétreraient visiblement pendant une image avant de se
+    // séparer, ce qui se voit comme un clignotement.
+    first.view.setPosition(a.x, first.view.group.position.y, a.z);
+    second.view.setPosition(b.x, second.view.group.position.y, b.z);
+  }
+
+  /** Fait rebondir chaque dé sur les pions posés. */
+  private resolvePawns(): void {
+    const obstacles = this.obstacles();
+    if (obstacles.length === 0) return;
+
+    for (const die of this.dice) {
+      const body = bodyOf(die.physics);
+
+      let touched = false;
+      for (const obstacle of obstacles) {
+        if (collideWithFixed(body, obstacle)) touched = true;
+      }
+
+      if (!touched) continue;
+
+      applyBody(die.physics, body);
+      die.view.setPosition(body.x, die.view.group.position.y, body.z);
+    }
   }
 
   /**

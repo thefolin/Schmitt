@@ -305,6 +305,35 @@ export class BoardTiles3D {
     return { x: tile.x, y: TILE_THICKNESS + PAWN_HEIGHT / 2, z: tile.z };
   }
 
+  /**
+   * Les boîtes de collision des pions posés, pour que le dé les heurte.
+   *
+   * Quentin : « il faut que les pions et cases aient leur boîte de
+   * collision ». Le dé les traversait comme s'ils n'existaient pas.
+   *
+   * La position vient des pions RÉELLEMENT POSÉS dans la scène, et non des
+   * positions de jeu : pendant qu'un pion marche, il est entre deux cases, et
+   * c'est là qu'il doit faire obstacle. Lire les positions de jeu placerait
+   * l'obstacle là où le pion n'est pas encore.
+   *
+   * `top` est le SOMMET du pion : un dé qui vole plus haut le survole au lieu
+   * d'être dévié par un choc invisible.
+   */
+  public pawnObstacles(): { x: number; z: number; radius: number; top: number }[] {
+    const obstacles: { x: number; z: number; radius: number; top: number }[] = [];
+
+    for (const pawn of this.pawns.children) {
+      obstacles.push({
+        x: pawn.position.x,
+        z: pawn.position.z,
+        radius: PAWN_RADIUS * 1.15,
+        top: TILE_THICKNESS + PAWN_HEIGHT,
+      });
+    }
+
+    return obstacles;
+  }
+
   /** Le pion d'un joueur, pour le déplacer sans le recréer. */
   public pawnOf(index: number): Mesh | null {
     return (this.pawns.getObjectByName(`pawn-${index}`) as Mesh | undefined) ?? null;
