@@ -85,6 +85,33 @@ const TABLE_COLOR = 0x11512f;
 /** Marge du tapis autour des cases. */
 const TABLE_PADDING = 90;
 
+/**
+ * L'illustration posée sous le plateau.
+ *
+ * Quentin l'a demandée en arrière-plan du plateau 3D. C'est le visuel du
+ * plateau PHYSIQUE : le motif grec, le titre, et les cases telles qu'elles
+ * sont imprimées.
+ *
+ * ELLE EST POSÉE SOUS LES CASES, pas à la place. Les cases 3D restent la
+ * vérité du jeu — ce sont elles que le pion foule et que les règles lisent.
+ * L'image donne le décor et l'identité du plateau ; elle ne le remplace pas.
+ *
+ * Réduite de 4000×4500 à 1820×2048 avant d'entrer dans le dépôt : 8,2 Mo
+ * d'origine pour un APK qui vise Android 5.1, c'était plus que tout le reste
+ * des illustrations réunies.
+ */
+const TABLE_IMAGE = 'assets/board-backdrop.png';
+
+/**
+ * Part de la surface du tapis que l'image occupe.
+ *
+ * L'image est plus HAUTE que large (0,89) alors que le parcours officiel est
+ * plus LARGE que haut (1,68) : l'étirer pour couvrir le tapis déformerait le
+ * motif et le titre. On la pose donc à ses proportions, centrée, comme un
+ * tapis de jeu posé sur une table plus grande.
+ */
+const TABLE_IMAGE_FIT = 0.92;
+
 export interface TilePosition {
   x: number;
   z: number;
@@ -446,6 +473,41 @@ export class BoardTiles3D {
 
     this.group.add(table);
     this.table = table;
+
+    this.createBackdrop((minX + maxX) / 2, (minZ + maxZ) / 2, width, depth);
+  }
+
+  /**
+   * Pose l'illustration du plateau physique sous les cases.
+   *
+   * SUR UN PLAN À PART, et non en texture du tapis : le tapis couvre toute
+   * la table, alors que l'image garde ses proportions. Deux objets, deux
+   * rôles — la table donne l'assise, l'image donne le décor.
+   *
+   * Placée entre le tapis (y = −1) et les cases (y = 0), assez près du tapis
+   * pour ne jamais passer devant une case.
+   */
+  private createBackdrop(x: number, z: number, width: number, depth: number): void {
+    const texture = new TextureLoader().load(TABLE_IMAGE);
+    texture.colorSpace = SRGBColorSpace;
+    this.textures.push(texture);
+
+    // À SES PROPRES PROPORTIONS. L'image est plus haute que large, le
+    // parcours plus large que haut : l'étirer déformerait le titre et le
+    // motif grec, qui sont l'identité du plateau.
+    const ratio = 4000 / 4500;
+    const fit = Math.min(width / ratio, depth) * TABLE_IMAGE_FIT;
+
+    const backdrop = new Mesh(
+      new PlaneGeometry(fit * ratio, fit),
+      new MeshLambertMaterial({ map: texture, transparent: true })
+    );
+
+    backdrop.rotation.x = -Math.PI / 2;
+    backdrop.position.set(x, -0.5, z);
+    backdrop.name = 'backdrop';
+
+    this.group.add(backdrop);
   }
 
   /** Vide le plateau, en libérant la mémoire graphique. */
