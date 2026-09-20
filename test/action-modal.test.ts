@@ -1,5 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { modalContent, showActionModal } from '@/features/board/scene3d/action-modal';
+import {
+  modalSteps,
+  runModalSteps,
+  showActionModal,
+} from '@/features/board/scene3d/action-modal';
 import type { TurnOutcome } from '@/features/board/scene3d/turn-runner';
 import type { TileConfig } from '@/core/models/Tile';
 
@@ -47,99 +51,291 @@ beforeEach(() => {
   document.body.innerHTML = '';
 });
 
-describe('modale — un tour ordinaire n\'interrompt personne', () => {
-  it('ne s\'ouvre pas quand il n\'y a rien à dire', () => {
+/** Toutes les phrases d'un tour, tous écrans confondus. */
+function allLines(...args: Parameters<typeof modalSteps>): string {
+  return modalSteps(...args)
+    .flatMap(step => step.lines)
+    .join(' // ');
+}
+
+/** Valide l'écran affiché, et passe au suivant s'il y en a un. */
+function validate(): void {
+  document.querySelector<HTMLButtonElement>('#action-validate')!.click();
+}
+
+describe('tour — un tour ordinaire n\'interrompt personne', () => {
+  it('ne produit aucune étape quand il n\'y a rien à dire', () => {
     // SANS CELA on fermerait une modale à CHAQUE tour, et on finirait par la
     // fermer sans la lire — y compris les tours qui comptent.
-    expect(modalContent(plainTurn())).toBeNull();
+    expect(modalSteps(plainTurn())).toEqual([]);
   });
 
-  it('ne s\'ouvre pas non plus sur une case sans action', () => {
+  it('n\'en produit pas non plus sur une case sans action', () => {
     const neutral = tile({ type: 'normal', name: 'CASE VIDE' });
 
-    expect(modalContent(plainTurn(), neutral)).toBeNull();
+    expect(modalSteps(plainTurn(), neutral)).toEqual([]);
   });
 });
 
-describe('modale — elle énonce ce que la table doit faire', () => {
-  it('annonce les gorgées de la case', () => {
-    const content = modalContent(plainTurn({ drinks: { player: 0, amount: 3 } }), tile());
+describe('tour — les événements s\'enchaînent DANS L\'ORDRE', () => {
+  it('sépare la sentence du Poulet de l\'action de la case', () => {
+    // C'EST LE BUG DE QUENTIN : « la modale affiche tout mélangé ». La
+    // sentence frappe un AUTRE joueur, sur le jet, AVANT tout déplacement ;
+    // l'action de la case frappe celui qui joue, après. Les mettre sur un
+    // même écran demandait de démêler deux règles sous une seule image.
+    const steps = modalSteps(
+      plainTurn({
+        chickenPenalty: { name: 'Bastien', distributes: false, roll: 3 },
+        drinks: { player: 0, amount: 3 },
+      }),
+      tile()
+    );
 
-    expect(content).not.toBeNull();
-    expect(content!.lines.join(' ')).toContain('3');
-    expect(content!.lines.join(' ')).toContain('Quentin');
+    expect(steps).toHaveLength(2);
+    expect(steps[0].lines.join(' ')).toContain('Bastien');
+    expect(steps[1].lines.join(' ')).toContain('Quentin');
+  });
+
+  it('suit l\'ordre d\'exécution du tour', () => {
+    // L'ORDRE EST CELUI DE `playTurn` : sentence du Poulet (sur le jet),
+    // puis effet de la case, puis prise du titre, puis faveur des dieux.
+    // C'est l'ordre dans lequel les règles s'appliquent réellement.
+    const steps = modalSteps(
+      plainTurn({
+        chickenPenalty: { name: 'Bastien', distributes: false, roll: 6 },
+        chicken: { rank: 1 },
+        godFavor: true,
+      }),
+      tile({ type: 'chicken', name: 'POULET' })
+    );
+
+    expect(steps.map(step => step.title)).toEqual([
+      'Le Poulet',
+      'Le Poulet',
+      'Faveur des dieux',
+    ]);
+    expect(steps[0].lines.join(' ')).toContain('Bastien');
+    expect(steps[1].lines.join(' ')).toContain('Quentin');
+  });
+
+  it('place le bouclier avant tout le reste', () => {
+    // Il a INTERCEPTÉ une sanction : ce qui suit se lit en sachant qu'elle
+    // est retombée sur son porteur.
+    const steps = modalSteps(
+      plainTurn({ drinks: { player: 0, amount: 2 } }),
+      tile(),
+      { playerName: 'Chloé', amount: 4 }
+    );
+
+    expect(steps[0].title).toContain('Athéna');
+    expect(steps[0].lines.join(' ')).toContain('Chloé');
+  });
+
+  it('garde la victoire pour la fin', () => {
+    const steps = modalSteps(
+      plainTurn({ winner: 'Bastien', drinks: { player: 0, amount: 2 } }),
+      tile()
+    );
+
+    expect(steps[steps.length - 1].title).toBe('Victoire');
+  });
+
+  it('n\'ouvre qu\'un écran pour une case ordinaire', () => {
+    // Découper un tour simple en plusieurs écrans serait le défaut inverse :
+    // on validerait trois fois pour une seule gorgée.
+    const steps = modalSteps(plainTurn({ drinks: { player: 0, amount: 3 } }), tile());
+
+    expect(steps).toHaveLength(1);
+  });
+});
+
+describe('tour — chaque étape dit ce qu\'il faut faire', () => {
+  it('annonce les gorgées de la case', () => {
+    expect(allLines(plainTurn({ drinks: { player: 0, amount: 3 } }), tile())).toContain(
+      'Quentin'
+    );
   });
 
   it('annonce une distribution', () => {
-    const content = modalContent(
+    const lines = allLines(
       plainTurn({ distribute: { by: 0, amount: 2 } }),
       tile({ type: 'distribute_2', name: 'DISTRIBUEZ 2 GORGÉES' })
     );
 
-    expect(content!.lines.join(' ')).toContain('distribue');
+    expect(lines).toContain('distribue');
   });
 
-  it('annonce la sentence du Poulet', () => {
-    // Elle concerne un AUTRE joueur que celui qui joue : personne ne la
-    // guette, et c'est la règle la plus souvent oubliée.
-    const content = modalContent(
-      plainTurn({ chickenPenalty: { name: 'Bastien', distributes: false, roll: 3 } })
+  it('n\'AVALE PLUS la distribution quand le Poulet frappe le même tour', () => {
+    // LE DÉFAUT TROUVÉ EN CHEMIN : `tableAnnouncement` s'arrête à la
+    // PREMIÈRE chose trouvée et renvoyait la sentence OU la distribution,
+    // jamais les deux. Un tour qui produisait les deux en perdait une en
+    // silence — des gorgées que personne ne distribuait.
+    const lines = allLines(
+      plainTurn({
+        chickenPenalty: { name: 'Bastien', distributes: false, roll: 3 },
+        distribute: { by: 0, amount: 2 },
+      }),
+      tile({ type: 'distribute_2', name: 'DISTRIBUEZ 2 GORGÉES' })
     );
 
-    expect(content!.lines.join(' ')).toContain('Bastien');
+    expect(lines).toContain('Bastien');
+    expect(lines).toContain('distribue');
   });
 
   it('dit la règle d\'une case qui se joue à la table', () => {
-    // SANS CELA la modale s'ouvrirait sur un titre et RIEN d'autre : le
-    // joueur verrait « Au tour de Quentin » et deux boutons, sans savoir ce
-    // qu'on attend de lui.
     const rule = tile({
       type: 'rule',
       name: 'LE SCHMITT',
       description: 'Invente une règle que tous doivent suivre',
     });
 
-    const content = modalContent(plainTurn({ tableRule: true }), rule);
-
-    expect(content!.lines.join(' ')).toContain('règle');
+    expect(allLines(plainTurn({ tableRule: true }), rule)).toContain('règle');
   });
 
-  it('annonce la victoire', () => {
-    const content = modalContent(plainTurn({ winner: 'Bastien' }));
+  it('annonce la prise du titre de Poulet', () => {
+    // CE STATUT N'EST ANNONCÉ NULLE PART AILLEURS : c'est lui qui déclenche
+    // la sentence à tous les tours suivants, et personne ne peut l'appliquer
+    // sans l'avoir entendu poser.
+    const lines = allLines(
+      plainTurn({ chicken: { rank: 1 } }),
+      tile({ type: 'chicken', name: 'POULET' })
+    );
 
-    expect(content!.title).toBe('Victoire');
-    expect(content!.lines.join(' ')).toContain('Bastien');
+    expect(lines).toContain('Poulet');
+    expect(lines).toContain('Quentin');
   });
 
-  it('annonce le bouclier soldé avec le reste', () => {
-    const content = modalContent(plainTurn({ drinks: { player: 0, amount: 2 } }), tile(), {
-      playerName: 'Chloé',
-      amount: 4,
-    });
+  it('distingue le GROS Poulet, qui distribue au lieu de boire', () => {
+    const lines = allLines(
+      plainTurn({ chicken: { rank: 2 } }),
+      tile({ type: 'chicken', name: 'POULET' })
+    );
 
-    expect(content!.lines[0]).toContain('Chloé');
-    expect(content!.lines[0]).toContain('4');
+    expect(lines).toContain('distribuera');
+  });
+
+  it('ne dit pas deux fois la distribution', () => {
+    // SCH-11 de Bastien : « le texte est répété 2 fois ».
+    const lines = allLines(
+      plainTurn({ distribute: { by: 0, amount: 2 } }),
+      tile({ type: 'distribute_2', name: 'DISTRIBUEZ 2 GORGÉES' })
+    ).split(' // ');
+
+    expect(lines.filter(line => line.includes('distribue'))).toHaveLength(1);
   });
 });
 
-describe('modale — elle ne dit pas deux fois la même chose', () => {
-  it('n\'ajoute pas la phrase de la case quand la distribution est déjà annoncée', () => {
-    // `tableAnnouncement` et `buildActionText` décrivent tous deux une
-    // distribution. Les laisser parler ensemble afficherait la règle en
-    // double, ce qui est précisément le défaut SCH-11 de Bastien.
-    const content = modalContent(
-      plainTurn({ distribute: { by: 0, amount: 2 } }),
-      tile({ type: 'distribute_2', name: 'DISTRIBUEZ 2 GORGÉES' })
+describe('tour — chaque étape MONTRE la case', () => {
+  it('donne l\'illustration à l\'étape de la case', () => {
+    const steps = modalSteps(
+      plainTurn({ drinks: { player: 0, amount: 3 } }),
+      tile({ image: 'assets/drink_3.png', name: 'BUVEZ 3 GORGÉES' })
     );
 
-    const distributions = content!.lines.filter(line => line.includes('distribue'));
-    expect(distributions).toHaveLength(1);
+    expect(steps[0].tile!.src).toBe('/assets/drink_3.png');
+    expect(steps[0].tile!.alt).toBe('BUVEZ 3 GORGÉES');
+  });
+
+  it('ne met AUCUNE illustration sur la sentence du Poulet', () => {
+    // Elle frappe un autre joueur, sur le jet : elle n'a rien à voir avec la
+    // case où le pion vient de se poser. Y coller son image ferait croire
+    // que c'est cette case qui la déclenche.
+    const steps = modalSteps(
+      plainTurn({ chickenPenalty: { name: 'Bastien', distributes: false, roll: 3 } }),
+      tile({ image: 'assets/drink_3.png' })
+    );
+
+    expect(steps[0].tile).toBeNull();
+  });
+
+  it('reste affichable quand la case n\'a pas d\'illustration', () => {
+    const steps = modalSteps(
+      plainTurn({ drinks: { player: 0, amount: 3 } }),
+      tile({ image: undefined })
+    );
+
+    expect(steps).toHaveLength(1);
+    expect(steps[0].tile).toBeNull();
+  });
+
+  it('reporte le VRAI chiffre sur une illustration qui en porte un gravé', () => {
+    // Une seule illustration sert pour ×2, ×3 et ×4 : sans ce report, une
+    // case ×4 montrerait « ×2 » au joueur.
+    const steps = modalSteps(
+      plainTurn({ drinks: { player: 0, amount: 4 } }),
+      tile({ image: 'assets/drink_2.png', amount: 4 })
+    );
+
+    expect(steps[0].tile!.amount).toBe(4);
+  });
+});
+
+describe('modale — les écrans se jouent l\'un après l\'autre', () => {
+  const deux = [
+    { title: 'Le Poulet', tile: null, lines: ['Bastien boit 1 🍺'] },
+    { title: 'Au tour de Quentin', tile: null, lines: ['Quentin boit 3 🍺'] },
+  ];
+
+  it('n\'affiche que le PREMIER écran au départ', () => {
+    runModalSteps(deux, () => {});
+
+    expect(document.body.textContent).toContain('Bastien');
+    expect(document.body.textContent).not.toContain('Quentin boit');
+  });
+
+  it('passe au suivant à la validation', () => {
+    runModalSteps(deux, () => {});
+
+    validate();
+
+    expect(document.body.textContent).toContain('Quentin boit');
+  });
+
+  it('ne rend la main QU\'APRÈS le dernier écran', () => {
+    // C'EST LE VERROU : rendre la main dès le premier laisserait le joueur
+    // suivant lancer alors qu'une règle n'a pas été appliquée.
+    const done = vi.fn();
+    runModalSteps(deux, done);
+
+    validate();
+    expect(done).not.toHaveBeenCalled();
+
+    validate();
+    expect(done).toHaveBeenCalledTimes(1);
+  });
+
+  it('annonce qu\'un écran suit, plutôt que de dire « Valider »', () => {
+    // Un bouton qui dit « Valider » alors qu'un autre écran suit laisse
+    // croire que le tour est fini.
+    runModalSteps(deux, () => {});
+
+    expect(document.querySelector('#action-validate')!.textContent).toBe('Suivant');
+
+    validate();
+
+    expect(document.querySelector('#action-validate')!.textContent).toBe('Valider');
+  });
+
+  it('ne laisse aucun écran derrière lui', () => {
+    runModalSteps(deux, () => {});
+    validate();
+    validate();
+
+    expect(document.querySelector('.action-modal')).toBeNull();
+  });
+
+  it('ne suspend rien quand il n\'y a aucune étape', () => {
+    const done = vi.fn();
+
+    expect(runModalSteps([], done)).toBe(false);
+    expect(done).not.toHaveBeenCalled();
+    expect(document.querySelector('.action-modal')).toBeNull();
   });
 });
 
 describe('modale — le jeu attend la validation', () => {
   it('s\'affiche', () => {
-    showActionModal({ title: 'Test', lines: ['Quentin boit 3 🍺'] }, () => {});
+    showActionModal({ title: 'Test', tile: null, lines: ['Quentin boit 3 🍺'] }, () => {});
 
     expect(document.querySelector('.action-modal')).not.toBeNull();
     expect(document.body.textContent).toContain('Quentin boit');
@@ -147,7 +343,7 @@ describe('modale — le jeu attend la validation', () => {
 
   it('ne rend la main QU\'AU clic sur Valider', () => {
     const done = vi.fn();
-    showActionModal({ title: 'Test', lines: ['x'] }, done);
+    showActionModal({ title: 'Test', tile: null, lines: ['x'] }, done);
 
     expect(done).not.toHaveBeenCalled();
 
@@ -159,7 +355,7 @@ describe('modale — le jeu attend la validation', () => {
   it('se retire une fois validée', () => {
     // SANS CELA elle resterait en `position: fixed` par-dessus le plateau :
     // le jeu tournerait derrière, injouable.
-    showActionModal({ title: 'Test', lines: ['x'] }, () => {});
+    showActionModal({ title: 'Test', tile: null, lines: ['x'] }, () => {});
 
     document.querySelector<HTMLButtonElement>('#action-validate')!.click();
 
@@ -169,7 +365,7 @@ describe('modale — le jeu attend la validation', () => {
   it('ne valide pas deux fois', () => {
     // Un double tap sur un téléphone ne doit pas faire reprendre deux tours.
     const done = vi.fn();
-    const handles = showActionModal({ title: 'Test', lines: ['x'] }, done);
+    const handles = showActionModal({ title: 'Test', tile: null, lines: ['x'] }, done);
 
     handles.validate();
     handles.validate();
@@ -204,7 +400,7 @@ describe('modale — on peut aller voir le plateau et revenir', () => {
     // rendait la main ici, le joueur suivant pourrait lancer alors que la
     // table n'a rien bu.
     const done = vi.fn();
-    showActionModal({ title: 'Test', lines: ['x'] }, done);
+    showActionModal({ title: 'Test', tile: null, lines: ['x'] }, done);
 
     document.querySelector<HTMLButtonElement>('#action-peek')!.click();
 
@@ -215,7 +411,7 @@ describe('modale — on peut aller voir le plateau et revenir', () => {
   it('laisse un rappel pour revenir', () => {
     // SANS LUI « Voir le plateau » serait un aller sans retour, et la partie
     // resterait suspendue sans que rien ne l'explique.
-    showActionModal({ title: 'Test', lines: ['x'] }, () => {});
+    showActionModal({ title: 'Test', tile: null, lines: ['x'] }, () => {});
 
     expect(escamotee('#action-recall')).toBe(true);
 
@@ -225,7 +421,7 @@ describe('modale — on peut aller voir le plateau et revenir', () => {
   });
 
   it('ramène la modale au rappel', () => {
-    showActionModal({ title: 'Test', lines: ['x'] }, () => {});
+    showActionModal({ title: 'Test', tile: null, lines: ['x'] }, () => {});
 
     document.querySelector<HTMLButtonElement>('#action-peek')!.click();
     document.querySelector<HTMLButtonElement>('#action-recall')!.click();
@@ -236,7 +432,7 @@ describe('modale — on peut aller voir le plateau et revenir', () => {
 
   it('emporte le rappel en validant', () => {
     // Un rappel laissé derrière rouvrirait une modale déjà soldée.
-    showActionModal({ title: 'Test', lines: ['x'] }, () => {});
+    showActionModal({ title: 'Test', tile: null, lines: ['x'] }, () => {});
 
     document.querySelector<HTMLButtonElement>('#action-peek')!.click();
     document.querySelector<HTMLButtonElement>('#action-recall')!.click();
@@ -252,7 +448,7 @@ describe('modale — elle n\'arbitre rien', () => {
     // l'app, pas de choix à arbitrer. » Ce test est la garde de cette
     // décision : il échouera si un jour on ajoute des boutons de joueur.
     showActionModal(
-      { title: 'Test', lines: ['Quentin distribue 3 🍺'] },
+      { title: 'Test', tile: null, lines: ['Quentin distribue 3 🍺'] },
       () => {}
     );
 
@@ -263,116 +459,3 @@ describe('modale — elle n\'arbitre rien', () => {
   });
 });
 
-describe('modale — la prise du titre de Poulet s\'annonce', () => {
-  it('annonce le Poulet quand le pion se pose sur la case', () => {
-    // CE STATUT N'EST ANNONCÉ NULLE PART AILLEURS. `tableAnnouncement` ne
-    // traite que la SENTENCE (« à chaque 3 ou 6 »), pas la prise du titre —
-    // vérifié sur le vrai catalogue : la case `chicken` n'ouvrait aucune
-    // modale. Or c'est ce titre qui déclenche la sentence à tous les tours
-    // suivants, et personne ne peut l'appliquer sans l'avoir entendu poser.
-    const content = modalContent(plainTurn({ chicken: { rank: 1 } }), tile({ type: 'chicken', name: 'POULET' }));
-
-    expect(content).not.toBeNull();
-    expect(content!.lines.join(' ')).toContain('Poulet');
-    expect(content!.lines.join(' ')).toContain('Quentin');
-  });
-
-  it('distingue le GROS Poulet, qui distribue au lieu de boire', () => {
-    const content = modalContent(plainTurn({ chicken: { rank: 2 } }), tile({ type: 'chicken', name: 'POULET' }));
-
-    expect(content!.lines.join(' ')).toContain('distribuera');
-  });
-});
-
-describe('modale — elle MONTRE la case où le pion s\'est posé', () => {
-  it('donne l\'illustration de la case', () => {
-    // Demande de Quentin après essai sur l'APK : montrer la case plutôt que
-    // la nommer. C'est ce que le joueur a sous les yeux sur le plateau —
-    // la reconnaître demande moins d'effort que de lire un numéro.
-    const content = modalContent(
-      plainTurn({ drinks: { player: 0, amount: 3 } }),
-      tile({ image: 'assets/drink_3.png', name: 'BUVEZ 3 GORGÉES' })
-    );
-
-    expect(content!.tile).not.toBeNull();
-    expect(content!.tile!.src).toBe('/assets/drink_3.png');
-  });
-
-  it('nomme la case dans l\'alternative textuelle', () => {
-    // L'ILLUSTRATION SEULE NE SUFFIT PAS : `drink_3.png` ne montre qu'un
-    // « ×3 », qui ne dit pas s'il faut boire ou distribuer. Le nom reste
-    // donc accessible à qui ne voit pas l'écran.
-    const content = modalContent(
-      plainTurn({ drinks: { player: 0, amount: 3 } }),
-      tile({ image: 'assets/drink_3.png', name: 'BUVEZ 3 GORGÉES' })
-    );
-
-    expect(content!.tile!.alt).toBe('BUVEZ 3 GORGÉES');
-  });
-
-  it('reste affichable quand la case n\'a pas d\'illustration', () => {
-    const content = modalContent(
-      plainTurn({ drinks: { player: 0, amount: 3 } }),
-      tile({ image: undefined })
-    );
-
-    expect(content).not.toBeNull();
-    expect(content!.tile).toBeNull();
-  });
-
-  it('reporte le VRAI chiffre sur une illustration qui en porte un gravé', () => {
-    // Une seule illustration sert pour ×2, ×3 et ×4 : sans ce report, une
-    // case ×4 montrerait « ×2 » au joueur.
-    const content = modalContent(
-      plainTurn({ drinks: { player: 0, amount: 4 } }),
-      tile({ image: 'assets/drink_2.png', amount: 4 })
-    );
-
-    expect(content!.tile!.amount).toBe(4);
-  });
-
-  it('ne pose aucun chiffre quand la case n\'en porte pas', () => {
-    const content = modalContent(
-      plainTurn({ drinks: { player: 0, amount: 3 } }),
-      tile({ image: 'assets/drink_3.png' })
-    );
-
-    expect(content!.tile!.amount).toBeNull();
-  });
-
-  it('affiche l\'illustration dans la carte', () => {
-    showActionModal(
-      { title: 'T', tile: { src: '/assets/petitPoulet.png', alt: 'POULET', amount: null }, lines: ['x'] },
-      () => {}
-    );
-
-    const art = document.querySelector<HTMLImageElement>('.action-modal-art')!;
-
-    expect(art).not.toBeNull();
-    expect(art.getAttribute('src')).toBe('/assets/petitPoulet.png');
-    expect(art.alt).toBe('POULET');
-  });
-
-  it('pose le chiffre par-dessus dans la carte', () => {
-    showActionModal(
-      { title: 'T', tile: { src: '/assets/drink_2.png', alt: 'BUVEZ', amount: 4 }, lines: ['x'] },
-      () => {}
-    );
-
-    expect(document.querySelector('.action-modal-amount')!.textContent).toBe('\u00d74');
-  });
-
-  it('retire l\'illustration qui ne charge pas, sans casser la modale', () => {
-    // Une image manquante ne doit pas laisser un cadre vide au milieu de la
-    // carte : la règle, elle, est écrite en dessous et suffit à jouer.
-    showActionModal(
-      { title: 'T', tile: { src: '/assets/absente.png', alt: 'X', amount: null }, lines: ['x'] },
-      () => {}
-    );
-
-    document.querySelector('.action-modal-art')!.dispatchEvent(new Event('error'));
-
-    expect(document.querySelector('.action-modal-tile')).toBeNull();
-    expect(document.querySelector('.action-modal')).not.toBeNull();
-  });
-});

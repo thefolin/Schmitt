@@ -53,7 +53,7 @@ import {
 } from './shake';
 import { readDeviceOverride } from './device';
 import { askForPlayers } from './setup-screen';
-import { modalContent, showActionModal } from './action-modal';
+import { modalSteps, runModalSteps } from './action-modal';
 // Les tokens du design system précèdent la feuille qui les consomme :
 // `setup-screen.css` en emploie 43, et sans eux l'écran s'affiche nu.
 import '@/styles/common/design-system.css';
@@ -1562,19 +1562,22 @@ function renderActions(
       }
     : null;
 
-  const content = modalContent(outcome, tile, shield);
+  const steps = modalSteps(outcome, tile, shield);
 
   // UN TOUR ORDINAIRE NE S'INTERROMPT PAS. Ouvrir une modale à chaque tour
   // la ferait fermer sans la lire, y compris les tours qui comptent.
-  if (!content) return false;
+  if (steps.length === 0) return false;
 
-  // Le panneau du HUD garde la trace de ce qui a été énoncé, une fois la
-  // modale refermée : le joueur qui a validé trop vite peut le relire.
+  // TOUTES les phrases du tour, dans l'ordre où elles s'appliquent : le
+  // panneau du HUD en garde la trace une fois les modales refermées, et le
+  // journal les consigne. Le joueur qui a validé trop vite peut les relire.
+  const said = steps.flatMap(step => step.lines);
+
   const panel = document.getElementById('actions-panel');
   if (panel) {
     panel.hidden = false;
     panel.replaceChildren(
-      ...content.lines.map(text => {
+      ...said.map(text => {
         const line = document.createElement('div');
         line.className = 'action-prompt';
         line.textContent = text;
@@ -1583,13 +1586,14 @@ function renderActions(
     );
   }
 
-  for (const line of content.lines) runner.log(line);
+  for (const line of said) runner.log(line);
   renderJournal(runner);
   refresh();
 
-  showActionModal(content, onValidated);
-
-  return true;
+  // LES ÉTAPES L'UNE APRÈS L'AUTRE, et non toutes sur un même écran : c'est
+  // dans cet ordre que les règles s'appliquent, donc dans cet ordre que la
+  // table doit les jouer.
+  return runModalSteps(steps, onValidated);
 }
 
 /** Raconte le dernier tour joué. */

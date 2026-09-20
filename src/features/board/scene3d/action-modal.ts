@@ -26,26 +26,6 @@ import type { TurnOutcome } from './turn-runner';
 import { tableAnnouncement } from './table-announcements';
 import { buildActionText, buildSubtitle, withGulpSymbol } from '@/features/game/action-text';
 
-/** Ce que la modale a à dire, ou rien du tout. */
-export interface ModalContent {
-  /** Le titre, court : ce qui vient d'arriver. */
-  title: string;
-  /**
-   * L'ILLUSTRATION de la case où le pion s'est arrêté.
-   *
-   * Demande de Quentin après essai sur l'APK : montrer la case plutôt que la
-   * nommer. Le pion est petit et la caméra bouge — on ne voit pas toujours
-   * sur quelle case il s'est posé, et l'illustration est ce que le joueur a
-   * sous les yeux sur le plateau.
-   *
-   * `null` quand la case n'a pas d'illustration : la modale s'affiche quand
-   * même, et l'énoncé suffit.
-   */
-  tile: TileArt | null;
-  /** Les phrases à lire à la table, dans l'ordre où elles s'appliquent. */
-  lines: string[];
-}
-
 /**
  * L'illustration d'une case, prête à afficher.
  *
@@ -74,90 +54,6 @@ export interface SettledShield {
 }
 
 /**
- * Ce qu'il y a à énoncer après un tour — ou `null` s'il n'y a rien.
- *
- * UN TOUR ORDINAIRE N'OUVRE PAS DE MODALE. Avancer de quatre cases et tomber
- * sur une case vide ne demande rien à personne : interrompre le jeu pour le
- * dire ferait fermer une modale à chaque tour, et on finirait par la fermer
- * sans la lire — ce qui vaut pour les tours qui comptent aussi.
- */
-export function modalContent(
-  outcome: TurnOutcome,
-  tile: TileConfig | null = null,
-  shield: SettledShield | null = null
-): ModalContent | null {
-  const lines: string[] = [];
-
-  // LE BOUCLIER D'ABORD : il a intercepté une sanction, et ce qui suit se lit
-  // en sachant qu'elle est retombée sur son porteur.
-  if (shield) {
-    lines.push(
-      `\u{1F6E1}\u{FE0F} ${shield.playerName} garde son bouclier et boit ${shield.amount} \u{1F37A}`
-    );
-  }
-
-  // CE QUI SE JOUE À LA TABLE, énoncé par le module qui en a la charge. On
-  // ne réécrit pas ces phrases ici : deux rédactions de la même règle
-  // finiraient par diverger.
-  const announcement = tableAnnouncement(outcome);
-  if (announcement) lines.push(announcement.text);
-
-  // LA PHRASE DE LA CASE, dans les termes que Bastien a fixés (SCH-11/12/13)
-  // et que `action-text` tient déjà pour le rendu CSS. On la réemploie au
-  // lieu d'en rédiger une seconde : deux formulations de la même case
-  // finiraient par diverger, et c'est la duplication que la refonte supprime.
-  //
-  // `tableAnnouncement` couvre la distribution : on ne la redit pas.
-  if (tile && !announcement) {
-    const action = buildActionText(tile, outcome.playerName);
-    if (action) lines.push(action);
-  }
-
-  // UNE CASE QUI SE JOUE À LA TABLE n'a ni chiffre ni verbe standard — c'est
-  // sa description qui porte la règle. Sans elle, la modale s'ouvrirait sur
-  // un titre et rien d'autre, et le joueur ne saurait pas ce qu'on attend.
-  if (tile && outcome.tableRule) {
-    const subtitle = buildSubtitle(tile, null);
-    lines.push(subtitle || withGulpSymbol(tile.name));
-  }
-
-  // LE STATUT DE POULET, posé en tombant sur la case.
-  //
-  // IL N'EST ANNONCÉ NULLE PART AILLEURS : `tableAnnouncement` ne traite que
-  // la SENTENCE (« à chaque 3 ou 6 »), pas la prise du titre. Or c'est ce
-  // titre qui déclenche la sentence à tous les tours suivants, et personne
-  // ne peut l'appliquer s'il ne l'a pas entendu poser.
-  if (outcome.chicken) {
-    lines.push(
-      outcome.chicken.rank === 2
-        ? `\u{1F414} ${outcome.playerName} devient GROS POULET : il distribuera 1 \u{1F37A} à chaque 3 ou 6`
-        : `\u{1F414} ${outcome.playerName} est le Poulet : il boira 1 \u{1F37A} à chaque 3 ou 6`
-    );
-  }
-
-  // LES GORGÉES SERVIES PAR LA CASE, quand aucune phrase ne les a déjà
-  // dites. C'est la sanction la plus directe du jeu : la taire laisserait la
-  // modale muette sur ce qui vient d'arriver.
-  if (outcome.drinks && lines.length === 0) {
-    lines.push(`${outcome.playerName} boit ${outcome.drinks.amount} \u{1F37A}`);
-  }
-
-  if (outcome.everyone && lines.length === 0) {
-    lines.push(`Tout le monde boit \u{1F37A}`);
-  }
-
-  // LA VICTOIRE CLÔT LA PARTIE : elle mérite l'arrêt, même si aucune gorgée
-  // n'est en jeu.
-  if (outcome.winner) {
-    lines.push(`\u{1F3C6} ${outcome.winner} arrive au bout de l'Odyssée !`);
-  }
-
-  if (lines.length === 0) return null;
-
-  return { title: modalTitle(outcome), tile: tileArt(tile), lines };
-}
-
-/**
  * L'illustration de la case, ou `null` s'il n'y en a pas.
  *
  * Le chemin est normalisé comme dans le rendu 3D : les données portent
@@ -173,13 +69,169 @@ function tileArt(tile: TileConfig | null): TileArt | null {
   };
 }
 
-/** Le titre, tiré de ce qui domine le tour. *//** Le titre, tiré de ce qui domine le tour. */
-function modalTitle(outcome: TurnOutcome): string {
-  if (outcome.winner) return 'Victoire';
-  if (outcome.chickenPenalty || outcome.chicken) return 'Le Poulet';
-  if (outcome.schmittPower) return 'Le pouvoir du Schmitt';
+/**
+ * UNE étape : un écran, une chose qui s'est passée.
+ *
+ * LE DÉFAUT QUE CELA CORRIGE : tout était versé dans une seule carte — la
+ * sentence du Poulet, la règle de la case, la prise du titre, la victoire —
+ * avec un titre et une illustration pour l'ensemble. Un joueur qui tombait
+ * sur le Poulet ET déclenchait la faveur des dieux voyait les deux mélangés
+ * sous une seule image, sans savoir lequel appliquer en premier. Retour de
+ * Quentin : « la modale affiche tout mélangé ».
+ *
+ * Les étapes suivent l'ORDRE D'EXÉCUTION de `playTurn` : sentence du Poulet,
+ * déplacement, effets de la case, prise du titre, victoire. C'est l'ordre
+ * dans lequel les règles s'appliquent réellement, et donc celui dans lequel
+ * la table doit les jouer.
+ */
+export interface ModalStep {
+  /** Le titre, court : ce qui vient d'arriver. */
+  title: string;
+  /** L'illustration de la case, quand cette étape en a une. */
+  tile: TileArt | null;
+  /** Ce qu'il y a à faire, en une ou deux phrases. */
+  lines: string[];
+}
 
-  return `Au tour de ${outcome.playerName}`;
+/**
+ * Les étapes d'un tour, dans l'ordre où elles s'appliquent.
+ *
+ * UN TOUR ORDINAIRE N'EN PRODUIT AUCUNE. Avancer de quatre cases et tomber
+ * sur une case vide ne demande rien à personne : interrompre le jeu pour le
+ * dire ferait fermer une modale à chaque tour, et on finirait par la fermer
+ * sans la lire — ce qui vaut pour les tours qui comptent aussi.
+ */
+export function modalSteps(
+  outcome: TurnOutcome,
+  tile: TileConfig | null = null,
+  shield: SettledShield | null = null
+): ModalStep[] {
+  const steps: ModalStep[] = [];
+  const art = tileArt(tile);
+
+  // 1. LE BOUCLIER, soldé avant tout le reste : il a INTERCEPTÉ une sanction,
+  //    et ce qui suit se lit en sachant qu'elle est retombée sur son porteur.
+  if (shield) {
+    steps.push({
+      title: "Bouclier d'Athéna",
+      tile: null,
+      lines: [
+        `\u{1F6E1}\u{FE0F} ${shield.playerName} garde son bouclier et boit ${shield.amount} \u{1F37A}`,
+      ],
+    });
+  }
+
+  // 2. LA SENTENCE DU POULET, qui tombe sur le jet AVANT tout déplacement —
+  //    c'est l'ordre de `playTurn`. Elle concerne un AUTRE joueur que celui
+  //    qui joue : la mélanger à l'action de ce dernier est précisément ce qui
+  //    la rendait illisible.
+  if (outcome.chickenPenalty) {
+    const { name, distributes, roll } = outcome.chickenPenalty;
+
+    steps.push({
+      title: 'Le Poulet',
+      tile: null,
+      lines: [
+        distributes
+          ? `\u{1F414} ${roll} — ${name} est GROS POULET : il distribue 1 \u{1F37A}`
+          : `\u{1F414} ${roll} — ${name} est le Poulet : il boit 1 \u{1F37A}`,
+      ],
+    });
+  }
+
+  // 3. CE QUE LA CASE FAIT FAIRE. Une seule étape : c'est une seule case, et
+  //    ses phrases décrivent la même chose sous deux angles.
+  const tileLines = landingLines(outcome, tile);
+  if (tileLines.length > 0) {
+    steps.push({
+      title: `Au tour de ${outcome.playerName}`,
+      tile: art,
+      lines: tileLines,
+    });
+  }
+
+  // 4. LA PRISE DU TITRE DE POULET, posée par la case où le pion s'arrête.
+  //    Elle vient APRÈS l'effet de la case, comme dans `playTurn`, et se
+  //    distingue de la sentence : l'une est un statut, l'autre une sanction.
+  if (outcome.chicken) {
+    steps.push({
+      title: 'Le Poulet',
+      tile: art,
+      lines: [
+        outcome.chicken.rank === 2
+          ? `\u{1F414} ${outcome.playerName} devient GROS POULET : il distribuera 1 \u{1F37A} à chaque 3 ou 6`
+          : `\u{1F414} ${outcome.playerName} est le Poulet : il boira 1 \u{1F37A} à chaque 3 ou 6`,
+      ],
+    });
+  }
+
+  // 5. LA FAVEUR DES DIEUX ferme la marche : les deux dés se lancent une fois
+  //    la case résolue, et l'annoncer plus tôt ferait chercher des dés qui ne
+  //    sont pas encore là.
+  if (outcome.godFavor) {
+    steps.push({
+      title: 'Faveur des dieux',
+      tile: art,
+      lines: [`\u{1F3B2} ${outcome.playerName} lance les deux dés de la faveur`],
+    });
+  }
+
+  // 6. LA VICTOIRE CLÔT LA PARTIE : elle mérite son propre écran, même si
+  //    aucune gorgée n'est en jeu.
+  if (outcome.winner) {
+    steps.push({
+      title: 'Victoire',
+      tile: null,
+      lines: [`\u{1F3C6} ${outcome.winner} arrive au bout de l'Odyssée !`],
+    });
+  }
+
+  return steps;
+}
+
+/**
+ * Ce que la case où le pion s'est posé fait faire.
+ *
+ * Les phrases sont celles que `action-text` et `table-announcements`
+ * tiennent déjà : on les réemploie plutôt que d'en rédiger de nouvelles.
+ * Deux formulations de la même case finiraient par diverger.
+ */
+function landingLines(outcome: TurnOutcome, tile: TileConfig | null): string[] {
+  const lines: string[] = [];
+
+  // LA DISTRIBUTION, prise directement sur l'issue du tour et non par
+  // `tableAnnouncement` : celle-ci s'arrête à la PREMIÈRE chose trouvée, et
+  // rendait donc la sentence du Poulet OU la distribution, jamais les deux.
+  // Un tour qui produisait les deux en perdait une en silence.
+  if (outcome.distribute) {
+    lines.push(
+      `${outcome.playerName} distribue ${outcome.distribute.amount} \u{1F37A} — à vous de jouer`
+    );
+  }
+
+  // LA PHRASE DE LA CASE, dans les termes fixés par Bastien (SCH-11/12/13).
+  if (tile && !outcome.distribute) {
+    const action = buildActionText(tile, outcome.playerName);
+    if (action) lines.push(action);
+  }
+
+  // UNE CASE QUI SE JOUE À LA TABLE n'a ni chiffre ni verbe standard : c'est
+  // sa description qui porte la règle.
+  if (tile && outcome.tableRule) {
+    const subtitle = buildSubtitle(tile, null);
+    lines.push(subtitle || withGulpSymbol(tile.name));
+  }
+
+  // LES GORGÉES SERVIES PAR LA CASE, quand aucune phrase ne les a dites.
+  if (outcome.drinks && lines.length === 0) {
+    lines.push(`${outcome.playerName} boit ${outcome.drinks.amount} \u{1F37A}`);
+  }
+
+  if (outcome.everyone && lines.length === 0) {
+    lines.push(`Tout le monde boit \u{1F37A}`);
+  }
+
+  return lines;
 }
 
 /** Ce que la scène doit faire pendant que la modale est ouverte. */
@@ -208,9 +260,20 @@ export interface ActionModalHandles {
  * lui est propre.
  */
 export function showActionModal(
-  content: ModalContent,
+  content: ModalStep,
   onValidate: () => void,
-  host: HTMLElement = document.body
+  host: HTMLElement = document.body,
+  /**
+   * Reste-t-il une étape après celle-ci ?
+   *
+   * Change le LIBELLÉ du bouton, rien d'autre : « Valider » sur le dernier
+   * écran, « Suivant » avant. Un bouton qui dit « Valider » alors qu'un
+   * autre écran suit laisse croire que le tour est fini.
+   *
+   * Passé en argument plutôt que rangé dans l'étape : c'est une question de
+   * présentation, et une étape ne sait pas dans quelle suite on la joue.
+   */
+  more = false
 ): ActionModalHandles {
   let pending = true;
 
@@ -298,7 +361,7 @@ export function showActionModal(
   validateButton.type = 'button';
   validateButton.className = 'btn btn-primary';
   validateButton.id = 'action-validate';
-  validateButton.textContent = 'Valider';
+  validateButton.textContent = more ? 'Suivant' : 'Valider';
 
   buttons.append(peekButton, validateButton);
   panel.appendChild(buttons);
@@ -348,4 +411,46 @@ export function showActionModal(
   host.append(screen, recall);
 
   return { validate, peek, restore, isPending: () => pending };
+}
+
+/**
+ * Joue les étapes d'un tour L'UNE APRÈS L'AUTRE.
+ *
+ * LE DÉFAUT QUE CELA CORRIGE : tout arrivait sur un seul écran. Un joueur qui
+ * tombait sur le Poulet ET déclenchait la faveur des dieux voyait les deux
+ * mélangés sous une même illustration, sans savoir lequel appliquer en
+ * premier. Quentin : « les événements doivent s'afficher dans l'ordre
+ * d'exécution, pas tous ensemble ».
+ *
+ * Chaque étape attend sa validation avant que la suivante paraisse, et
+ * `onDone` n'est appelé qu'une fois la dernière soldée — c'est lui qui rend
+ * la main au dé.
+ *
+ * Renvoie `false` quand il n'y a rien à jouer : l'appelant sait alors que le
+ * tour n'est pas suspendu.
+ */
+export function runModalSteps(
+  steps: ModalStep[],
+  onDone: () => void,
+  host: HTMLElement = document.body
+): boolean {
+  if (steps.length === 0) return false;
+
+  let index = 0;
+
+  const playNext = (): void => {
+    if (index >= steps.length) {
+      onDone();
+      return;
+    }
+
+    const step = steps[index];
+    index += 1;
+
+    showActionModal(step, playNext, host, index < steps.length);
+  };
+
+  playNext();
+
+  return true;
 }
