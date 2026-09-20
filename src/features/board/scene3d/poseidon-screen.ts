@@ -23,7 +23,6 @@
  */
 
 import { GOD_FAVORS } from '@/features/game/god-favors';
-import { withGulpSymbol } from '@/features/game/action-text';
 
 /** La somme qui désigne POSÉIDON sur la table des faveurs. */
 export const POSEIDON_SUM = 11;
@@ -64,15 +63,34 @@ export function showPoseidonScreen(
   title.textContent = `\u{1F531} ${GOD_FAVORS[POSEIDON_SUM].name}`;
   panel.appendChild(title);
 
-  // LA RÈGLE, dans les termes de `god-favors` — partagés avec le rendu de
-  // `main`, pour que les deux jeux disent la même chose. Les gorgées y sont
-  // écrites 🍺 à l'affichage (SCH-12), sans réécrire le texte de référence.
+  // LA RÈGLE, RESSERRÉE. Le texte de référence fait 148 caractères et
+  // nomme trois fois qui reçoit quoi — or le trident le montre déjà, chaque
+  // dé portant son étiquette. Le répéter en toutes lettres fait lire deux
+  // fois la même chose, ce qui est le défaut SCH-11 relevé par Bastien.
+  //
+  // LE TEXTE DE RÉFÉRENCE N'EST PAS TOUCHÉ : il vit dans `god-favors.ts`,
+  // partagé avec le rendu de `main`, et sert partout ailleurs. On en pose
+  // une version courte POUR CET ÉCRAN, qui s'appuie sur le dessin.
   const rule = document.createElement('p');
   rule.className = 'action-modal-line';
-  rule.textContent = withGulpSymbol(GOD_FAVORS[POSEIDON_SUM].description);
+  //
+  // LE SYMBOLE 🍺 EST ÉCRIT DIRECTEMENT : le texte court ne contient plus
+  // le mot « gorgée », donc `withGulpSymbol` n'aurait rien à substituer. Le
+  // garder quand même appliquerait une transformation vide — autant dire
+  // ce qu'on veut afficher.
+  rule.textContent =
+    'Ciblez un joueur : il boit le d\u00e9 fort en \u{1F37A}, ses voisins le faible.';
   panel.appendChild(rule);
 
-  // LE TRIDENT. Le dé fort au sommet, le faible sur les deux branches.
+  // LE TRIDENT, dessiné sous les dés.
+  //
+  // MA PREMIÈRE VERSION N'EN MONTRAIT AUCUN : deux traits de douze pixels
+  // au-dessus des dés voisins, sans hampe ni pointe. Quentin : « je ne vois
+  // pas de trident ». Un trait sans forme ne dessine rien.
+  //
+  // Il est tracé en SVG plutôt qu'en bordures CSS : les trois dents
+  // partent d'une hampe commune, et c'est cette convergence qui fait
+  // l'arme. Des bordures ne savent pas dessiner une jonction.
   const trident = document.createElement('div');
   trident.className = 'poseidon-trident';
 
@@ -99,13 +117,49 @@ export function showPoseidonScreen(
     return box;
   };
 
-  // LE SOMMET D'ABORD dans le DOM, pour que la lecture à voix haute suive
-  // la règle : la cible, puis ses voisins.
-  trident.append(
+  // LES DÉS, en trois colonnes : le faible à gauche, le fort au milieu, le
+  // faible à droite. C'est la disposition du croquis, et elle place le
+  // sommet du trident sous la cible.
+  const heads = document.createElement('div');
+  heads.className = 'poseidon-heads';
+  heads.append(
+    branch(low, 'neighbor', 'Voisin'),
     branch(high, 'target', 'La cible'),
-    branch(low, 'neighbor', 'Voisin de gauche'),
-    branch(low, 'neighbor', 'Voisin de droite')
+    branch(low, 'neighbor', 'Voisin')
   );
+  trident.appendChild(heads);
+
+  // LA FOURCHE, sous les dés : trois dents qui remontent vers eux depuis
+  // une hampe commune. `preserveAspectRatio="none"` la laisse s'étirer sur
+  // la largeur des trois colonnes, quelle que soit la taille de l'écran.
+  const fork = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  fork.setAttribute('class', 'poseidon-fork');
+  fork.setAttribute('viewBox', '0 0 120 52');
+  fork.setAttribute('preserveAspectRatio', 'none');
+  fork.setAttribute('aria-hidden', 'true');
+
+  // LES HAMPES, qui se rejoignent sur la barre puis descendent au centre.
+  const stems = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  stems.setAttribute('d', 'M14 6 V34 M60 2 V50 M106 6 V34 M14 34 H106');
+  fork.appendChild(stems);
+
+  // LES POINTES, tracées à part.
+  //
+  // C'EST CE QUI MANQUAIT À MA DEUXIÈME VERSION : sans elles, les dents
+  // ressemblaient à un crochet, et Quentin ne reconnaissait toujours pas
+  // l'arme. Vérifié en rendant le dessin en image plutôt qu'en relisant les
+  // coordonnées — trois flèches montant vers leur dé, comme sur le croquis.
+  //
+  // Elles ne peuvent PAS rejoindre le tracé des hampes : `vector-effect`
+  // fige l'épaisseur, mais l'étirement horizontal déforme les angles, et
+  // une pointe dessinée dans le même chemin partirait de travers.
+  const tips = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  tips.setAttribute(
+    'd',
+    'M9 12 L14 2 L19 12 M55 8 L60 -2 L65 8 M101 12 L106 2 L111 12'
+  );
+  fork.appendChild(tips);
+  trident.appendChild(fork);
 
   panel.appendChild(trident);
 

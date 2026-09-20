@@ -53,18 +53,32 @@ describe('Poséidon — l\'écran dit la règle', () => {
     expect(document.querySelector('.poseidon-panel h2')!.textContent).toContain('POSÉIDON');
   });
 
-  it('énonce la règle, et pas un résumé maison', () => {
-    // Le texte vient de `god-favors`, PARTAGÉ avec le rendu de `main` : deux
-    // rédactions de la même faveur finiraient par diverger.
+  it('énonce la règle en une ligne', () => {
+    // LE TEXTE DE RÉFÉRENCE FAIT 148 CARACTÈRES et nomme trois fois qui
+    // reçoit quoi — or le trident le montre déjà, chaque dé portant son
+    // étiquette. Le répéter en toutes lettres fait lire deux fois la même
+    // chose, ce qui est le défaut SCH-11 relevé par Bastien.
     showPoseidonScreen([2, 5], () => {});
 
     const line = document.querySelector('.poseidon-panel .action-modal-line')!;
 
-    expect(line.textContent).toContain('le plus élevé');
-    expect(line.textContent).toContain('voisins');
+    expect(line.textContent!.length).toBeLessThan(90);
+  });
+
+  it('dit quand même l\'essentiel : fort pour la cible, faible pour les voisins', () => {
+    // Raccourcir ne doit pas rendre la règle incompréhensible : le dessin
+    // montre QUI, le texte dit QUOI.
+    showPoseidonScreen([2, 5], () => {});
+
+    const line = document.querySelector('.poseidon-panel .action-modal-line')!.textContent!;
+
+    expect(line).toMatch(/fort/i);
+    expect(line).toMatch(/faible/i);
+    expect(line).toMatch(/voisins/i);
   });
 
   it('écrit les gorgées avec le symbole (SCH-12)', () => {
+    // Demande de Bastien : « remplacez tous les mots [gorgées] par le logo ».
     showPoseidonScreen([2, 5], () => {});
 
     const line = document.querySelector('.poseidon-panel .action-modal-line')!;
@@ -105,13 +119,41 @@ describe('Poséidon — le trident montre qui prend quoi', () => {
     expect(neighbors.map(die => die.face)).toEqual(['1', '1']);
   });
 
-  it('dit qui est qui, en toutes lettres', () => {
-    // L'illustration seule ne dit pas lequel est le voisin de gauche.
+  it('dit qui est qui, sous chaque dé', () => {
+    // Le dessin seul ne dit pas lequel est la cible : chaque dent porte son
+    // étiquette, et c'est ce qui permet au texte d'être court.
     showPoseidonScreen([2, 5], () => {});
 
     const labels = [...document.querySelectorAll('.poseidon-who')].map(e => e.textContent);
 
-    expect(labels).toEqual(['La cible', 'Voisin de gauche', 'Voisin de droite']);
+    expect(labels).toEqual(['Voisin', 'La cible', 'Voisin']);
+  });
+
+  it('dessine un TRIDENT, et pas deux traits', () => {
+    // MA PREMIÈRE VERSION N'EN MONTRAIT AUCUN : deux bordures de douze
+    // pixels au-dessus des dés voisins, sans hampe ni jonction. Quentin :
+    // « je ne vois pas de trident ». Les trois dents partent maintenant
+    // d'une hampe commune, et c'est cette convergence qui fait l'arme.
+    showPoseidonScreen([2, 5], () => {});
+
+    const fork = document.querySelector('.poseidon-fork');
+
+    expect(fork).not.toBeNull();
+    // Deux tracés : les hampes qui convergent, et les POINTES. Sans elles,
+    // la fourche ressemblait à un crochet — vérifié en rendant le dessin en
+    // image, pas en relisant les coordonnées.
+    expect(fork!.querySelectorAll('path')).toHaveLength(2);
+  });
+
+  it('donne une pointe à chacune des trois dents', () => {
+    // C'EST CE QUI FAIT RECONNAÎTRE L'ARME. Deux versions successives n'en
+    // avaient pas, et Quentin ne voyait pas de trident.
+    showPoseidonScreen([2, 5], () => {});
+
+    const tips = document.querySelectorAll('.poseidon-fork path')[1];
+
+    // Trois chevrons, donc trois sous-tracés.
+    expect(tips.getAttribute('d')!.match(/M/g)).toHaveLength(3);
   });
 
   it('tient bon quand les deux faces sont égales', () => {

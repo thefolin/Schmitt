@@ -394,25 +394,31 @@
 /*
  * L'ÉCRAN DE POSÉIDON — un rappel, pas un arbitrage.
  *
- * La disposition suit le croquis de Quentin : le dé le plus FORT au sommet,
- * celui que la cible reçoit, et le plus FAIBLE sur les deux branches, pour
- * ses voisins. Trois branches comme l'arme du dieu — la règle se lit d'un
- * coup d'œil au lieu de se déchiffrer dans une phrase.
+ * La disposition suit le croquis de Quentin : trois dés en ligne — le plus
+ * FORT au centre, celui que la cible reçoit, et le plus FAIBLE de part et
+ * d'autre pour ses voisins — posés sur les trois dents d'un trident.
+ *
+ * MA PREMIÈRE VERSION NE MONTRAIT AUCUN TRIDENT : deux bordures de douze
+ * pixels au-dessus des dés voisins, sans hampe ni jonction. Quentin : « je
+ * ne vois pas de trident ». Un trait sans forme ne dessine rien.
+ *
+ * Il est tracé en SVG, et non en bordures CSS : les trois dents partent
+ * d'une hampe commune, et c'est cette convergence qui fait l'arme. Des
+ * bordures ne savent pas dessiner une jonction.
  */
 .poseidon-trident {
-  display: grid;
-  /* Deux colonnes pour les branches basses ; le sommet les enjambe. */
-  grid-template-columns: 1fr 1fr;
-  gap: var(--sp-3);
-  align-items: start;
-  justify-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
   margin-top: var(--sp-5);
 }
 
-/* LE SOMMET enjambe les deux colonnes : c'est lui qui porte la sanction
-   principale, et le centrer au-dessus dessine le trident. */
-.poseidon-branch.poseidon-target {
-  grid-column: 1 / -1;
+.poseidon-heads {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: var(--sp-2);
+  align-items: end;
+  justify-items: center;
 }
 
 .poseidon-branch {
@@ -420,20 +426,32 @@
   flex-direction: column;
   align-items: center;
   gap: var(--sp-1);
-  position: relative;
 }
 
-/*
- * LA HAMPE ET LES DENTS, tracées en CSS plutôt qu'en image : elles suivent
- * la taille des dés, qui change avec l'écran. Une image se décalerait.
- */
-.poseidon-branch.poseidon-neighbor::before {
-  content: '';
-  position: absolute;
-  top: calc(var(--sp-3) * -1);
-  height: var(--sp-3);
-  width: 2px;
-  background: var(--gold-700);
+/* LA FOURCHE, sous les dés. `preserveAspectRatio: none` la laisse s'étirer
+   sur la largeur des trois colonnes, quelle que soit la taille de l'écran :
+   les dents restent alignées sous leurs dés. */
+.poseidon-fork {
+  display: block;
+  width: 100%;
+  /* Assez haut pour que les dents SE VOIENT : une fourche écrasée
+     ressemble à un crochet, ce qu'elle a été deux versions durant. */
+  height: 58px;
+  margin-top: var(--sp-1);
+}
+
+.poseidon-fork path {
+  /* Les deux tracés — hampes et pointes — partagent le même trait. */
+  fill: none;
+  stroke: var(--gold-500);
+  stroke-width: 3;
+  stroke-linecap: round;
+  /* Les jonctions restent franches là où plusieurs traits laisseraient des
+     trous aux angles. */
+  stroke-linejoin: round;
+  /* L'étirement déforme l'épaisseur du trait : on la fige en unités de
+     l'écran plutôt qu'en unités du dessin. */
+  vector-effect: non-scaling-stroke;
 }
 
 .poseidon-die {
@@ -482,7 +500,10 @@
 @media (max-height: 420px) {
   .poseidon-trident {
     margin-top: var(--sp-3);
-    gap: var(--sp-2);
+  }
+
+  .poseidon-fork {
+    height: 34px;
   }
 
   .poseidon-die {
