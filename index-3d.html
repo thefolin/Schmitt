@@ -166,6 +166,49 @@
         }
 
         /* La barre du bas : elle situe le joueur sans manger l'écran. */
+        /*
+         * ÉCRAN BAS — le paysage sur téléphone, où la hauteur est la denrée
+         * rare. Mesuré sur le Pixel 10 de Quentin, navigateur ouvert : 306 px
+         * de haut en tout, dont 156 mangés par le HUD. Il ne restait que
+         * 150 px pour le plateau, qui débordait donc en haut et en bas.
+         *
+         * Sous 420 px, le HUD se replie : les trois lignes de diagnostic
+         * disparaissent, les marges se resserrent, et le plateau récupère la
+         * place. Le diagnostic reste disponible en portrait et sur écran
+         * large, là où il ne coûte rien.
+         */
+        @media (max-height: 420px) {
+            .bar {
+                padding: 4px 12px;
+                padding-top: calc(4px + var(--safe-top));
+                gap: 8px;
+            }
+
+            /* Les lignes de mesure servent à RÉGLER le rendu, pas à jouer :
+               elles cèdent la place les premières. */
+            #status,
+            #hint,
+            #insets {
+                display: none;
+            }
+
+            .foot {
+                padding: 4px 12px;
+                padding-bottom: calc(4px + var(--safe-bottom));
+                gap: 8px;
+            }
+
+            /* Le journal est un CONFORT — l'historique des tours passés. Le
+               plateau est le jeu : c'est le journal qui cède.
+
+               « Au tour de X » et l'invite à lancer RESTENT : sans elles, le
+               joueur ne sait plus à qui est la main ni ce qu'on attend de
+               lui. On ne gagne pas de la place en rendant le jeu injouable. */
+            #journal {
+                display: none;
+            }
+        }
+
         .foot {
             position: fixed;
             left: 0;
