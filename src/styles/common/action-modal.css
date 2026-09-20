@@ -390,3 +390,110 @@
     font-size: var(--fs-md);
   }
 }
+
+/*
+ * L'ÉCRAN DE POSÉIDON — un rappel, pas un arbitrage.
+ *
+ * La disposition suit le croquis de Quentin : le dé le plus FORT au sommet,
+ * celui que la cible reçoit, et le plus FAIBLE sur les deux branches, pour
+ * ses voisins. Trois branches comme l'arme du dieu — la règle se lit d'un
+ * coup d'œil au lieu de se déchiffrer dans une phrase.
+ */
+.poseidon-trident {
+  display: grid;
+  /* Deux colonnes pour les branches basses ; le sommet les enjambe. */
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-3);
+  align-items: start;
+  justify-items: center;
+  margin-top: var(--sp-5);
+}
+
+/* LE SOMMET enjambe les deux colonnes : c'est lui qui porte la sanction
+   principale, et le centrer au-dessus dessine le trident. */
+.poseidon-branch.poseidon-target {
+  grid-column: 1 / -1;
+}
+
+.poseidon-branch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-1);
+  position: relative;
+}
+
+/*
+ * LA HAMPE ET LES DENTS, tracées en CSS plutôt qu'en image : elles suivent
+ * la taille des dés, qui change avec l'écran. Une image se décalerait.
+ */
+.poseidon-branch.poseidon-neighbor::before {
+  content: '';
+  position: absolute;
+  top: calc(var(--sp-3) * -1);
+  height: var(--sp-3);
+  width: 2px;
+  background: var(--gold-700);
+}
+
+.poseidon-die {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 56px;
+  min-height: 56px;
+  font-family: var(--font-display);
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  color: var(--text-base);
+  background: var(--marble-700);
+  border: 2px solid var(--marble-500);
+  border-radius: var(--radius-md);
+}
+
+/* LA CIBLE reçoit le dé fort : son dé est celui qui doit sauter aux yeux. */
+.poseidon-die[data-role='target'] {
+  min-width: 68px;
+  min-height: 68px;
+  font-size: var(--fs-2xl);
+  color: var(--text-on-gold);
+  background: var(--grad-gold);
+  border-color: var(--gold-300);
+  box-shadow: var(--shadow-gold);
+}
+
+.poseidon-who {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.poseidon-branch.poseidon-target .poseidon-who {
+  color: var(--gold-400);
+}
+
+/*
+ * ÉCRAN BAS — le paysage sur téléphone, où la hauteur est comptée. Le
+ * trident se resserre plutôt que de pousser les boutons hors de l'écran.
+ */
+@media (max-height: 420px) {
+  .poseidon-trident {
+    margin-top: var(--sp-3);
+    gap: var(--sp-2);
+  }
+
+  .poseidon-die {
+    min-width: 42px;
+    min-height: 42px;
+    font-size: var(--fs-lg);
+  }
+
+  .poseidon-die[data-role='target'] {
+    min-width: 50px;
+    min-height: 50px;
+    font-size: var(--fs-xl);
+  }
+}

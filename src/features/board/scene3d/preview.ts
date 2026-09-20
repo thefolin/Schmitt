@@ -56,6 +56,7 @@ import { readDeviceOverride } from './device';
 import { askForPlayers } from './setup-screen';
 import { modalSteps, runModalSteps, favorStep } from './action-modal';
 import { showAphroditeScreen } from './aphrodite-screen';
+import { showPoseidonScreen, POSEIDON_SUM } from './poseidon-screen';
 import { APHRODITE_SUM } from './aphrodite-plan';
 // Les tokens du design system précèdent la feuille qui les consomme :
 // `setup-screen.css` en emploie 43, et sans eux l'écran s'affiche nu.
@@ -537,6 +538,7 @@ function attachDice(
    */
   let aphroditePending = false;
 
+
   /**
    * Fait rouler le dé dans le sens de sa course.
    *
@@ -960,6 +962,17 @@ function attachDice(
             return;
           }
 
+          // POSÉIDON demande lui aussi un SECOND jet — « ciblez un joueur ET
+          // lancez 2 dés ». Le premier ne faisait que le désigner. Son écran
+          // n'arbitre rien : il rappelle la règle et montre les deux faces,
+          // la table s'occupe du reste.
+          if (roll.favor && roll.sum === POSEIDON_SUM && !roll.double) {
+            // LE LANCER EST AUTOMATIQUE : l'écran est un rappel, et les deux
+            // faces sont tirées pour le joueur.
+            rollPoseidon();
+            return;
+          }
+
           awaitingValidation = false;
           refresh();
         });
@@ -1072,6 +1085,47 @@ function attachDice(
         refresh();
       }
     );
+  };
+
+  /**
+   * Tire les deux dés de POSÉIDON et montre le résultat.
+   *
+   * LE LANCER EST AUTOMATIQUE ICI, tranché par Quentin — contrairement au
+   * dé du tour et aux dés de la faveur, que le joueur jette lui-même. La
+   * raison tient à ce que l'écran EST : un rappel de la règle, pas une
+   * séquence à jouer. Les deux faces n'ont rien à voir avec la position
+   * d'un pion ; elles disent seulement combien boivent la cible et ses
+   * voisins, et la table s'en charge.
+   *
+   * LES FACES SONT TIRÉES ICI ET NULLE PART AILLEURS, puis affichées
+   * telles quelles : c'est la même exigence que pour le dé du tour — la
+   * valeur montrée est celle qui compte, jamais un second tirage.
+   */
+  // DÉCLARÉE APRÈS SES APPELANTS : ils ne l'appellent que depuis des
+  // callbacks — validation d'une modale, clic d'un bouton — qui se
+  // déclenchent bien après l'initialisation du module. Ne pas déplacer ces
+  // appels hors d'un callback.
+  const rollPoseidon = (): void => {
+    const a = 1 + Math.floor(Math.random() * 6);
+    const b = 1 + Math.floor(Math.random() * 6);
+
+    openPoseidon(a, b);
+  };
+
+  /**
+   * Ouvre le rappel de Poséidon avec les faces du second jet.
+   *
+   * L'écran N'ARBITRE RIEN : Quentin a tranché qu'il s'agit d'un rappel,
+   * pas d'une sélection. Aucune gorgée n'est donc servie dans `GameLogic` —
+   * ce serait choisir la cible à la place des joueurs.
+   */
+  const openPoseidon = (a: number, b: number): void => {
+    showPoseidonScreen([a, b], () => {
+      showDice(betweenFavors());
+
+      awaitingValidation = false;
+      refresh();
+    });
   };
 
   /** Lance le dé, si un lancer est attendu. */
@@ -1242,6 +1296,17 @@ function attachDice(
   // Le dé est POSÉ avant que la partie commence : sans cela il attend à
   // l'origine du monde, dans un coin, au lieu du milieu du tapis.
   restDie();
+
+  // LE BOUTON DE RECETTE DE POSÉIDON. Il ouvre l'écran DIRECTEMENT, avec
+  // deux faces posées : c'est le rappel qu'on veut regarder, pas la
+  // séquence de lancer. `?favor=11` éprouve le chemin complet.
+  //
+  document.getElementById('test-poseidon')?.addEventListener('click', () => {
+    if (frame !== null || walking || favorDice.rolling || awaitingValidation) return;
+
+    awaitingValidation = true;
+    rollPoseidon();
+  });
 
   document.getElementById('roll')?.addEventListener('click', roll);
 

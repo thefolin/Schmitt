@@ -144,3 +144,32 @@ describe('HUD — le diagnostic a quitté l\'écran de jeu', () => {
     expect(scene).toMatch(/diagnostics\.hidden\s*=\s*!overrides\.outline/);
   });
 });
+
+describe('HUD — le bouton de recette de Poséidon', () => {
+  it('existe dans la barre du bas', () => {
+    expect(pageIds().has('test-poseidon')).toBe(true);
+
+    const foot = page.slice(page.indexOf('<div class="foot"'), page.indexOf('</body>'));
+    expect(foot).toContain('id="test-poseidon"');
+  });
+
+  it('se dit « Test », pour qu\'on ne le prenne pas pour une commande du jeu', () => {
+    // Il est visible par défaut, comme l'était celui d'Aphrodite : la
+    // recette se fait autour d'une table, où personne ne tape une URL. Le
+    // libellé est la seule chose qui empêche un joueur de le presser.
+    expect(page).toMatch(/<button id="test-poseidon"[^>]*>[^<]*Test/);
+  });
+
+  it('tire les faces AU HASARD, comme la faveur elle-même', () => {
+    // LE LANCER EST AUTOMATIQUE, tranché par Quentin : l'écran est un
+    // rappel, pas une séquence à jouer. Des faces écrites en dur
+    // montreraient toujours le même résultat, et le bouton ne testerait
+    // plus ce que voit un joueur.
+    const handler = scene.slice(
+      scene.indexOf("document.getElementById('test-poseidon')"),
+      scene.indexOf("document.getElementById('roll')")
+    );
+
+    expect(handler).toContain('rollPoseidon()');
+  });
+});

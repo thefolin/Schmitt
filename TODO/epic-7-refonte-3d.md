@@ -96,3 +96,26 @@ Le visuel est **gelé** pour éviter des conflits sur ~5 500 lignes. Restent
 livrables sur `main` : les règles et les textes, à commencer par
 [#34](https://github.com/thefolin/Schmitt/issues/34) (les faveurs 3→7 sortent
 sur la mauvaise somme, P0) une fois les arbitrages rendus.
+
+---
+
+## 🧹 À retirer avant la livraison
+
+**Le bouton « 🔱 Test » de la barre du bas** (`#test-poseidon` dans
+`index-3d.html`, branché dans `preview.ts`).
+
+Il simule la faveur de Poséidon sans attendre le bon jet — elle sort sur
+deux jets sur trente-six, après être tombé sur une case temple, soit une
+faveur sur dix-huit.
+
+Visible par défaut, comme l'était celui d'Aphrodite : la recette se fait à
+plusieurs autour d'une table, où personne ne tape un paramètre d'URL. C'est
+ce qui le rend provisoire — un joueur qui le presse ouvre une faveur qui
+n'a pas été tirée.
+
+Le chemin sans bouton subsiste après son retrait : `?favor=11` force
+Poséidon, sans rien afficher en partie.
+
+**Pour le retirer :** supprimer le `<button id="test-poseidon">` de
+`index-3d.html`, le bloc `test-poseidon` de `preview.ts`, et le bloc de
+tests « le bouton de recette de Poséidon » de `test/hud-contract.test.ts`.
