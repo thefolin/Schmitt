@@ -284,55 +284,95 @@ describe('modale — la prise du titre de Poulet s\'annonce', () => {
   });
 });
 
-describe('modale — elle dit OÙ le pion s\'est posé', () => {
-  it('annonce la case et son nom', () => {
-    // Demande de Quentin après essai sur l'APK : la modale énonçait la règle
-    // sans dire d'où elle venait. Le pion est petit et la caméra bouge — on
-    // ne voit pas toujours sur quelle case il s'est arrêté.
+describe('modale — elle MONTRE la case où le pion s\'est posé', () => {
+  it('donne l\'illustration de la case', () => {
+    // Demande de Quentin après essai sur l'APK : montrer la case plutôt que
+    // la nommer. C'est ce que le joueur a sous les yeux sur le plateau —
+    // la reconnaître demande moins d'effort que de lire un numéro.
     const content = modalContent(
-      plainTurn({ to: 6, drinks: { player: 0, amount: 3 } }),
-      tile({ icon: '🍺', name: 'BUVEZ 3 GORGÉES' })
+      plainTurn({ drinks: { player: 0, amount: 3 } }),
+      tile({ image: 'assets/drink_3.png', name: 'BUVEZ 3 GORGÉES' })
     );
 
-    expect(content!.tile).toContain('Case 7');
-    expect(content!.tile).toContain('BUVEZ 3 GORGÉES');
+    expect(content!.tile).not.toBeNull();
+    expect(content!.tile!.src).toBe('/assets/drink_3.png');
   });
 
-  it('compte comme la barre de progression, à partir de un', () => {
-    // DEUX NUMÉROTATIONS SE CONTREDIRAIENT sous les yeux du joueur : la
-    // barre annonce « Case 7 / 23 » au même moment, juste en dessous.
-    const content = modalContent(plainTurn({ to: 0, drinks: { player: 0, amount: 2 } }), tile());
-
-    expect(content!.tile).toContain('Case 1');
-  });
-
-  it('annonce la case D\'ARRIVÉE quand une flèche a déplacé le pion', () => {
-    // C'EST LE PIÈGE : le dé pose le pion sur une case, la flèche l'envoie
-    // ailleurs. Annoncer la case du dé désignerait un endroit que le pion a
-    // déjà quitté, et la règle énoncée ne serait pas celle de la case
-    // montrée.
+  it('nomme la case dans l\'alternative textuelle', () => {
+    // L'ILLUSTRATION SEULE NE SUFFIT PAS : `drink_3.png` ne montre qu'un
+    // « ×3 », qui ne dit pas s'il faut boire ou distribuer. Le nom reste
+    // donc accessible à qui ne voit pas l'écran.
     const content = modalContent(
-      plainTurn({
-        to: 4,
-        effect: { type: 'forward_2', from: 4, to: 6 },
-        drinks: { player: 0, amount: 3 },
-      }),
-      tile()
+      plainTurn({ drinks: { player: 0, amount: 3 } }),
+      tile({ image: 'assets/drink_3.png', name: 'BUVEZ 3 GORGÉES' })
     );
 
-    expect(content!.tile).toContain('Case 7');
-    expect(content!.tile).not.toContain('Case 5');
+    expect(content!.tile!.alt).toBe('BUVEZ 3 GORGÉES');
   });
 
-  it('reste affichable si la case est inconnue', () => {
-    const content = modalContent(plainTurn({ to: 3, winner: 'Bastien' }), null);
+  it('reste affichable quand la case n\'a pas d\'illustration', () => {
+    const content = modalContent(
+      plainTurn({ drinks: { player: 0, amount: 3 } }),
+      tile({ image: undefined })
+    );
 
-    expect(content!.tile).toBe('Case 4');
+    expect(content).not.toBeNull();
+    expect(content!.tile).toBeNull();
   });
 
-  it('affiche la case dans la carte', () => {
-    showActionModal({ title: 'T', tile: 'Case 7 · 🐔 POULET', lines: ['x'] }, () => {});
+  it('reporte le VRAI chiffre sur une illustration qui en porte un gravé', () => {
+    // Une seule illustration sert pour ×2, ×3 et ×4 : sans ce report, une
+    // case ×4 montrerait « ×2 » au joueur.
+    const content = modalContent(
+      plainTurn({ drinks: { player: 0, amount: 4 } }),
+      tile({ image: 'assets/drink_2.png', amount: 4 })
+    );
 
-    expect(document.querySelector('.action-modal-tile')!.textContent).toContain('Case 7');
+    expect(content!.tile!.amount).toBe(4);
+  });
+
+  it('ne pose aucun chiffre quand la case n\'en porte pas', () => {
+    const content = modalContent(
+      plainTurn({ drinks: { player: 0, amount: 3 } }),
+      tile({ image: 'assets/drink_3.png' })
+    );
+
+    expect(content!.tile!.amount).toBeNull();
+  });
+
+  it('affiche l\'illustration dans la carte', () => {
+    showActionModal(
+      { title: 'T', tile: { src: '/assets/petitPoulet.png', alt: 'POULET', amount: null }, lines: ['x'] },
+      () => {}
+    );
+
+    const art = document.querySelector<HTMLImageElement>('.action-modal-art')!;
+
+    expect(art).not.toBeNull();
+    expect(art.getAttribute('src')).toBe('/assets/petitPoulet.png');
+    expect(art.alt).toBe('POULET');
+  });
+
+  it('pose le chiffre par-dessus dans la carte', () => {
+    showActionModal(
+      { title: 'T', tile: { src: '/assets/drink_2.png', alt: 'BUVEZ', amount: 4 }, lines: ['x'] },
+      () => {}
+    );
+
+    expect(document.querySelector('.action-modal-amount')!.textContent).toBe('\u00d74');
+  });
+
+  it('retire l\'illustration qui ne charge pas, sans casser la modale', () => {
+    // Une image manquante ne doit pas laisser un cadre vide au milieu de la
+    // carte : la règle, elle, est écrite en dessous et suffit à jouer.
+    showActionModal(
+      { title: 'T', tile: { src: '/assets/absente.png', alt: 'X', amount: null }, lines: ['x'] },
+      () => {}
+    );
+
+    document.querySelector('.action-modal-art')!.dispatchEvent(new Event('error'));
+
+    expect(document.querySelector('.action-modal-tile')).toBeNull();
+    expect(document.querySelector('.action-modal')).not.toBeNull();
   });
 });

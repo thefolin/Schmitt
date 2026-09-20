@@ -31,18 +31,40 @@ export interface ModalContent {
   /** Le titre, court : ce qui vient d'arriver. */
   title: string;
   /**
-   * OÙ le pion s'est arrêté — « Case 7 · 🐔 POULET ».
+   * L'ILLUSTRATION de la case où le pion s'est arrêté.
    *
-   * Demande de Quentin après essai sur l'APK : la modale énonçait la règle
-   * sans dire d'où elle venait. Le pion est petit et la caméra bouge : on ne
-   * voit pas toujours sur quelle case il s'est posé, et l'énoncé seul ne
-   * permet pas de le vérifier.
+   * Demande de Quentin après essai sur l'APK : montrer la case plutôt que la
+   * nommer. Le pion est petit et la caméra bouge — on ne voit pas toujours
+   * sur quelle case il s'est posé, et l'illustration est ce que le joueur a
+   * sous les yeux sur le plateau.
    *
-   * Vide quand la case est inconnue — la modale s'affiche quand même.
+   * `null` quand la case n'a pas d'illustration : la modale s'affiche quand
+   * même, et l'énoncé suffit.
    */
-  tile: string;
+  tile: TileArt | null;
   /** Les phrases à lire à la table, dans l'ordre où elles s'appliquent. */
   lines: string[];
+}
+
+/**
+ * L'illustration d'une case, prête à afficher.
+ *
+ * `alt` porte le NOM de la case : une illustration seule ne dit rien à qui
+ * ne voit pas l'écran, et `drink_3.png` ne montre qu'un « ×3 » — même à
+ * l'œil, elle ne dit pas s'il faut boire ou distribuer.
+ */
+export interface TileArt {
+  src: string;
+  alt: string;
+  /**
+   * Le nombre à poser SUR l'illustration, quand la case en porte un.
+   *
+   * Les illustrations « boire » et « distribuer » ont un « ×2 » gravé :
+   * une seule sert pour ×2, ×3 et ×4, et le vrai chiffre s'affiche
+   * par-dessus. C'est la convention du rendu CSS, reprise telle quelle —
+   * sans elle, une case ×4 montrerait « ×2 » au joueur.
+   */
+  amount: number | null;
 }
 
 /** Une sanction soldée par la scène, à annoncer avec le reste. */
@@ -64,10 +86,6 @@ export function modalContent(
   tile: TileConfig | null = null,
   shield: SettledShield | null = null
 ): ModalContent | null {
-  // LA CASE OÙ LE PION S'EST RÉELLEMENT ARRÊTÉ : celle d'après la flèche
-  // quand il y en a eu une, et non celle où le dé l'avait posé. Annoncer la
-  // case de départ d'une flèche désignerait un endroit que le pion a quitté.
-  const landed = outcome.effect ? outcome.effect.to : outcome.to;
   const lines: string[] = [];
 
   // LE BOUCLIER D'ABORD : il a intercepté une sanction, et ce qui suit se lit
@@ -136,27 +154,26 @@ export function modalContent(
 
   if (lines.length === 0) return null;
 
-  return { title: modalTitle(outcome), tile: tileLabel(landed, tile), lines };
+  return { title: modalTitle(outcome), tile: tileArt(tile), lines };
 }
 
 /**
- * Où le pion s'est arrêté, en une ligne.
+ * L'illustration de la case, ou `null` s'il n'y en a pas.
  *
- * Le numéro suit la MÊME convention que la barre de progression : le joueur
- * compte à partir de un. Deux numérotations pour le même plateau se
- * contrediraient sous les yeux du joueur, qui a les deux à l'écran.
+ * Le chemin est normalisé comme dans le rendu 3D : les données portent
+ * « assets/… » sans barre de tête, et la page se sert à la racine.
  */
-function tileLabel(position: number, tile: TileConfig | null): string {
-  const number = `Case ${position + 1}`;
-  if (!tile) return number;
+function tileArt(tile: TileConfig | null): TileArt | null {
+  if (!tile?.image) return null;
 
-  const name = tile.name?.trim();
-  const icon = tile.icon?.trim();
-
-  return [number, [icon, name].filter(Boolean).join(' ')].filter(Boolean).join(' \u00b7 ');
+  return {
+    src: tile.image.startsWith('/') ? tile.image : `/${tile.image}`,
+    alt: tile.name?.trim() || 'Case du plateau',
+    amount: typeof tile.amount === 'number' ? tile.amount : null,
+  };
 }
 
-/** Le titre, tiré de ce qui domine le tour. */
+/** Le titre, tiré de ce qui domine le tour. *//** Le titre, tiré de ce qui domine le tour. */
 function modalTitle(outcome: TurnOutcome): string {
   if (outcome.winner) return 'Victoire';
   if (outcome.chickenPenalty || outcome.chicken) return 'Le Poulet';
@@ -227,13 +244,35 @@ export function showActionModal(
   title.textContent = content.title;
   panel.appendChild(title);
 
-  // OÙ LE PION S'EST POSÉ, avant ce qu'il faut y faire : le joueur situe
-  // d'abord, applique ensuite.
+  // LA CASE OÙ LE PION S'EST POSÉ, avant ce qu'il faut y faire : le joueur
+  // reconnaît d'abord, applique ensuite.
   if (content.tile) {
-    const where = document.createElement('p');
-    where.className = 'action-modal-tile';
-    where.textContent = content.tile;
-    panel.appendChild(where);
+    const figure = document.createElement('div');
+    figure.className = 'action-modal-tile';
+
+    const art = document.createElement('img');
+    art.className = 'action-modal-art';
+    art.src = content.tile.src;
+    art.alt = content.tile.alt;
+    // L'illustration est DÉCORATIVE au sens où la règle est déjà écrite en
+    // dessous : elle ne doit pas retarder l'affichage de la modale, et son
+    // absence ne doit rien empêcher.
+    art.loading = 'eager';
+    art.addEventListener('error', () => figure.remove());
+
+    figure.appendChild(art);
+
+    // LE VRAI CHIFFRE, posé sur l'illustration qui en porte un gravé. Sans
+    // lui, une case ×4 montrerait « ×2 » au joueur — c'est la convention du
+    // rendu CSS, reprise telle quelle.
+    if (content.tile.amount !== null) {
+      const badge = document.createElement('span');
+      badge.className = 'action-modal-amount';
+      badge.textContent = `\u00d7${content.tile.amount}`;
+      figure.appendChild(badge);
+    }
+
+    panel.appendChild(figure);
   }
 
   for (const text of content.lines) {

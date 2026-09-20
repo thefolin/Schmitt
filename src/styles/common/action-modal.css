@@ -58,19 +58,50 @@
 }
 
 /*
- * OÙ LE PION S'EST POSÉ — « Case 7 · 🐔 POULET ».
+ * L'ILLUSTRATION DE LA CASE où le pion s'est posé.
  *
- * Discrète et au-dessus de l'action : elle SITUE, elle n'est pas ce qu'il
- * faut faire. Lui donner le poids de l'énoncé ferait hésiter entre les deux.
+ * C'est ce que le joueur a sous les yeux sur le plateau : la reconnaître
+ * demande moins d'effort que de lire un numéro et le chercher. Elle SITUE,
+ * elle ne remplace pas l'énoncé — `drink_3.png` ne montre qu'un « ×3 » et ne
+ * dit pas s'il faut boire ou distribuer.
  */
 .action-modal-tile {
-  margin-top: var(--sp-2);
-  font-size: var(--fs-sm);
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  position: relative;
+  align-self: center;
+  width: clamp(88px, 22vw, 124px);
+  margin-top: var(--sp-3);
+  line-height: 0;
+}
+
+.action-modal-art {
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-raised);
+}
+
+/*
+ * LE VRAI CHIFFRE, posé sur l'illustration qui en porte un gravé.
+ *
+ * Une seule illustration sert pour ×2, ×3 et ×4. Sans ce report, une case ×4
+ * montrerait « ×2 ». C'est la convention du rendu CSS.
+ */
+.action-modal-amount {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  min-width: 34px;
+  padding: 2px 6px;
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+  font-weight: 700;
+  line-height: 1.5;
   text-align: center;
-  color: var(--gold-400);
+  color: var(--text-on-gold);
+  background: var(--grad-gold);
+  border: 1px solid var(--gold-700);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-raised);
 }
 
 /*
@@ -185,9 +216,16 @@
     font-size: var(--fs-lg);
   }
 
+  /* En paysage la hauteur est comptée : l'illustration rapetisse plutôt que
+     de pousser les boutons hors de l'écran. */
   .action-modal-tile {
-    margin-top: var(--sp-1);
-    font-size: var(--fs-xs);
+    width: clamp(56px, 14vh, 76px);
+    margin-top: var(--sp-2);
+  }
+
+  .action-modal-amount {
+    min-width: 26px;
+    font-size: var(--fs-sm);
   }
 
   .action-modal-buttons {
