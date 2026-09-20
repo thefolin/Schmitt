@@ -362,8 +362,12 @@
 }
 
 /* Un bouton d'action hors d'atteinte doit se VOIR : sans cela, le joueur
-   tape sur « Valider » sans comprendre pourquoi rien ne se passe. */
-.aphrodite-panel .btn-primary:disabled {
+   tape sur « Valider » sans comprendre pourquoi rien ne se passe.
+   VÉRIFIÉ EN IMAGE sur l'écran d'Hermès, où « Valider » s'affichait en or
+   plein alors qu'il était désactivé : le DOM disait `disabled`, l'écran
+   disait « appuie ici ». */
+.aphrodite-panel .btn-primary:disabled,
+.hermes-panel .btn-primary:disabled {
   filter: grayscale(0.7);
   opacity: 0.5;
   cursor: not-allowed;
@@ -516,5 +520,80 @@
     min-width: 50px;
     min-height: 50px;
     font-size: var(--fs-xl);
+  }
+}
+
+/*
+ * L'ÉCRAN D'HERMÈS — deux boutons de sens, puis la liste des adversaires.
+ *
+ * Il reprend la mise en scène des autres modales (`.setup-screen`,
+ * `.setup-panel`) et n'ajoute que ses deux boutons. La liste déroulante
+ * hérite de `.setup-panel select`, déjà réglé pour l'écran de setup : on ne
+ * redéfinit pas un style qui existe.
+ *
+ * La disposition suit le croquis de Quentin : « Me déplacer » et « Ramener »
+ * côte à côte, la liste dessous — les deux flèches du croquis disent le sens.
+ */
+.hermes-choices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-3);
+  margin-top: var(--sp-4);
+}
+
+/* Assez haut pour se toucher du pouce : c'est le choix qui déplace un pion,
+   et le viser de travers ferait bouger le mauvais. */
+.hermes-direction {
+  min-height: 56px;
+  white-space: normal;
+}
+
+/* LE SENS PRIS se voit : sans cela, rien ne distingue le bouton cliqué, et
+   la liste qui s'ouvre ne dirait pas POUR QUOI elle s'ouvre. */
+.hermes-direction.is-chosen {
+  color: var(--text-on-gold);
+  background: var(--grad-gold);
+  border-color: var(--gold-300);
+  box-shadow: var(--shadow-gold);
+}
+
+/* Escamotée tant qu'aucun sens n'est choisi. `hidden` seul ne suffirait
+   pas : le `display: flex` ci-dessous l'emporterait, exactement comme
+   `.setup-screen` l'a fait deux fois sur l'APK. */
+.hermes-pick[hidden] {
+  display: none;
+}
+
+.hermes-pick {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin-top: var(--sp-4);
+}
+
+/* Ce que la liste demande, et qui change avec le sens : « sur la case de »
+   n'est pas « sur ma case ». */
+.hermes-prompt {
+  margin: 0;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+/*
+ * ÉCRAN BAS — le paysage sur téléphone, où la hauteur est comptée. Les deux
+ * boutons se resserrent plutôt que de pousser « Valider » hors de l'écran.
+ */
+@media (max-height: 420px) {
+  .hermes-choices {
+    margin-top: var(--sp-2);
+  }
+
+  .hermes-direction {
+    min-height: 44px;
+  }
+
+  .hermes-pick {
+    margin-top: var(--sp-2);
   }
 }

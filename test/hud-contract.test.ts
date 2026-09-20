@@ -173,3 +173,28 @@ describe('HUD — le bouton de recette de Poséidon', () => {
     expect(handler).toContain('rollPoseidon()');
   });
 });
+
+describe('HUD — le bouton de recette d\'Hermès', () => {
+  it('existe dans la barre du bas', () => {
+    expect(pageIds().has('test-hermes')).toBe(true);
+
+    const foot = page.slice(page.indexOf('<div class="foot"'), page.indexOf('</body>'));
+    expect(foot).toContain('id="test-hermes"');
+  });
+
+  it('se dit « Test », pour qu\'on ne le prenne pas pour une commande du jeu', () => {
+    expect(page).toMatch(/<button id="test-hermes"[^>]*>[^<]*Test/);
+  });
+
+  it('ouvre l\'écran DIRECTEMENT, sans dés', () => {
+    // HERMÈS NE DEMANDE AUCUN SECOND JET, tranché par Quentin : sa règle
+    // n'en parle pas. Passer par un lancer ferait éprouver une séquence qui
+    // n'existe pas.
+    const handler = scene.slice(
+      scene.indexOf("document.getElementById('test-hermes')"),
+      scene.indexOf("document.getElementById('roll')")
+    );
+
+    expect(handler).toContain('openHermes()');
+  });
+});

@@ -57,6 +57,8 @@ import { askForPlayers } from './setup-screen';
 import { modalSteps, runModalSteps, favorStep } from './action-modal';
 import { showAphroditeScreen } from './aphrodite-screen';
 import { showPoseidonScreen, POSEIDON_SUM } from './poseidon-screen';
+import { showHermesScreen } from './hermes-screen';
+import { HERMES_SUM } from './hermes-plan';
 import { APHRODITE_SUM } from './aphrodite-plan';
 // Les tokens du design system précèdent la feuille qui les consomme :
 // `setup-screen.css` en emploie 43, et sans eux l'écran s'affiche nu.
@@ -973,6 +975,15 @@ function attachDice(
             return;
           }
 
+          // HERMÈS ne demande AUCUN dé — sa règle n'en parle pas, et Quentin
+          // l'a confirmé. L'écran s'ouvre donc directement après l'annonce :
+          // le joueur choisit un sens et un adversaire, et le pion déplacé
+          // applique sa case d'arrivée.
+          if (roll.favor && roll.sum === HERMES_SUM && !roll.double) {
+            openHermes();
+            return;
+          }
+
           awaitingValidation = false;
           refresh();
         });
@@ -1126,6 +1137,88 @@ function attachDice(
       awaitingValidation = false;
       refresh();
     });
+  };
+
+  /**
+   * Ouvre l'écran d'HERMÈS.
+   *
+   * SANS SECOND JET, contrairement à Aphrodite et à Poséidon : la règle
+   * d'Hermès ne parle d'aucun dé, et Quentin l'a confirmé. On passe donc
+   * directement de l'annonce de la faveur au choix.
+   *
+   * UN SEUL PION APPLIQUE SA CASE, celui qui a bougé — tranché par Quentin :
+   * « ça applique l'effet de la case, pour le joueur qui se déplace ». Les
+   * deux pions finissent sur la même case, mais celui qui n'a pas bougé ne
+   * rejoue rien.
+   */
+  // DÉCLARÉE APRÈS SES APPELANTS : ils ne l'appellent que depuis des
+  // callbacks — validation d'une modale, clic d'un bouton — qui se
+  // déclenchent bien après l'initialisation du module. Ne pas déplacer ces
+  // appels hors d'un callback.
+  const openHermes = (): void => {
+    const current = logic.getCurrentPlayerIndex();
+    const players = logic.getPlayers();
+
+    const opponents = players
+      .map((player, index) => ({
+        index,
+        name: player.name,
+        position: player.position,
+      }))
+      .filter(player => player.index !== current);
+
+    // SANS ADVERSAIRE il n'y a rien à choisir : l'écran attendrait une
+    // liste vide et « Valider » resterait hors d'atteinte à jamais.
+    if (opponents.length === 0) {
+      awaitingValidation = false;
+      refresh();
+      return;
+    }
+
+    showHermesScreen(
+      current,
+      players[current]?.position ?? 0,
+      opponents,
+      move => {
+        // LES RÈGLES APPLIQUENT LE DÉPLACEMENT, pas la scène :
+        // `setPlayerPosition` borne de son côté, et c'est elle qui fait foi.
+        logic.setPlayerPosition(move.player, move.to);
+        tiles.setPawns(runner.pawns());
+
+        const moved = logic.getPlayers()[move.player];
+        runner.log(`\u{1F45F} ${moved?.name ?? ''} \u2014 case ${move.to + 1}`);
+
+        // LA CASE D'ARRIVÉE JOUE, comme la règle le dit : « Appliquez
+        // l'effet de la case du nouvel emplacement. » Elle joue MÊME SI le
+        // pion était déjà sur cette case — décision de Quentin : « même s'il
+        // se trouve sur la même case d'origine, il est déplacé comme
+        // déplacé, et du coup il applique sa case ».
+        const landing = modalSteps(
+          runner.applyLanding(move.player, move.to),
+          board[move.to] ?? null
+        );
+
+        renderJournal(runner);
+
+        if (landing.length === 0) {
+          awaitingValidation = false;
+          refresh();
+          return;
+        }
+
+        for (const line of landing.flatMap(step => step.lines)) runner.log(line);
+        renderJournal(runner);
+
+        runModalSteps(landing, () => {
+          tiles.setPawns(runner.pawns());
+
+          awaitingValidation = false;
+          refresh();
+        });
+
+        refresh();
+      }
+    );
   };
 
   /** Lance le dé, si un lancer est attendu. */
@@ -1306,6 +1399,16 @@ function attachDice(
 
     awaitingValidation = true;
     rollPoseidon();
+  });
+
+  // LE BOUTON DE RECETTE D'HERMÈS. Il ouvre l'écran DIRECTEMENT : Hermès ne
+  // demande aucun dé, et son écran est tout ce qu'il y a à éprouver.
+  // `?favor=5` éprouve le chemin complet, depuis le temple.
+  document.getElementById('test-hermes')?.addEventListener('click', () => {
+    if (frame !== null || walking || favorDice.rolling || awaitingValidation) return;
+
+    awaitingValidation = true;
+    openHermes();
   });
 
   document.getElementById('roll')?.addEventListener('click', roll);

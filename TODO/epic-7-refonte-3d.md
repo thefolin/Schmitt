@@ -119,3 +119,17 @@ Poséidon, sans rien afficher en partie.
 **Pour le retirer :** supprimer le `<button id="test-poseidon">` de
 `index-3d.html`, le bloc `test-poseidon` de `preview.ts`, et le bloc de
 tests « le bouton de recette de Poséidon » de `test/hud-contract.test.ts`.
+
+**Le bouton « 👟 Test » de la barre du bas** (`#test-hermes` dans
+`index-3d.html`, branché dans `preview.ts`).
+
+Même raison, même provisoire : il ouvre l'écran d'Hermès sans attendre le
+bon jet. Hermès ne demande AUCUN second jet — sa règle n'en parle pas — donc
+le bouton ouvre l'écran directement, sans lancer de dés.
+
+Le chemin sans bouton subsiste après son retrait : `?favor=5` force Hermès,
+sans rien afficher en partie.
+
+**Pour le retirer :** supprimer le `<button id="test-hermes">` de
+`index-3d.html`, le bloc `test-hermes` de `preview.ts`, et le bloc de tests
+« le bouton de recette d'Hermès » de `test/hud-contract.test.ts`.
