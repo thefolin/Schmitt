@@ -445,7 +445,30 @@ function attachDice(
    * mouvement de la caméra masquerait celui du dé qu'on veut justement
    * regarder.
    */
-  const ROLL_SPAN = 7 * 120;
+  /**
+   * Le cadre pendant qu'un dé roule, en unités monde.
+   *
+   * Quentin (20/09/2026) : « cela m'a presque fait vomir comme cela tourne
+   * si vite ».
+   *
+   * LA CAMÉRA POURSUIVAIT LE DÉ, et j'avais aggravé la chose en allongeant
+   * les lancers (#69). Mesuré sur un Pixel 10 en portrait : le suivi faisait
+   * défiler l'image jusqu'à 1 372 px par seconde, sans que le joueur commande
+   * ce mouvement. Le mal des transports apparaît bien en deçà — vers 800 px/s
+   * de panoramique subi.
+   *
+   * Le dé ne s'écarte jamais de plus de 4,75 cases de son point de départ
+   * (mesuré sur 900 lancers, au plus fort de la plage). Un cadre de ONZE
+   * cases centré sur ce départ le contient donc TOUJOURS, et peut rester
+   * IMMOBILE : plus aucun panoramique, et le dé reste visible du début à la
+   * fin de sa course.
+   *
+   * Onze cases plutôt que neuf : à neuf le cadre serait au plus juste, et un
+   * dé qui frôle le bord donnerait envie de le suivre. Onze laisse de la
+   * marge sans rendre le dé trop petit — 40 px sur un Pixel 10, plus la zone
+   * de prise de 12 px de chaque côté (#63), soit 64 px de cible.
+   */
+  const ROLL_SPAN = 11 * 120;
 
   /**
    * Temps pendant lequel les deux dés du temple restent posés.
@@ -455,8 +478,24 @@ function attachDice(
    * le dé du tour suivant.
    */
   const FAVOR_DICE_LINGER_MS = 4000;
+  /**
+   * Où la caméra se pose pour regarder le lancer, et où elle RESTE.
+   *
+   * Posée UNE FOIS au moment du jet, sur le point d'où le dé part. Elle ne le
+   * poursuit pas : c'est ce panoramique subi qui donnait la nausée.
+   */
   let camX = (arena.minX + arena.maxX) / 2;
   let camZ = (arena.minZ + arena.maxZ) / 2;
+
+  /** Cadre le lancer à venir, sans plus bouger ensuite. */
+  const frameTheRoll = (): void => {
+    const start = physics.getState().position;
+
+    camX = start.x;
+    camZ = start.y;
+
+    scene.followPoint(camX, camZ, ROLL_SPAN);
+  };
 
   const step = (): void => {
     const state = physics.update(16);
@@ -469,9 +508,9 @@ function attachDice(
     // ne pas toucher au module partagé avec le rendu CSS de `main`.
     hitPawns(state, tiles);
 
-    camX += (state.position.x - camX) * 0.08;
-    camZ += (state.position.y - camZ) * 0.08;
-    scene.followPoint(camX, camZ, ROLL_SPAN);
+    // LA CAMÉRA NE BOUGE PAS pendant que le dé roule. Elle a été posée au
+    // lancer sur la zone où le dé va évoluer, et elle y reste : c'est le
+    // joueur qui suit le dé des yeux, pas l'image qui défile sous lui.
     die.setOrientation(state.orientation);
     // Les coordonnées de la physique SONT celles du monde : l'aire épouse le
     // plateau, il n'y a plus de repère intermédiaire à convertir.
@@ -634,6 +673,9 @@ function attachDice(
 
     if (result) result.textContent = '…';
     physics.throw();
+
+    frameTheRoll();
+
     frame = requestAnimationFrame(step);
   };
 
@@ -667,6 +709,10 @@ function attachDice(
       request.verticalVelocity,
       { x: 0, y: 0 }
     );
+
+    // La caméra se pose MAINTENANT, une fois pour toute la course.
+    frameTheRoll();
+
     frame = requestAnimationFrame(step);
   };
 
