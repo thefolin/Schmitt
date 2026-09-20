@@ -42,6 +42,12 @@ import {
   rollSpan,
   CINEMA_HOLD_MS,
 } from './cinema-mode';
+import {
+  isShake,
+  motionAvailable,
+  motionNeedsPermission,
+  type MotionReading,
+} from './shake';
 import { tableAnnouncement } from './table-announcements';
 import { readDeviceOverride } from './device';
 import { GameLogic } from '@/features/game/game.logic';
@@ -544,6 +550,20 @@ function attachDice(
     cinemaButton?.setAttribute('aria-pressed', String(cinema));
   };
 
+  /**
+   * DIT au joueur que le geste est disponible.
+   *
+   * Sans consigne, une secousse ne se devine pas : le joueur reste au bouton
+   * et le geste n'existe que pour qui a lu le journal des modifications.
+   * C'est la même raison qui fait annoncer « attrape les 2 dés » quand la
+   * faveur des dieux arrive.
+   */
+  const sayShakeReady = (): void => {
+    if (!listening) return;
+
+    say(`\u{1F3B2} ${runner.currentPlayerName()} — secoue le téléphone ou appuie sur Lancer`);
+  };
+
   showCinemaState();
 
   /**
@@ -775,6 +795,67 @@ function attachDice(
   };
 
   /** Lance le dé, si un lancer est attendu. */
+  /**
+   * Secouer le téléphone pour lancer (itération 2 d'EPIC-8).
+   *
+   * LE BOUTON RESTE, et ce n'est pas un pis-aller : il est le seul chemin sur
+   * ordinateur, le seul quand les capteurs sont refusés, et celui du joueur
+   * qui ne veut pas agiter son téléphone au-dessus de la table.
+   *
+   * L'écoute n'est branchée QUE dans le mode cinéma : c'est là que le geste a
+   * un sens, le dé occupant l'écran. En mode plateau, on attrape le dé au
+   * doigt (#49), et un téléphone qui bouge ne doit pas lancer à la place du
+   * geste.
+   */
+  let lastShake: number | null = null;
+  let listening = false;
+
+  const onMotion = (event: DeviceMotionEvent): void => {
+    // Le mode a pu être coupé depuis l'abonnement : on n'agit pas en dehors.
+    if (!cinema) return;
+
+    const since = lastShake === null ? null : performance.now() - lastShake;
+
+    if (!isShake(event as MotionReading, since)) return;
+
+    // `roll` porte DÉJÀ tous les garde-fous — dé en vol, pion qui marche,
+    // dés de la faveur en cours — et sait servir la faveur des dieux. On
+    // l'appelle plutôt que de refaire ces tests ici, où ils divergeraient.
+    lastShake = performance.now();
+    roll();
+  };
+
+  /**
+   * S'abonne aux capteurs, si l'appareil en a et les accorde.
+   *
+   * La permission ne peut être demandée que depuis un geste de
+   * l'utilisateur : l'abonnement part donc du bouton de bascule, pas du
+   * chargement de la page. Un refus ne casse rien — le bouton reste.
+   */
+  const listenForShakes = async (): Promise<void> => {
+    if (listening || !motionAvailable()) return;
+
+    if (motionNeedsPermission()) {
+      try {
+        const ask = (
+          window as unknown as {
+            DeviceMotionEvent: { requestPermission: () => Promise<string> };
+          }
+        ).DeviceMotionEvent.requestPermission;
+
+        if ((await ask()) !== 'granted') return;
+      } catch {
+        // Refusé, ou demandé hors d'un geste : on s'en tient au bouton.
+        return;
+      }
+    }
+
+    window.addEventListener('devicemotion', onMotion);
+    listening = true;
+
+    sayShakeReady();
+  };
+
   const roll = (): void => {
     if (frame !== null || walking || favorDice.rolling) return;
 
@@ -844,6 +925,11 @@ function attachDice(
 
     cinema = toggleCinemaMode();
     showCinemaState();
+
+    // L'ABONNEMENT PART D'ICI, et non du chargement : la permission aux
+    // capteurs ne peut être demandée que depuis un geste de l'utilisateur.
+    // Ce clic en est un.
+    if (cinema) void listenForShakes();
 
     // Quitter le mode remet le HUD tout de suite, sans attendre un lancer.
     if (!cinema) endCinemaHold();
