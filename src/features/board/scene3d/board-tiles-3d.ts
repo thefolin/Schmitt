@@ -8,10 +8,14 @@ import {
   TextureLoader,
   SRGBColorSpace,
   Color,
+  Sprite,
+  SpriteMaterial,
   type Texture,
 } from 'three';
 import type { TileConfig } from '@/core/models/Tile';
 import { arrowDirection } from './arrow-tile';
+import { pawnMarks, MARK_SIZE, type PawnMark } from './pawn-marks';
+import { paintMark } from './mark-texture';
 import {
   calculatePlacementBounds,
   type BoardLayoutConfig,
@@ -259,10 +263,17 @@ export class BoardTiles3D {
   /**
    * Pose les pions sur leurs cases.
    *
-   * Des volumes simples, sans badge ni texture : Quentin veut d'abord juger
-   * si un pion posé sur une case se lit correctement. Le reste viendra.
+   * Des volumes simples — Quentin voulait d'abord juger si un pion posé sur
+   * une case se lit correctement. « Le reste viendra », disait ce commentaire :
+   * le reste, ce sont les MARQUES de statut, ajoutées depuis (SCH-17).
+   *
+   * Les statuts sont FACULTATIFS dans la signature : la scène doit continuer
+   * à se construire pour un appelant qui ne donne que position et couleur,
+   * et c'est le cas de plusieurs bancs d'essai du cadrage.
    */
-  public setPawns(players: { position: number; color: string }[]): void {
+  public setPawns(
+    players: { position: number; color: string; marks?: PawnMark[] }[]
+  ): void {
     this.pawns.clear();
 
     players.forEach((player, index) => {
@@ -288,7 +299,43 @@ export class BoardTiles3D {
       pawn.name = `pawn-${index}`;
 
       this.pawns.add(pawn);
+
+      // LA MARQUE DE STATUT, au-dessus du pion (SCH-17). Bastien l'a demandée
+      // deux fois : un statut qui dure plusieurs tours doit se lire sur le
+      // plateau, pas seulement défiler dans le journal au tour où il tombe.
+      this.markPawn(pawn, player.marks ?? []);
     });
+  }
+
+  /**
+   * Pose les marques de statut au-dessus d'un pion (SCH-17).
+   *
+   * Des SPRITES, et non des plans : un sprite fait toujours face à la caméra.
+   * C'est nécessaire depuis que l'inclinaison de la vue est un geste du
+   * joueur (#74) — un plan orienté une fois pour toutes se présenterait de
+   * profil, donc invisible, dès qu'il change l'angle.
+   *
+   * Les marques sont ENFANTS du pion : elles le suivent quand il marche vers
+   * sa case (#48) sans qu'aucun code d'animation ait à les connaître.
+   */
+  private markPawn(pawn: Mesh, marks: PawnMark[]): void {
+    for (const mark of marks) {
+      const texture = paintMark(mark.icon);
+
+      // Pas de contexte 2D (jsdom, ou canvas indisponible) : le pion reste
+      // nu. Mieux vaut un pion sans marque qu'une scène qui ne se construit
+      // pas — le statut reste lisible dans la liste des joueurs.
+      if (!texture) continue;
+
+      this.textures.push(texture);
+
+      const sprite = new Sprite(new SpriteMaterial({ map: texture, depthTest: false }));
+      sprite.scale.set(MARK_SIZE, MARK_SIZE, 1);
+      sprite.position.set(0, PAWN_HEIGHT / 2 + mark.lift, 0);
+      sprite.name = `mark-${mark.label}`;
+
+      pawn.add(sprite);
+    }
   }
 
   /**

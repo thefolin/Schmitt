@@ -2,6 +2,7 @@ import type { GameLogic } from '@/features/game/game.logic';
 import type { TileConfig } from '@/core/models/Tile';
 import { isArrowTile, arrowDirection } from './arrow-tile';
 import { isGodFavorTile, readFavorRoll, type FavorRoll } from './god-favor-roll';
+import { pawnMarks, type PawnMark } from './pawn-marks';
 
 /**
  * La jonction entre les règles et la scène 3D.
@@ -120,6 +121,13 @@ const WRATH_DRINKS = 1;
 export interface PawnView {
   position: number;
   color: string;
+  /**
+   * Les statuts durables portés par le pion (SCH-17).
+   *
+   * Calculés ici, où les joueurs sont connus, plutôt que dans le rendu : la
+   * scène 3D n'a pas à interroger `GameLogic` pour savoir qui est Poulet.
+   */
+  marks: PawnMark[];
 }
 
 export class TurnRunner {
@@ -338,6 +346,7 @@ export class TurnRunner {
     return this.logic.getPlayers().map(player => ({
       position: player.position,
       color: player.color,
+      marks: pawnMarks(player),
     }));
   }
 
