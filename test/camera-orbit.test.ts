@@ -178,53 +178,65 @@ describe('3D-43 — le plateau reste au centre de la rotation', () => {
   });
 });
 
-describe('3D-43 — le cadrage tient compte de l\'angle de vue', () => {
-  it('cadre au plus près selon l\'angle, sans jamais couper le plateau', () => {
-    // Le cadrage ne se DÉDUIT plus d'une formule, il se MESURE : on projette
-    // les coins de l'emprise et on recule jusqu'à ce qu'ils tiennent. La
-    // formule précédente modélisait le plateau comme une carte plate face à
-    // l'objectif, alors que c'est un plan incliné dont le bord proche est
-    // bien plus près de la caméra — elle annonçait que tout tenait pendant
-    // que les coins sortaient à 450 px sur un écran de 390.
-    //
-    // Conséquence mesurée : le plateau officiel se cadre au plus large vu de
-    // côté (46 px contre 31 de face), parce qu'il présente alors sa petite
-    // dimension à l'horizontale. L'assertion porte sur ce qui compte — que
-    // la taille dépende bien de l'angle — plutôt que sur un chiffre.
-    scene.resetView();
-    const front = scene.worldToScreenPixels(120);
+describe('3D-43 — le cadrage tient compte de l\'angle, QUAND ON LUI DEMANDE', () => {
+  /*
+   * CES TESTS ONT ÉTÉ RÉÉCRITS, et il faut dire pourquoi.
+   *
+   * Ils vérifiaient que TOURNER la vue changeait l'échelle : le cadrage
+   * mesurait les coins du plateau sous le nouvel angle et reculait juste
+   * assez pour qu'il tienne. C'était l'acquis #43, et il était juste — tant
+   * que le recadrage était permanent.
+   *
+   * Quentin a demandé l'inverse depuis : « le zoom ne doit se faire QUE si
+   * le joueur le demande, pas d'auto-zoom intelligent ». Mesuré, l'ancien
+   * comportement faisait passer une case de 32 px à 13 px sur un simple
+   * glissement, puis à 9 px après rotation — illisible en deux gestes.
+   *
+   * L'ACQUIS N'EST PAS PERDU : le cadrage mesure toujours les coins sous
+   * l'angle courant, mais seulement quand un cadrage est DEMANDÉ — au
+   * démarrage, sur « Recadrer », en suivant le dé, au redimensionnement.
+   * La même intelligence, déclenchée volontairement.
+   */
 
-    scene.orbitBy(90, 0);
-    const side = scene.worldToScreenPixels(120);
-
-    expect(side).toBeGreaterThan(front);
-  });
-
-  it('recule le plus en diagonale, où le plateau est le plus encombrant', () => {
-    // Un rectangle vu en biais occupe, sur l'horizontale, la somme des
-    // projections de ses deux côtés : c'est là qu'il est le plus large, donc
-    // là où il faut le plus reculer.
+  it('ne change JAMAIS l\'échelle sur une simple rotation', () => {
+    // C'EST LE RETOURNEMENT : ce que les anciens tests exigeaient est
+    // devenu le défaut à empêcher.
     scene.resetView();
-    const front = scene.worldToScreenPixels(120);
-    scene.resetView();
+    const before = scene.worldToScreenPixels(120);
+
     scene.orbitBy(45, 0);
-    const diagonal = scene.worldToScreenPixels(120);
+    expect(scene.worldToScreenPixels(120)).toBeCloseTo(before, 3);
 
-    expect(diagonal).toBeLessThan(front);
+    scene.orbitBy(45, 20);
+    expect(scene.worldToScreenPixels(120)).toBeCloseTo(before, 3);
   });
 
-  it('tient compte de l\'inclinaison', () => {
-    // Une vue plongeante replie le plateau en profondeur et permet de s'en
-    // approcher ; une vue rasante le déploie devant l'objectif. L'ancienne
-    // formule ignorait l'effet sur ce plateau — la mesure, elle, le voit.
+  it('recadre encore à la demande, sans rester figé', () => {
+    // LE RISQUE INVERSE du correctif : une caméra qui ne recadrerait plus
+    // jamais laisserait le plateau hors champ après un zoom ou un
+    // redimensionnement, sans moyen de revenir.
     scene.resetView();
-    scene.orbitBy(0, -100);
-    const high = scene.worldToScreenPixels(120);
+    scene.setUserZoom(4);
+    const zoomed = scene.worldToScreenPixels(120);
 
     scene.resetView();
-    scene.orbitBy(0, 100);
-    const low = scene.worldToScreenPixels(120);
 
-    expect(low).toBeLessThan(high);
+    expect(scene.worldToScreenPixels(120)).toBeLessThan(zoomed);
+  });
+
+  it('tient toujours compte de l\'angle du PLATEAU au cadrage', () => {
+    // L'intelligence de #43 reste : le cadrage projette les coins réels de
+    // l'emprise plutôt que d'appliquer une formule. Un plateau allongé et un
+    // plateau carré ne se cadrent donc pas à la même distance.
+    scene.resetView();
+    const wide = scene.worldToScreenPixels(120);
+
+    scene.setBoardExtent(
+      Array.from({ length: 9 }, (_, i) => ({ x: (i % 3) * 135, z: Math.floor(i / 3) * 135 })),
+      120
+    );
+    const square = scene.worldToScreenPixels(120);
+
+    expect(square).not.toBeCloseTo(wide, 1);
   });
 });

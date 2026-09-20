@@ -89,6 +89,25 @@ const FOLLOW_SPAN_TILES = 7;
  */
 const MIN_TILE_PIXELS = 48;
 
+/**
+ * Jusqu'où le joueur peut s'éloigner du plateau, en part de son emprise.
+ *
+ * 0,6 : un peu plus d'une demi-largeur de chaque côté. Assez pour regarder
+ * un bord de près en gardant le reste en tête, pas assez pour perdre le
+ * plateau de vue. Au-delà, le joueur se retrouve devant un écran vide sans
+ * savoir dans quel sens revenir.
+ */
+const PAN_REACH_RATIO = 0.6;
+
+/**
+ * Marge constante qui s'ajoute à cette portée.
+ *
+ * Sans elle, un tout petit parcours — trois cases posées dans l'éditeur —
+ * serait quasiment verrouillé, puisque 60 % de presque rien n'est presque
+ * rien. Le rendu ne suppose rien de la taille du plateau (CLAUDE.md).
+ */
+const PAN_REACH_MARGIN = 400;
+
 const MIN_TILT_DEG = 12;
 const MAX_TILT_DEG = 78;
 
@@ -157,7 +176,43 @@ export class BoardScene {
   /** Distance courante de la caméra, calculée par le cadrage. */
   private cameraDistance = 1000;
 
-  private readonly onResize = () => this.layout();
+  /**
+   * Le cadrage doit-il RECALCULER la distance de la caméra ?
+   *
+   * Quentin : « quand je me déplace, ou quand la caméra sort du plateau,
+   * elle fait du zoom/dézoom automatique ».
+   *
+   * LE DÉFAUT : `layout()` recalculait la distance à chaque appel pour que
+   * tout le parcours tienne dans le cadre — et `panBy` comme `orbitBy`
+   * appellent `layout()`. Un simple glissement faisait donc passer une case
+   * de 32 px à 13 px, soit 60 % de perte, et une rotation l'amenait à 9 px.
+   * Le plateau devenait illisible en deux gestes, sans que le joueur ait
+   * demandé le moindre zoom.
+   *
+   * Le cadrage automatique reste NÉCESSAIRE — au démarrage, au changement de
+   * taille d'écran, quand on suit le dé ou qu'on demande « Recadrer ». Mais
+   * il doit être DEMANDÉ, pas subi. Ce drapeau dit lequel des deux cas on
+   * est en train de traiter.
+   */
+  private refit = true;
+
+  /**
+   * Distance établie par le dernier cadrage, avant le zoom du joueur.
+   *
+   * Retenue pour que le zoom s'applique TOUJOURS à la même référence : la
+   * recalculer à chaque image ferait dériver l'échelle geste après geste.
+   */
+  private fitDistance = 1000;
+
+  private readonly onResize = () => {
+    // UN CHANGEMENT DE TAILLE D'ÉCRAN RECADRE, et c'est voulu : la place
+    // disponible a changé, garder l'ancienne distance laisserait le plateau
+    // trop petit ou hors du cadre. C'est le seul cas où la caméra bouge sans
+    // que le joueur l'ait demandé — mais il a tourné son téléphone, ouvert
+    // son clavier ou redimensionné sa fenêtre : il a demandé QUELQUE CHOSE.
+    this.refit = true;
+    this.layout();
+  };
   private readonly onVisibility = () => this.syncRunning();
   private readonly onContextLost = (event: Event) => {
     // Sans preventDefault, Android ne restaure JAMAIS le contexte : le joueur
@@ -388,12 +443,46 @@ export class BoardScene {
   public followPoint(x: number, z: number, span: number): void {
     this.followed = null;
     this.focus = { x, z, span };
+    this.refit = true;
     this.layout();
   }
 
   /** Le point que la caméra vise actuellement. */
   public getFocusCenter(): { x: number; z: number } {
     return { ...this.center };
+  }
+
+  /**
+   * Le point que la caméra VISE réellement, déplacement du joueur compris.
+   *
+   * À distinguer de `getFocusCenter`, qui donne le centre du CADRAGE — celui
+   * du plateau, ou du dé qu'on suit. Le joueur, lui, peut avoir glissé
+   * ailleurs, et c'est ce point-ci qui dit où il regarde.
+   *
+   * Exposé pour être mesurable : la borne de déplacement ne se vérifie pas
+   * autrement, `center` ne bougeant jamais avec le glissement.
+   */
+  public getAimPoint(): { x: number; z: number } {
+    const worldPerPixel =
+      (this.cameraDistance *
+        2 *
+        Math.tan(MathUtils.degToRad(CAMERA_FOV_DEG) / 2)) /
+      this.measureViewport().height;
+
+    const reach = this.panReach();
+
+    return {
+      x: MathUtils.clamp(
+        this.center.x + this.userPan.x * worldPerPixel,
+        this.wholeCenter.x - reach.x,
+        this.wholeCenter.x + reach.x
+      ),
+      z: MathUtils.clamp(
+        this.center.z - this.userPan.y * worldPerPixel,
+        this.wholeCenter.z - reach.z,
+        this.wholeCenter.z + reach.z
+      ),
+    };
   }
 
   /** Abandonne le cadrage d'un point et revient à la vue courante. */
@@ -418,6 +507,12 @@ export class BoardScene {
    * pas.
    */
   private applyView(): void {
+    // TOUT CADRAGE DEMANDÉ passe par ici — suivre une case, montrer le
+    // plateau entier, viser le dé qui roule. C'est donc ici qu'on autorise
+    // le recalcul de la distance, et nulle part ailleurs : un déplacement ou
+    // une rotation ne traversent pas cette méthode.
+    this.refit = true;
+
     // Un point cadré l'emporte : pendant que le dé roule, c'est lui qu'on
     // regarde, quelle que soit la vue qui reprendra ensuite.
     if (this.focus) {
@@ -588,7 +683,18 @@ export class BoardScene {
     // doit tenir. C'est elle qu'on cadre ; le canvas entier n'est que le
     // support sur lequel elle est découpée.
     this.camera.aspect = usable.width / usable.height;
-    this.cameraDistance = this.distanceToFit(usable) / this.userZoom;
+
+    // LA DISTANCE N'EST RECALCULÉE QUE SUR DEMANDE. Un déplacement ou une
+    // rotation traversent aussi `layout()` — pour la projection, les marges
+    // système, la taille du canvas — mais ils ne doivent rien remettre à
+    // l'échelle. Seul le zoom du joueur s'applique alors, sur la distance
+    // que le dernier cadrage a établie.
+    if (this.refit) {
+      this.fitDistance = this.distanceToFit(usable);
+      this.refit = false;
+    }
+
+    this.cameraDistance = this.fitDistance / this.userZoom;
 
     // PAS de `setViewOffset` ici, et c'est un enseignement payé par la
     // mesure : cette méthode DÉCOUPE une sous-région d'un cône existant, elle
@@ -603,6 +709,28 @@ export class BoardScene {
     this.placeCamera();
     this.camera.updateProjectionMatrix();
     this.renderOnce();
+  }
+
+  /**
+   * Jusqu'où le joueur peut emmener la visée, autour du plateau.
+   *
+   * Quentin veut « une zone acceptable autour du plateau, pas l'infini ».
+   *
+   * La portée est PROPORTIONNELLE à l'emprise du parcours, et non fixe : un
+   * plateau deux fois plus grand doit se parcourir deux fois plus loin.
+   * S'ajoute une marge constante, pour qu'un tout petit plateau reste
+   * confortable à déplacer — sans elle, un parcours de trois cases se
+   * retrouverait quasiment verrouillé.
+   *
+   * La borne s'applique à la VISÉE, pas à la caméra : c'est le point que le
+   * joueur regarde qui reste près du plateau. La caméra, elle, s'en éloigne
+   * autant que le zoom et l'inclinaison le demandent.
+   */
+  private panReach(): { x: number; z: number } {
+    return {
+      x: this.wholeExtent.width * PAN_REACH_RATIO + PAN_REACH_MARGIN,
+      z: this.wholeExtent.depth * PAN_REACH_RATIO + PAN_REACH_MARGIN,
+    };
   }
 
   /**
@@ -699,17 +827,16 @@ export class BoardScene {
     const tilt = MathUtils.degToRad(this.orbitTilt);
     const yaw = MathUtils.degToRad(this.orbitYaw);
 
-    // Le déplacement manuel s'exprime en pixels écran : on le ramène en
-    // unités monde pour qu'un glissement suive le doigt quel que soit le zoom.
-    const worldPerPixel = this.cameraDistance * 2 *
-      Math.tan(MathUtils.degToRad(CAMERA_FOV_DEG) / 2) /
-      this.measureViewport().height;
-
-    const target = new Vector3(
-      this.center.x + this.userPan.x * worldPerPixel,
-      0,
-      this.center.z - this.userPan.y * worldPerPixel
-    );
+    // LA VISÉE EST BORNÉE. Quentin : « limiter le cadre pour que le joueur ne
+    // puisse pas passer trop loin en dehors du plateau ». Sans cela, un
+    // glissement continu emmène la caméra à l'infini, et le joueur se
+    // retrouve devant un écran vide sans savoir dans quel sens revenir.
+    //
+    // En unités du MONDE et non en pixels : bornée en pixels, la limite
+    // changerait avec le zoom — on pourrait s'éloigner deux fois plus en
+    // dézoomant, ce qui est exactement ce qu'on veut empêcher.
+    const aim = this.getAimPoint();
+    const target = new Vector3(aim.x, 0, aim.z);
 
     // La caméra orbite AUTOUR DE LA CIBLE, et non autour de l'origine du
     // monde : un parcours posé loin de l'origine sortirait du champ au
