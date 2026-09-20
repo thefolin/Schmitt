@@ -1,0 +1,162 @@
+/**
+ * La modale d'action — ce que la table doit faire, et l'attente qui va avec.
+ *
+ * Elle EMPRUNTE la mise en scène de l'écran de setup : `.setup-screen` pour
+ * le fond marbré et les colonnes, `.setup-panel` pour la carte, `.btn-primary`
+ * pour l'action principale. Rien de tout cela n'est réécrit — cette feuille
+ * n'ajoute que ce qui lui est propre, et se charge APRÈS `setup-screen.css`.
+ *
+ * Dépend des tokens de design-system.css.
+ */
+
+/* La carte est plus basse que celle du setup : elle ne contient que quelques
+   phrases, et une carte pleine hauteur pour trois lignes masquerait le
+   plateau sans raison. */
+.action-modal .action-modal-panel {
+  max-width: min(var(--panel-max), calc(100% - var(--sp-5)));
+  height: auto;
+  max-height: calc(100% - var(--sp-6));
+}
+
+/* Le fond est moins opaque que celui du setup : la modale se SUPERPOSE au
+   plateau, elle ne le remplace pas. On doit deviner où le pion s'est posé. */
+.action-modal {
+  background:
+    radial-gradient(80% 60% at 50% 0%, rgba(227, 193, 105, 0.14) 0%, transparent 70%),
+    rgba(11, 15, 26, 0.82);
+  backdrop-filter: blur(6px);
+}
+
+/* Les colonnes grecques du setup n'ont pas leur place ici : elles cadrent
+   une page entière, pas une carte posée sur un plateau. */
+.action-modal::before,
+.action-modal::after {
+  display: none;
+}
+
+.action-modal-line {
+  margin: var(--sp-3) 0;
+  font-size: var(--fs-lg);
+  line-height: 1.45;
+  text-align: center;
+  color: var(--text-base);
+}
+
+/* La première phrase est celle qui compte : c'est l'action à faire. */
+.action-modal-line:first-of-type {
+  font-family: var(--font-display);
+  font-size: var(--fs-xl);
+  color: var(--text-strong);
+}
+
+.action-modal-buttons {
+  display: flex;
+  gap: var(--sp-3);
+  margin-top: var(--sp-5);
+}
+
+.action-modal-buttons .btn {
+  flex: 1 1 0;
+}
+
+/* « Voir le plateau » n'est PAS l'action principale : il escamote sans
+   solder le tour. Il ne doit donc pas ressembler à « Valider », sinon on
+   appuie sur l'un pour l'autre. */
+.action-modal-buttons .btn-secondary {
+  min-height: var(--touch-comfy);
+  font-family: var(--font-body);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-base);
+  background: var(--marble-700);
+  border: 1px solid var(--marble-500);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.action-modal-buttons .btn-secondary:active {
+  transform: translateY(1px) scale(0.995);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .action-modal-buttons .btn-secondary:hover {
+    background: var(--marble-600);
+    border-color: var(--gold-700);
+  }
+}
+
+/*
+ * LE RAPPEL, quand la modale est escamotée.
+ *
+ * Sans lui, « Voir le plateau » serait un aller sans retour : le tour
+ * resterait suspendu, le dé sourd, et rien ne l'expliquerait. Il est posé en
+ * haut, sous la barre, là où il ne recouvre ni le plateau ni les commandes
+ * du bas.
+ */
+.action-modal-recall {
+  position: fixed;
+  top: calc(var(--sp-4) + env(safe-area-inset-top, 0px) + 64px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1001;
+  min-height: var(--touch-min);
+  padding: 0 var(--sp-4);
+  font-family: var(--font-body);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-on-gold);
+  background: var(--grad-gold);
+  border: 1px solid var(--gold-700);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-gold);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.action-modal-recall[hidden] {
+  display: none;
+}
+
+/*
+ * ÉCRAN BAS — téléphone en paysage, où la hauteur est la denrée rare. Mesuré
+ * sur le Pixel 10 de Quentin : 306 px de haut en tout. La carte se resserre
+ * et les phrases rapetissent, plutôt que de déborder hors de l'écran.
+ */
+@media (max-height: 420px) {
+  .action-modal .action-modal-panel {
+    padding: var(--sp-3) var(--sp-4);
+  }
+
+  .action-modal-line {
+    margin: var(--sp-2) 0;
+    font-size: var(--fs-md);
+  }
+
+  .action-modal-line:first-of-type {
+    font-size: var(--fs-lg);
+  }
+
+  .action-modal-buttons {
+    margin-top: var(--sp-3);
+  }
+
+  .action-modal-buttons .btn,
+  .action-modal-buttons .btn-secondary {
+    min-height: var(--touch-min);
+  }
+
+  /* Le laurier sous le titre coûte une ligne pour rien quand la place
+     manque. */
+  .action-modal .action-modal-panel h2::after {
+    display: none;
+  }
+
+  .action-modal-recall {
+    top: calc(var(--sp-2) + env(safe-area-inset-top, 0px) + 40px);
+    min-height: 40px;
+  }
+}

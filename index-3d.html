@@ -214,6 +214,19 @@
             backdrop-filter: blur(10px);
         }
 
+        /* LE DÉTAIL REPLIÉ par le bouton ℹ️. Le journal et la progression
+           sont un CONFORT ; le plateau est le jeu. Replier leur rend leur
+           hauteur sans toucher à ce qui est nécessaire pour jouer. */
+        body.hud-folded #journal,
+        body.hud-folded #progress-label,
+        body.hud-folded #progress-track,
+        body.hud-folded #actions-panel,
+        body.hud-folded #status,
+        body.hud-folded #hint,
+        body.hud-folded #insets {
+            display: none;
+        }
+
         .action-prompt {
             margin-bottom: 9px;
             font-size: 13px;
@@ -383,6 +396,13 @@
             <div id="progress-track"><div id="progress-fill"></div></div>
         </div>
         <div class="actions">
+            <!-- LE BOUTON DISCRET : il replie le détail du bas — journal,
+                 progression — et rend cette hauteur au plateau. « Au tour
+                 de X » et le lancer RESTENT : sans eux le joueur ne sait
+                 plus à qui est la main ni ce qu'on attend de lui, et on ne
+                 gagne pas de la place en rendant le jeu injouable.
+                 `aria-pressed` porte l'état, comme pour le mode cinéma. -->
+            <button id="infos" type="button" aria-pressed="true" title="Afficher ou masquer le détail">ℹ️</button>
             <button id="whole" type="button">Tout le plateau</button>
             <!-- MODE CINÉMA : le lancer se regarde en gros plan, puis la vue
                  revient au plateau. Le choix est rangé d'une partie à

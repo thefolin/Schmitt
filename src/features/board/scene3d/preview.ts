@@ -51,16 +51,20 @@ import {
   motionBlockedReason,
   type MotionReading,
 } from './shake';
-import { tableAnnouncement } from './table-announcements';
 import { readDeviceOverride } from './device';
 import { askForPlayers } from './setup-screen';
+import { modalContent, showActionModal } from './action-modal';
 // Les tokens du design system précèdent la feuille qui les consomme :
 // `setup-screen.css` en emploie 43, et sans eux l'écran s'affiche nu.
 import '@/styles/common/design-system.css';
 import '@/styles/common/setup-screen.css';
+// La modale emprunte la mise en scène du setup : sa feuille suit donc celle
+// qu'elle complète, et n'ajoute que ce qui lui est propre.
+import '@/styles/common/action-modal.css';
 import { GameLogic } from '@/features/game/game.logic';
 import { TurnRunner } from './turn-runner';
 import { loadTileConfigs, TILE_CONFIGS } from '@/features/tiles/tile.config';
+import type { TileConfig } from '@/core/models/Tile';
 import { fetchBoardLayout } from '../camera/board-layout.config';
 
 /**
@@ -135,7 +139,12 @@ async function main(): Promise<void> {
   // Les cases telles qu'elles sont POSÉES sur le parcours, et non le
   // catalogue : sur un plateau composé dans l'éditeur, la case du rang N
   // n'est pas la case N du catalogue. C'est le correctif #30.
-  runner.setBoard(layout.placements.map(placement => catalog[placement.tileId]));
+  // Les cases telles qu'elles sont POSÉES sur le parcours : c'est la même
+  // liste que celle donnée au runner, gardée sous la main pour retrouver la
+  // case où un pion vient de s'arrêter et en énoncer la règle.
+  const placed = layout.placements.map(placement => catalog[placement.tileId]);
+
+  runner.setBoard(placed);
 
   tiles.setPawns(runner.pawns());
 
@@ -172,7 +181,17 @@ async function main(): Promise<void> {
   };
 
   // Le tour complet : lancer → avancer → joueur suivant (#46).
-  const startsOnDice = attachDice(die, positions, tiles, logic, runner, scene, applyPreferredView, refresh);
+  const startsOnDice = attachDice(
+    die,
+    positions,
+    tiles,
+    logic,
+    runner,
+    placed,
+    scene,
+    applyPreferredView,
+    refresh
+  );
 
   // Basculer entre « tout voir » et « suivre le pion », quand le joueur
   // veut autre chose que ce que la forme de l'écran suggère.
@@ -208,6 +227,18 @@ async function main(): Promise<void> {
     applyPreferredView();
       refresh();
   };
+
+  // LE BOUTON DISCRET : replier le détail du bas rend sa hauteur au
+  // plateau. Le recadrage suit immédiatement — `measureHudInsets` lit la
+  // hauteur RÉELLE des bandeaux, et sans cette remesure le plateau resterait
+  // cadré pour un HUD qui n'occupe plus la même place.
+  const infos = document.getElementById('infos');
+  infos?.addEventListener('click', () => {
+    const folded = document.body.classList.toggle('hud-folded');
+    infos.setAttribute('aria-pressed', folded ? 'false' : 'true');
+
+    remeasure();
+  });
 
   window.addEventListener('resize', remeasure);
   window.addEventListener('orientationchange', remeasure);
@@ -340,6 +371,8 @@ function attachDice(
   tiles: BoardTiles3D,
   logic: GameLogic,
   runner: TurnRunner,
+  /** Les cases telles qu'elles sont POSÉES, pour énoncer la règle de celle où le pion s'arrête. */
+  board: TileConfig[],
   scene: BoardScene,
   follow: () => void,
   refresh: () => void
@@ -453,6 +486,16 @@ function attachDice(
    * physique serait remplacée sous les pieds de l'animation en cours.
    */
   let walking = false;
+
+  /**
+   * Un tour SUSPENDU par la modale d'action.
+   *
+   * Tant qu'elle attend « Valider », le dé est sourd. C'est ce qui donne son
+   * sens au bouton : sans ce verrou, la modale énoncerait la règle pendant
+   * que le joueur suivant lance déjà, et « on reprend le tour » ne
+   * reprendrait rien du tout.
+   */
+  let awaitingValidation = false;
 
   /**
    * Fait rouler le dé dans le sens de sa course.
@@ -739,9 +782,16 @@ function attachDice(
     say(line);
     renderJournal(runner);
 
-    // Les décisions que la règle attend du joueur : sans elles, la partie
-    // reste bloquée sans que rien ne l'explique.
-    renderActions(logic, runner, outcome, refresh);
+    // CE QUE LA TABLE DOIT FAIRE, et l'attente qui va avec. La modale
+    // suspend le tour : le dé reste sourd tant que « Valider » n'a pas été
+    // pressé, ce qui est la seule façon pour « on reprend le tour » de
+    // vouloir dire quelque chose.
+    const landedTile = board[outcome.effect ? outcome.effect.to : outcome.to] ?? null;
+
+    awaitingValidation = renderActions(logic, runner, outcome, landedTile, refresh, () => {
+      awaitingValidation = false;
+      refresh();
+    });
 
     refresh();
   };
@@ -939,7 +989,7 @@ function attachDice(
   };
 
   const roll = (): void => {
-    if (frame !== null || walking || favorDice.rolling) return;
+    if (frame !== null || walking || favorDice.rolling || awaitingValidation) return;
 
     // Le bouton sert aussi la faveur : c'est le repli de ceux qui ne font
     // pas le geste, et il ne doit pas laisser la partie bloquée.
@@ -964,7 +1014,7 @@ function attachDice(
    * seconde physique. Le module partagé avec le rendu CSS n'est pas touché.
    */
   const throwFromGesture = (request: ThrowRequest, from?: { x: number; z: number }): void => {
-    if (frame !== null || walking || favorDice.rolling) return;
+    if (frame !== null || walking || favorDice.rolling || awaitingValidation) return;
 
     // LE GESTE VA AUX DÉS QUI ATTENDENT. Quand la faveur est en attente,
     // c'est la paire qu'on jette ; sinon c'est le dé du tour. Le joueur
@@ -1003,6 +1053,10 @@ function attachDice(
     // PENDANT UN LANCER, on ne bascule pas : le cadre est déjà posé et le
     // HUD déjà effacé. Changer d'avis en vol laisserait la vue à mi-chemin,
     // avec un HUD masqué qu'aucune fin de séquence ne viendrait rallumer.
+    //
+    // UNE MODALE EN ATTENTE NE BLOQUE PAS ce bouton : elle suspend le TOUR,
+    // pas les réglages. Le joueur qui lit une règle peut très bien changer
+    // de mode d'affichage en même temps.
     if (frame !== null || walking || favorDice.rolling) return;
 
     cinema = toggleCinemaMode();
@@ -1025,7 +1079,7 @@ function attachDice(
   return attachDiceGrab(
     () => (runner.getAwaitingGodFavor() ? favorDice.views : [die]),
     scene,
-    () => frame === null && !walking && !favorDice.rolling,
+    () => frame === null && !walking && !favorDice.rolling && !awaitingValidation,
     throwFromGesture
   );
 }
@@ -1457,56 +1511,67 @@ function renderJournal(runner: TurnRunner): void {
 }
 
 /**
- * Affiche les décisions en attente et les rend cliquables.
+ * Énonce ce que la table doit faire, et SUSPEND le tour le temps qu'elle le
+ * fasse.
  *
- * La scène POSE la question ; c'est `GameLogic` qui applique le choix. Elle
- * ne tranche rien elle-même.
+ * LE DÉFAUT QUE CELA CORRIGE : le panneau énonçait bien « Alice distribue
+ * 3 🍺 », mais rien n'attendait. Le joueur suivant pouvait relancer aussitôt
+ * et l'énoncé disparaissait sous le tour d'après — bu ou pas bu.
+ *
+ * La scène ÉNONCE, elle n'arbitre pas : c'est la ligne tranchée par Quentin
+ * le 19/09/2026. « Valider » ne désigne personne et n'applique aucune règle,
+ * il rend la main.
+ *
+ * Renvoie `true` quand la modale attend une validation — le lancer doit
+ * rester sourd jusque-là.
  */
 function renderActions(
   logic: GameLogic,
   runner: TurnRunner,
   outcome: ReturnType<TurnRunner['playTurn']>,
-  refresh: () => void
-): void {
-  const panel = document.getElementById('actions-panel');
-  if (!panel) return;
-
-  const lines: string[] = [];
-
+  tile: TileConfig | null,
+  refresh: () => void,
+  onValidated: () => void
+): boolean {
   // LE BOUCLIER D'ATHÉNA, soldé sans demander de cible. Les règles RETIENNENT
   // les gorgées tant que personne n'est désigné : cesser de poser la question
   // sans les solder les ferait s'évaporer. Elles retombent sur le porteur.
-  const shield = runner.settlePendingShield();
-  if (shield) {
-    const holder = logic.getPlayers()[shield.player];
-    lines.push(
-      `\u{1F6E1}\u{FE0F} ${holder?.name ?? ''} garde son bouclier et boit ${shield.amount} \u{1F37A}`
+  const settled = runner.settlePendingShield();
+  const shield = settled
+    ? {
+        playerName: logic.getPlayers()[settled.player]?.name ?? '',
+        amount: settled.amount,
+      }
+    : null;
+
+  const content = modalContent(outcome, tile, shield);
+
+  // UN TOUR ORDINAIRE NE S'INTERROMPT PAS. Ouvrir une modale à chaque tour
+  // la ferait fermer sans la lire, y compris les tours qui comptent.
+  if (!content) return false;
+
+  // Le panneau du HUD garde la trace de ce qui a été énoncé, une fois la
+  // modale refermée : le joueur qui a validé trop vite peut le relire.
+  const panel = document.getElementById('actions-panel');
+  if (panel) {
+    panel.hidden = false;
+    panel.replaceChildren(
+      ...content.lines.map(text => {
+        const line = document.createElement('div');
+        line.className = 'action-prompt';
+        line.textContent = text;
+        return line;
+      })
     );
   }
 
-  // CE QUI SE JOUE À LA TABLE : on l'énonce, les joueurs l'appliquent.
-  const announcement = tableAnnouncement(outcome);
-  if (announcement) lines.push(announcement.text);
-
-  if (lines.length === 0) {
-    panel.hidden = true;
-    panel.replaceChildren();
-    return;
-  }
-
-  panel.hidden = false;
-  panel.replaceChildren(
-    ...lines.map(text => {
-      const line = document.createElement('div');
-      line.className = 'action-prompt';
-      line.textContent = text;
-      return line;
-    })
-  );
-
-  for (const line of lines) runner.log(line);
+  for (const line of content.lines) runner.log(line);
   renderJournal(runner);
   refresh();
+
+  showActionModal(content, onValidated);
+
+  return true;
 }
 
 /** Raconte le dernier tour joué. */
