@@ -154,14 +154,15 @@ describe('Aphrodite — un dé ne sert qu\'une fois', () => {
     expect(aphroditeReady([], 2)).toBe(false);
   });
 
-  it('refuse que les deux partent DU MÊME CÔTÉ', () => {
-    // RÈGLE TRANCHÉE PAR QUENTIN en lisant son sketch : ce sont les colonnes
-    // « + » et « − » qui portent la direction, et chacune reçoit un dé. Un
-    // joueur part donc en avant, l'autre en arrière.
+  it('laisse les deux partir DU MÊME CÔTÉ', () => {
+    // LA DIRECTION EST LIBRE, et ce point a fait l'aller-retour. Le croquis
+    // ne montrait qu'une colonne « + » et une « − », ce qui se lisait comme
+    // « un en avant, un en arrière » ; Quentin l'a d'abord confirmé, puis
+    // tranché dans l'autre sens.
     //
-    // C'est un CHANGEMENT : la règle écrite dit « déplacez-les en avant ou
-    // arrière » sans l'imposer, et `main` laisse les deux aller du même
-    // côté.
+    // C'est le texte de la règle qui l'emporte — « associez 1 dé à chacun.
+    // Déplacez-les en avant ou arrière » n'impose pas un de chaque — et
+    // c'est ce que fait `main` depuis toujours.
     expect(
       aphroditeReady(
         [
@@ -170,7 +171,7 @@ describe('Aphrodite — un dé ne sert qu\'une fois', () => {
         ],
         2
       )
-    ).toBe(false);
+    ).toBe(true);
 
     expect(
       aphroditeReady(
@@ -180,14 +181,21 @@ describe('Aphrodite — un dé ne sert qu\'une fois', () => {
         ],
         2
       )
-    ).toBe(false);
+    ).toBe(true);
   });
 
-  it('n\'impose AUCUN sens quand un seul joueur est déplacé', () => {
-    // À deux joueurs il n'y a qu'un adversaire : lui demander d'aller à la
-    // fois en avant et en arrière n'aurait aucun sens.
-    expect(aphroditeReady([choice({ direction: 'forward' })], 1)).toBe(true);
-    expect(aphroditeReady([choice({ direction: 'backward' })], 1)).toBe(true);
+  it('accepte aussi les deux sens opposés', () => {
+    // La liberté va dans les deux sens : rien n'interdit non plus qu'un
+    // avance et que l'autre recule.
+    expect(
+      aphroditeReady(
+        [
+          choice({ player: 1, diceSlot: 0, direction: 'forward' }),
+          choice({ player: 2, diceSlot: 1, direction: 'backward' }),
+        ],
+        2
+      )
+    ).toBe(true);
   });
 
   it('accepte un seul choix quand un seul est attendu', () => {

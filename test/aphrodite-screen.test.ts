@@ -104,16 +104,29 @@ describe('Aphrodite — un dé ne sert qu\'une fois', () => {
   });
 });
 
-describe('Aphrodite — un part en avant, l\'autre en arrière', () => {
-  it('ferme la colonne déjà prise par l\'autre ligne', () => {
-    // RÈGLE TRANCHÉE PAR QUENTIN : ce sont les colonnes « + » et « − » qui
-    // portent la direction, et chacune reçoit un dé.
+describe('Aphrodite — chacun choisit sa direction', () => {
+  it('laisse l\'autre ligne partir DU MÊME CÔTÉ', () => {
+    // CE POINT A FAIT L'ALLER-RETOUR. Le croquis ne montrait qu'une colonne
+    // de chaque signe, ce qui se lisait comme « un en avant, un en arrière » ;
+    // Quentin l'a d'abord confirmé, puis tranché dans l'autre sens.
+    //
+    // C'est le texte de la règle qui l'emporte, et ce que fait `main`.
     showAphroditeScreen([3, 5], targets(3), 22, () => {});
 
     dice(0, 'forward')[0].click();
 
-    expect(dice(1, 'forward')[1].disabled).toBe(true);
+    // L'AUTRE dé reste disponible dans les DEUX colonnes.
+    expect(dice(1, 'forward')[1].disabled).toBe(false);
     expect(dice(1, 'backward')[1].disabled).toBe(false);
+  });
+
+  it('valide deux adversaires envoyés du même côté', () => {
+    showAphroditeScreen([3, 5], targets(3), 22, () => {});
+
+    dice(0, 'forward')[0].click();
+    dice(1, 'forward')[1].click();
+
+    expect(validateButton().disabled).toBe(false);
   });
 
   it('laisse les DEUX sens ouverts quand un seul pion part', () => {

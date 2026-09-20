@@ -114,16 +114,16 @@ export function aphroditePlan(
  * colonne. La vérifier ici permet à l'écran de refuser « Valider » plutôt
  * que d'afficher une erreur après coup.
  *
- * UN JOUEUR PART EN AVANT, L'AUTRE EN ARRIÈRE. Quentin l'a tranché en
- * lisant son propre sketch : ce sont les colonnes « + » et « − » qui
- * portent la direction, et chacune reçoit un dé. La règle écrite disait
- * seulement « déplacez-les en avant ou arrière », et `main` laissait les
- * deux aller du même côté — c'est donc un CHANGEMENT de règle, décidé par
- * lui et non déduit du dessin.
+ * CHACUN CHOISIT SA DIRECTION, librement. Les deux peuvent avancer, ou
+ * reculer ensemble.
  *
- * La contrainte ne s'applique QUE lorsque deux adversaires sont déplacés :
- * à deux joueurs il n'y en a qu'un, et lui imposer deux directions à la
- * fois n'aurait aucun sens.
+ * Ce point a fait l'aller-retour, et c'est le texte de la règle qui
+ * l'emporte : « associez 1 dé à chacun. Déplacez-les en avant ou arrière »
+ * ne demande pas un de chaque. Le croquis de Quentin ne montrait qu'une
+ * colonne « + » et une « − », ce qui se lisait comme une contrainte ; il
+ * l'avait d'abord confirmée, puis tranché dans l'autre sens. C'est aussi ce
+ * que fait `main` depuis toujours — les deux rendus disent donc la même
+ * chose.
  */
 export function aphroditeReady(choices: AphroditeChoice[], expected: number): boolean {
   if (choices.length !== expected) return false;
@@ -136,15 +136,8 @@ export function aphroditeReady(choices: AphroditeChoice[], expected: number): bo
   // leur rang dans le jet et non par leur face : deux dés peuvent montrer le
   // même nombre, et ce sont bien deux dés différents.
   const slots = new Set(choices.map(choice => choice.diceSlot));
-  if (slots.size !== choices.length) return false;
 
-  // Les deux sens sont pris, un par colonne.
-  if (choices.length === 2) {
-    const directions = new Set(choices.map(choice => choice.direction));
-    if (directions.size !== 2) return false;
-  }
-
-  return true;
+  return slots.size === choices.length;
 }
 
 /**

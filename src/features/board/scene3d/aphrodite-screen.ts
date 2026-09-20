@@ -18,11 +18,15 @@ import {
  * déplacement ne se joue pas à la table — il faut bien que l'application
  * bouge les pions.
  *
- * LA MISE EN SCÈNE SUIT SON CROQUIS : deux listes déroulantes pour les
- * adversaires, deux colonnes « + » et « − » pour les sens, et chaque dé
- * présent dans LES DEUX colonnes. Le dé pris d'un côté se barre de l'autre :
- * la contrainte « un dé une seule fois » devient visible au lieu d'être un
- * refus après coup.
+ * LA MISE EN SCÈNE SUIT SON CROQUIS : une liste déroulante par adversaire,
+ * deux colonnes « + » et « − », et chaque dé présent dans LES DEUX colonnes.
+ * Le dé pris sur une ligne se barre sur l'autre : la contrainte « un dé une
+ * seule fois » devient visible au lieu d'être un refus après coup.
+ *
+ * LES COLONNES SONT PROPRES À CHAQUE LIGNE, et non globales : chacun avance
+ * ou recule indépendamment de l'autre. Le croquis, avec une seule colonne de
+ * chaque signe, se lisait comme « un en avant, un en arrière » — Quentin a
+ * tranché dans l'autre sens, conformément au texte de la règle.
  *
  * LES DÉS SONT DÉJÀ LANCÉS quand cet écran s'ouvre. Le joueur les a jetés
  * lui-même sur le plateau — « les 2 dés ne doivent pas se lancer
@@ -205,15 +209,21 @@ export function showAphroditeScreen(
         box.appendChild(head);
 
         dice.forEach((face, slot) => {
+          // UN DÉ NE SERT QU'UNE FOIS : pris sur une ligne, il se barre sur
+          // l'autre. C'est la seule contrainte que la règle pose.
+          //
+          // LA DIRECTION, ELLE, EST LIBRE. Les deux adversaires peuvent
+          // avancer, ou reculer ensemble : « déplacez-les en avant ou
+          // arrière » ne demande pas un de chaque. Le croquis, avec sa
+          // colonne unique de chaque signe, se lisait comme une contrainte —
+          // Quentin a tranché dans l'autre sens, et c'est ce que fait `main`
+          // depuis toujours.
           const takenElsewhere = dicePicks.some(
             (pick, other) => other !== row && pick === slot
           );
-          const sameSideElsewhere =
-            slots > 1 &&
-            directions.some((pick, other) => other !== row && pick === column.direction);
 
           const chosen = dicePicks[row] === slot && directions[row] === column.direction;
-          const blocked = takenElsewhere || sameSideElsewhere;
+          const blocked = takenElsewhere;
 
           const face3 = document.createElement('button');
           face3.type = 'button';
