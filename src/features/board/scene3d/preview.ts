@@ -1243,48 +1243,6 @@ function attachDice(
   // l'origine du monde, dans un coin, au lieu du milieu du tapis.
   restDie();
 
-  // LE BOUTON DE RECETTE D'APHRODITE. Elle sort sur deux jets sur
-  // trente-six, après être tombé sur un temple : une faveur sur dix-huit.
-  //
-  // IL PASSE PAR LE VRAI CHEMIN — `offerAphroditeDice`, celui qu'emprunte
-  // une faveur tirée en jouant. Un raccourci qui ouvrirait l'écran
-  // directement testerait autre chose que le jeu : c'est le lancer des deux
-  // dés, la suspension du tour et le retour à la partie qu'on veut
-  // éprouver, pas seulement l'affichage.
-  //
-  // IL EST VISIBLE PAR DÉFAUT, tranché par Quentin : la recette se fait à
-  // plusieurs autour d'une table, où personne ne tape un paramètre d'URL.
-  // C'est un bouton PROVISOIRE, à retirer une fois la faveur validée.
-  const aphroditeTest = document.getElementById('test-aphrodite');
-  if (aphroditeTest) {
-    aphroditeTest.addEventListener('click', () => {
-      // Pendant un lancer ou une marche, on ne s'invite pas : la scène est
-      // déjà occupée, et deux séquences en vol se marcheraient dessus.
-      if (frame !== null || walking || favorDice.rolling || awaitingValidation) return;
-
-      // L'ÉCRAN S'OUVRE DIRECTEMENT, avec deux faces posées.
-      //
-      // Il passait d'abord par `offerAphroditeDice`, qui suit le vrai
-      // chemin : les dés se posent sur le plateau et le joueur les lance
-      // lui-même. C'était plus fidèle, et INUTILISABLE — vu de l'écran, le
-      // bouton ne faisait rien. Les dés se posaient discrètement sur le
-      // plateau, et la seule consigne partait dans `#turn-log`, qui vit
-      // depuis la refonte du HUD À L'INTÉRIEUR du panneau d'historique,
-      // masqué par défaut. Rien ne disait au joueur ce qu'on attendait de
-      // lui.
-      //
-      // Le bouton sert à REGARDER L'ÉCRAN, pas à éprouver la séquence
-      // complète : on l'ouvre donc sans détour. Le vrai chemin reste celui
-      // qu'emprunte une faveur tirée en jouant, et `?favor=4` permet de
-      // l'éprouver de bout en bout.
-      //
-      // 1 et 3 : la somme qui désigne Aphrodite, et deux faces distinctes
-      // pour que les deux colonnes soient utilisables.
-      awaitingValidation = true;
-      openAphrodite(1, 3);
-    });
-  }
-
   document.getElementById('roll')?.addEventListener('click', roll);
 
   cinemaButton?.addEventListener('click', () => {

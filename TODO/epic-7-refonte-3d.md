@@ -96,31 +96,3 @@ Le visuel est **gelé** pour éviter des conflits sur ~5 500 lignes. Restent
 livrables sur `main` : les règles et les textes, à commencer par
 [#34](https://github.com/thefolin/Schmitt/issues/34) (les faveurs 3→7 sortent
 sur la mauvaise somme, P0) une fois les arbitrages rendus.
-
----
-
-## 🧹 À retirer avant la livraison
-
-**Le bouton « 💕 Test » de la barre du bas** (`#test-aphrodite` dans
-`index-3d.html`, branché dans `preview.ts`).
-
-Il simule une faveur d'Aphrodite sans attendre le bon jet — elle sort sur
-deux jets sur trente-six, après être tombé sur une case temple, soit une
-faveur sur dix-huit. L'atteindre en jouant est impraticable.
-
-Il est **visible par défaut**, tranché par Quentin : la recette se fait à
-plusieurs autour d'une table, où personne ne tape un paramètre d'URL.
-
-**C'est ce qui le rend provisoire.** Un joueur qui le presse déplace deux
-pions sans raison. Il est à retirer une fois Aphrodite validée — et c'est
-écrit ici parce qu'un élément de recette laissé à l'écran y reste : le
-bandeau de diagnostic est resté jusqu'à ce que Quentin le voie sur l'APK et
-demande qu'on l'enlève.
-
-Le chemin sans bouton subsiste après son retrait : `?favor=4` force
-n'importe quelle faveur (toute somme de 2 à 12), sans rien afficher en
-partie.
-
-**Pour le retirer :** supprimer le `<button id="test-aphrodite">` de
-`index-3d.html`, le bloc `aphroditeTest` de `preview.ts`, et le bloc de
-tests « le bouton de recette d'Aphrodite » de `test/hud-contract.test.ts`.
