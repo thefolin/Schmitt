@@ -209,8 +209,7 @@ async function main(): Promise<void> {
     scene,
     applyPreferredView,
     refresh,
-    overrides.favor,
-    overrides.outline
+    overrides.favor
   );
 
   // Basculer entre « tout voir » et « suivre le pion », quand le joueur
@@ -407,9 +406,7 @@ function attachDice(
   follow: () => void,
   refresh: () => void,
   /** La faveur forcée en recette (`?favor=4`), ou `null` en partie. */
-  forcedFavor: number | null,
-  /** La recette est-elle ouverte (`?debug=1`) ? */
-  debugMode: boolean
+  forcedFavor: number | null
 ): (x: number, y: number) => boolean {
   // L'aire de jeu épouse le PLATEAU, et non un carré inventé : le dé roule
   // sur les cases et rebondit sur leurs bords. « Pas de je jette le dé dans
@@ -1228,12 +1225,11 @@ function attachDice(
   // dés, la suspension du tour et le retour à la partie qu'on veut
   // éprouver, pas seulement l'affichage.
   //
-  // Il ne paraît qu'avec `?debug=1` : laissé visible en partie, il finirait
-  // pressé par un joueur qui se demande ce que c'est.
+  // IL EST VISIBLE PAR DÉFAUT, tranché par Quentin : la recette se fait à
+  // plusieurs autour d'une table, où personne ne tape un paramètre d'URL.
+  // C'est un bouton PROVISOIRE, à retirer une fois la faveur validée.
   const aphroditeTest = document.getElementById('test-aphrodite');
   if (aphroditeTest) {
-    aphroditeTest.hidden = !debugMode;
-
     aphroditeTest.addEventListener('click', () => {
       // Pendant un lancer ou une marche, on ne s'invite pas : la scène est
       // déjà occupée, et deux séquences en vol se marcheraient dessus.

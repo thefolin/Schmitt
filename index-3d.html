@@ -510,11 +510,18 @@
         <div class="actions">
             <!-- RECETTE : déclenche Aphrodite sans attendre le bon jet.
                  Elle sort sur 2 jets sur 36, après être tombé sur un
-                 temple — une faveur sur dix-huit. Le bouton NE PARAÎT
-                 QU'AVEC `?debug=1` : laissé visible en partie, il finirait
-                 par être pressé par un joueur qui se demande ce que c'est.
-                 Le bandeau de diagnostic vient d'en donner l'exemple. -->
-            <button id="test-aphrodite" type="button" title="Test : Aphrodite" aria-label="Test : forcer Aphrodite" hidden>💕</button>
+                 temple — une faveur sur dix-huit.
+
+                 VISIBLE PAR DÉFAUT, et c'est un choix de Quentin : la
+                 recette se fait à plusieurs autour d'une table, où personne
+                 ne tape un paramètre d'URL. Le libellé dit « Test » pour
+                 qu'un joueur ne le presse pas en croyant à une commande du
+                 jeu.
+
+                 À RETIRER APRÈS VALIDATION — c'est la seule chose qui le
+                 distingue des autres boutons, et elle demande qu'on y
+                 pense. Voir SCH-APHRO-TEST. -->
+            <button id="test-aphrodite" type="button" title="Test : simuler Aphrodite" aria-label="Test : simuler Aphrodite">💕 Test</button>
             <button id="journal-open" type="button" title="Historique de la partie" aria-label="Historique de la partie">📜</button>
             <button id="reset" type="button" title="Recadrer la vue" aria-label="Recadrer la vue">🎯</button>
             <button id="whole" type="button" title="Tout le plateau" aria-label="Tout le plateau">🗺️</button>

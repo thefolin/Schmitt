@@ -156,11 +156,13 @@ describe('HUD — le bouton de recette d\'Aphrodite', () => {
     expect(foot).toContain('id="test-aphrodite"');
   });
 
-  it('est masqué en partie normale', () => {
-    // Laissé visible, il finirait pressé par un joueur qui se demande ce
-    // que c'est — et Aphrodite déplacerait deux pions sans raison.
-    expect(page).toMatch(/<button id="test-aphrodite"[^>]*\bhidden\b/);
-    expect(scene).toMatch(/aphroditeTest\.hidden\s*=\s*!debugMode/);
+  it('se dit « Test », pour qu\'on ne le prenne pas pour une commande du jeu', () => {
+    // IL EST VISIBLE PAR DÉFAUT, tranché par Quentin : la recette se fait à
+    // plusieurs autour d'une table, où personne ne tape un paramètre d'URL.
+    // Le libellé est donc la seule chose qui empêche un joueur de le presser
+    // en croyant jouer.
+    expect(page).toMatch(/<button id="test-aphrodite"[^>]*>[^<]*Test/);
+    expect(page).not.toMatch(/<button id="test-aphrodite"[^>]*\bhidden\b/);
   });
 
   it('passe par le VRAI chemin de la faveur', () => {
