@@ -37,6 +37,15 @@
         #scene:active { cursor: grabbing; }
         #scene canvas { display: block; }
 
+        /* MASQUER VEUT DIRE MASQUER. L'attribut `hidden` ne vaut qu'un
+           `display: none` de la feuille par défaut du navigateur, et le
+           `display: flex` ci-dessous l'emporte : sans cette règle, le
+           bandeau restait AFFICHÉ alors que le DOM le disait caché.
+           Exactement le défaut vu sur l'APK pour la modale d'action, et
+           reproduit ici sans que mon test de contrat le voie — il lisait
+           l'attribut, pas le style. */
+        .bar[hidden] { display: none; }
+
         .bar {
             position: fixed;
             top: 0;

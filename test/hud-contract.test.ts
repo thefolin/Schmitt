@@ -122,6 +122,19 @@ describe('HUD — le diagnostic a quitté l\'écran de jeu', () => {
     expect(page).toMatch(/<div class="bar" id="bar"[^>]*\bhidden\b/);
   });
 
+  it('le masque VRAIMENT, et pas seulement dans le DOM', () => {
+    // CE TEST A MANQUÉ UNE FOIS, et le bandeau est resté à l'écran : il
+    // lisait l'attribut `hidden`, qui ne vaut qu'un `display: none` de la
+    // feuille par défaut du navigateur. `.bar` pose `display: flex`, qui
+    // l'emporte — le DOM disait « caché », l'écran montrait le contraire.
+    //
+    // Même défaut que sur la modale d'action, reproduit à l'identique. La
+    // leçon : sur un élément qui porte un `display`, l'attribut seul ne
+    // masque rien.
+    expect(page).toMatch(/\.bar\[hidden\]\s*\{[^}]*display:\s*none/);
+    expect(scene).toMatch(/diagnostics\.style\.display/);
+  });
+
   it('le garde disponible pour la recette', () => {
     // Il n'est pas supprimé : c'est l'instrumentation qui a permis de régler
     // le cadrage portrait, et la reconstruire de mémoire coûterait cher.

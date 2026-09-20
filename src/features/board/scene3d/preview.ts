@@ -98,7 +98,14 @@ async function main(): Promise<void> {
   // supprimé pour autant : reconstruire cette instrumentation de mémoire
   // coûterait cher, et elle reste ce qui permet de régler le portrait.
   const diagnostics = document.getElementById('bar');
-  if (diagnostics) diagnostics.hidden = !overrides.outline;
+  if (diagnostics) {
+    // `hidden` SEUL NE SUFFIT PAS : `.bar` pose `display: flex`, qui
+    // l'emporte sur la feuille par défaut du navigateur. Le style est posé
+    // EN PLUS de l'attribut — celui-ci porte le sens pour les lecteurs
+    // d'écran, celui-là fait le travail sans dépendre de la feuille.
+    diagnostics.hidden = !overrides.outline;
+    diagnostics.style.display = overrides.outline ? '' : 'none';
+  }
 
   const scene = new BoardScene({
     container,
