@@ -3,6 +3,8 @@ import {
   isShake,
   motionIntensity,
   motionAvailable,
+  motionContextAllowed,
+  motionBlockedReason,
   GRAVITY,
   SHAKE_THRESHOLD,
   SHAKE_DEBOUNCE_MS,
@@ -168,6 +170,79 @@ describe('secousse — savoir si les capteurs existent', () => {
     try {
       delete scope.DeviceMotionEvent;
       expect(motionAvailable()).toBe(false);
+    } finally {
+      scope.DeviceMotionEvent = previous;
+    }
+  });
+});
+
+/**
+ * Le HTTP est la cause la plus fréquente d'un capteur muet en recette.
+ *
+ * `DeviceMotionEvent` est une fonctionnalité à CONTEXTE SÉCURISÉ. Hors
+ * HTTPS, Chrome laisse l'abonnement réussir, envoie des événements, et met
+ * tous les axes à `null` — sans erreur, sans modale, sans permission à
+ * demander. Le symptôme ressemble à un téléphone sans capteur, la cause est
+ * l'adresse de la page.
+ *
+ * Quentin teste sur `http://192.168.x.x:3000` : `localhost` fait exception
+ * à la règle, mais pas une IP locale.
+ */
+describe('secousse — un contexte non sécurisé coupe les capteurs', () => {
+  /** Force `isSecureContext` le temps d'un test. */
+  function withSecureContext(secure: boolean, run: () => void): void {
+    const previous = Object.getOwnPropertyDescriptor(window, 'isSecureContext');
+
+    try {
+      Object.defineProperty(window, 'isSecureContext', {
+        value: secure,
+        configurable: true,
+      });
+      run();
+    } finally {
+      if (previous) Object.defineProperty(window, 'isSecureContext', previous);
+    }
+  }
+
+  it('refuse les capteurs hors contexte sécurisé', () => {
+    withSecureContext(false, () => {
+      expect(motionContextAllowed()).toBe(false);
+    });
+  });
+
+  it('les accepte en contexte sécurisé', () => {
+    withSecureContext(true, () => {
+      expect(motionContextAllowed()).toBe(true);
+    });
+  });
+
+  it('nomme le HTTP comme cause, et pas le téléphone', () => {
+    // C'EST TOUT L'INTÉRÊT. Dire « les capteurs ne répondent pas » envoie
+    // chercher une panne de matériel ; dire « il faut du HTTPS » dit quoi
+    // faire.
+    withSecureContext(false, () => {
+      const reason = motionBlockedReason();
+
+      expect(reason).not.toBeNull();
+      expect(reason).toContain('HTTPS');
+    });
+  });
+
+  it('ne donne aucune raison quand rien ne bloque', () => {
+    withSecureContext(true, () => {
+      expect(motionBlockedReason()).toBeNull();
+    });
+  });
+
+  it('nomme l\'absence de capteur quand c\'est le cas', () => {
+    const scope = window as unknown as { DeviceMotionEvent?: unknown };
+    const previous = scope.DeviceMotionEvent;
+
+    try {
+      delete scope.DeviceMotionEvent;
+      withSecureContext(true, () => {
+        expect(motionBlockedReason()).toContain('capteur');
+      });
     } finally {
       scope.DeviceMotionEvent = previous;
     }

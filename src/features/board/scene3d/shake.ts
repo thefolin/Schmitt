@@ -150,3 +150,45 @@ export function motionAvailable(): boolean {
 
   return typeof (window as { DeviceMotionEvent?: unknown }).DeviceMotionEvent !== 'undefined';
 }
+
+/**
+ * Le contexte permet-il aux capteurs de fonctionner ?
+ *
+ * `DeviceMotionEvent` est une fonctionnalité À CONTEXTE SÉCURISÉ : Chrome ne
+ * délivre AUCUNE lecture hors HTTPS, sans modale, sans demande possible et
+ * sans erreur — l'abonnement réussit, les événements arrivent, et tous leurs
+ * axes valent `null`.
+ *
+ * `localhost` fait exception, mais PAS une adresse IP locale. C'est
+ * exactement le cas de la recette : le téléphone ouvre
+ * `http://192.168.x.x:3000`, donc un contexte non sécurisé, donc des
+ * capteurs muets — quoi qu'on demande à l'utilisateur.
+ *
+ * Aucune permission ne débloque cela. Il faut servir la page en HTTPS, ou
+ * l'ouvrir depuis l'APK, où Capacitor sert déjà en `https` (voir
+ * `capacitor.config.ts`).
+ */
+export function motionContextAllowed(): boolean {
+  if (typeof window === 'undefined') return false;
+
+  // `isSecureContext` répond exactement à la question posée, et tient compte
+  // de l'exception `localhost` sans qu'on ait à la réécrire.
+  return window.isSecureContext === true;
+}
+
+/**
+ * Pourquoi le geste n'est pas disponible, en une phrase pour le joueur.
+ *
+ * `null` quand rien ne s'y oppose. Le texte DIT la cause plutôt que le
+ * symptôme : « les capteurs ne répondent pas » enverrait chercher une panne
+ * de téléphone, alors que la page est simplement servie en HTTP.
+ */
+export function motionBlockedReason(): string | null {
+  if (!motionAvailable()) return "cet appareil n'a pas de capteur de mouvement";
+
+  if (!motionContextAllowed()) {
+    return 'la page doit être servie en HTTPS pour que les capteurs répondent';
+  }
+
+  return null;
+}

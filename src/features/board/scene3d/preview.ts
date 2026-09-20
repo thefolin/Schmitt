@@ -46,6 +46,8 @@ import {
   isShake,
   motionIntensity,
   motionAvailable,
+  motionContextAllowed,
+  motionBlockedReason,
   type MotionReading,
 } from './shake';
 import { tableAnnouncement } from './table-announcements';
@@ -568,9 +570,20 @@ function attachDice(
 
     const who = runner.currentPlayerName();
 
+    if (shakes) {
+      say(`\u{1F3B2} ${who} — secoue le téléphone ou appuie sur Lancer`);
+      return;
+    }
+
+    // ON DIT LA CAUSE, pas le symptôme. « Les capteurs ne répondent pas »
+    // envoie chercher une panne de téléphone, alors que le cas le plus
+    // fréquent en recette est une page servie en HTTP : Chrome coupe alors
+    // les capteurs sans le dire, et aucune permission n'y change rien.
+    const blocked = motionBlockedReason();
+
     say(
-      shakes
-        ? `\u{1F3B2} ${who} — secoue le téléphone ou appuie sur Lancer`
+      blocked
+        ? `\u{1F3B2} ${who} — appuie sur Lancer (${blocked})`
         : `\u{1F3B2} ${who} — appuie sur Lancer`
     );
   };
@@ -883,7 +896,10 @@ function attachDice(
    * CHIFFRÉES arrivent : c'est la seule preuve qui vaille.
    */
   const listenForShakes = (): void => {
-    if (listening || !motionAvailable()) {
+    // HORS CONTEXTE SÉCURISÉ, inutile de s'abonner : Chrome laisse
+    // l'abonnement réussir et n'envoie que des axes nuls. On l'annonce tout
+    // de suite plutôt que d'attendre trois secondes pour rien.
+    if (listening || !motionAvailable() || !motionContextAllowed()) {
       sayHowToRoll(false);
       return;
     }
