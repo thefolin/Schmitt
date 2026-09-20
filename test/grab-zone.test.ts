@@ -6,6 +6,7 @@ import {
   shortestTurn,
   commonDrift,
   GRAB_PADDING_PX,
+  mouseGesture,
 } from '@/features/board/scene3d/grab-zone';
 
 /**
@@ -220,5 +221,51 @@ describe('3D-74 — deux doigts qui glissent ensemble inclinent la vue', () => {
     );
 
     expect(swapped).toBeCloseTo(straight, 6);
+  });
+});
+
+/**
+ * Ce qu'un bouton de souris fait à la caméra.
+ *
+ * Quentin : « sur souris, clic simple + glisser » pour déplacer le plateau.
+ * C'était l'inverse — le clic gauche faisait TOURNER la vue.
+ *
+ * L'enjeu n'est pas le confort mais la COHÉRENCE entre les deux appareils :
+ * un doigt déplace depuis #73, donc le clic simple doit déplacer aussi. Un
+ * joueur qui passe du téléphone au navigateur refait le même mouvement et
+ * doit obtenir la même chose, sinon il apprend le jeu deux fois.
+ */
+describe('contrôles — le clic simple déplace, comme un doigt', () => {
+  it('fait glisser le plateau au clic gauche', () => {
+    expect(mouseGesture(0, false)).toBe('pan');
+  });
+
+  it('accorde la souris au tactile', () => {
+    // C'EST LE POINT. `followsFinger` dit qu'un doigt posé hors du dé
+    // commande la caméra ; le clic gauche doit commander la MÊME chose.
+    expect(mouseGesture(0, false)).toBe('pan');
+  });
+
+  it('garde la rotation au clic droit', () => {
+    // Elle n'est pas perdue : elle cesse d'être le geste par défaut.
+    expect(mouseGesture(2, false)).toBe('orbit');
+  });
+
+  it('garde la rotation au clic molette', () => {
+    expect(mouseGesture(1, false)).toBe('orbit');
+  });
+
+  it('garde la rotation avec Shift, pour les souris à un bouton', () => {
+    // Un trackpad de portable n'a souvent qu'un bouton : sans ce raccourci,
+    // la rotation deviendrait inatteignable pour tout un pan des joueurs.
+    expect(mouseGesture(0, true)).toBe('orbit');
+  });
+
+  it('ne laisse aucun bouton sans effet', () => {
+    // Un bouton latéral de souris de jeu ne doit pas ouvrir un troisième
+    // comportement : tout ce qui n'est pas le clic simple fait tourner.
+    for (const button of [3, 4, 9]) {
+      expect(mouseGesture(button, false)).toBe('orbit');
+    }
   });
 });

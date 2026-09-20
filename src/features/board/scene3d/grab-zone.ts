@@ -135,3 +135,26 @@ export type GestureOwner = 'dice' | 'camera';
 export function gestureOwner(onDice: boolean): GestureOwner {
   return onDice ? 'dice' : 'camera';
 }
+
+/**
+ * Ce qu'un bouton de souris fait à la caméra.
+ *
+ * Quentin (via PO, 20/09/2026) : « sur souris, clic simple + glisser » pour
+ * déplacer. C'ÉTAIT L'INVERSE — le clic gauche faisait tourner la vue — ce
+ * qui désaccordait la souris du tactile, où un doigt déplace depuis #73.
+ *
+ * Le geste le PLUS COURANT doit faire la même chose sur les deux, sinon on
+ * apprend le jeu deux fois : un joueur qui passe du téléphone au navigateur
+ * refait le même mouvement et obtient autre chose.
+ *
+ * La rotation n'est pas perdue — clic droit, clic molette, ou `Shift` — elle
+ * cesse seulement d'être le geste par défaut.
+ *
+ * Fonction PURE, sortie du gestionnaire d'événements pour être vérifiable :
+ * c'est une correspondance entre un bouton et une action, et rien d'autre.
+ */
+export function mouseGesture(button: number, shift: boolean): 'pan' | 'orbit' {
+  if (shift) return 'orbit';
+
+  return button === 0 ? 'pan' : 'orbit';
+}

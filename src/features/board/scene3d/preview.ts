@@ -20,6 +20,7 @@ import {
   followsFinger,
   shortestTurn,
   commonDrift,
+  mouseGesture,
 } from './grab-zone';
 
 /**
@@ -1591,7 +1592,15 @@ function attachControls(
   container.addEventListener('mousedown', e => {
     if (gestureOwner(startsOnDice(e.clientX, e.clientY)) === 'dice') return;
 
-    panning = e.button === 2 || e.button === 1 || e.shiftKey;
+    // LE CLIC SIMPLE DÉPLACE. Quentin : « sur souris, clic simple + glisser ».
+    // C'était l'inverse — le clic gauche faisait TOURNER la vue — ce qui
+    // désaccordait la souris du tactile, où un doigt déplace depuis #73.
+    // Le geste le plus courant doit faire la même chose sur les deux, sinon
+    // on apprend le jeu deux fois.
+    //
+    // La ROTATION reste accessible, au clic droit ou molette, et à `Shift` :
+    // elle n'est pas perdue, elle cesse d'être le geste par défaut.
+    panning = mouseGesture(e.button, e.shiftKey) === 'pan';
     start(e.clientX, e.clientY);
   });
 
