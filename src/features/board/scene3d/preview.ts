@@ -21,7 +21,7 @@ import { walkFrame } from './pawn-walk';
 import { swipeToThrow, GRAB_LIFT, type ThrowRequest } from './dice-gesture';
 import { describeTurn, JOURNAL_MAX } from './turn-journal';
 import { tableAnnouncement } from './table-announcements';
-import { isHandheld, readDeviceOverride, type DeviceHints } from './device';
+import { readDeviceOverride } from './device';
 import { GameLogic } from '@/features/game/game.logic';
 import { TurnRunner } from './turn-runner';
 import { loadTileConfigs, TILE_CONFIGS } from '@/features/tiles/tile.config';
@@ -121,7 +121,6 @@ async function main(): Promise<void> {
   };
 
   applyPreferredView();
-  showRotateHint(scene, device);
 
   scene.start();
 
@@ -167,8 +166,7 @@ async function main(): Promise<void> {
     // plutôt que de laisser le joueur sur un cadrage choisi pour l'autre
     // orientation.
     applyPreferredView();
-    showRotateHint(scene, device);
-    refresh();
+      refresh();
   };
 
   window.addEventListener('resize', remeasure);
@@ -1124,26 +1122,23 @@ function attachDiceGrab(
 }
 
 
-/**
- * Invite à tourner le téléphone en portrait.
+/*
+ * L'INVITE À TOURNER LE TÉLÉPHONE A ÉTÉ RETIRÉE le 20/09/2026, à la demande
+ * de Quentin : « il faudrait enlever l'avertissement sur portable pour
+ * tourner ou non le téléphone ».
  *
- * Quentin a choisi de ne PAS verrouiller l'orientation : le jeu reste
- * réactif, et on le dit au joueur plutôt que de lui imposer. Ça laisse la
- * porte ouverte à un verrouillage plus tard, si l'usage montre qu'il le faut.
+ * Elle conseillait le paysage, où le plateau entier se lit. Deux raisons de
+ * ne plus la montrer :
  *
- * Le cadrage portrait continue donc de fonctionner derrière le message — ce
- * n'est pas un écran de blocage, c'est un conseil.
+ *   - le portrait est désormais tenable : la vue suivie le cadre, et le HUD
+ *     se replie sur écran bas (#71), ce qui n'était pas le cas quand le
+ *     conseil a été écrit ;
+ *   - un conseil qu'on ne peut pas suivre — on joue le téléphone posé sur la
+ *     table, passé de main en main — se transforme en reproche.
+ *
+ * Le cadrage, lui, continue de s'adapter à l'orientation : c'est la mesure
+ * qui décide de la vue, pas un message.
  */
-function showRotateHint(scene: BoardScene, device: DeviceHints): void {
-  const hint = document.getElementById('rotate-hint');
-  if (!hint) return;
-
-  // Le conseil ne vaut QUE là où l'écran peut tourner. Sur un poste fixe dont
-  // la fenêtre est plus haute que large, « tourne ton téléphone » est faux —
-  // personne ne tournera son moniteur — et un conseil faux use la confiance
-  // plus qu'il n'aide.
-  hint.hidden = scene.prefersWholeBoard() || !isHandheld(device);
-}
 
 /**
  * Affiche les derniers événements de la partie.

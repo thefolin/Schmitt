@@ -30,6 +30,14 @@ export interface DeviceHints {
  * Renvoie `false` quand on ne peut pas trancher : mieux vaut ne pas afficher
  * le message que de l'afficher à tort sur un poste fixe.
  */
+/*
+ * PLUS AUCUN APPELANT depuis le retrait de l'invite à tourner le téléphone
+ * (#72), qui était son seul usage. Conservée plutôt que supprimée : la
+ * distinction « appareil qu'on peut tourner » restera nécessaire si Quentin
+ * veut un jour adapter autre chose à l'orientation, et sa règle — exiger À LA
+ * FOIS un pointeur grossier ET `screen.orientation`, jamais l'UserAgent — a
+ * coûté assez cher à établir pour ne pas être réécrite de mémoire.
+ */
 export function isHandheld(hints: DeviceHints = {}): boolean {
   if (hints.force === 'mobile') return true;
   if (hints.force === 'desktop') return false;
