@@ -116,50 +116,53 @@
         button:hover { border-color: #d4af37; }
 
 
-        /* La barre du bas : elle situe le joueur sans manger l'écran. */
         /*
          * ÉCRAN BAS — le paysage sur téléphone, où la hauteur est la denrée
          * rare. Mesuré sur le Pixel 10 de Quentin, navigateur ouvert : 306 px
-         * de haut en tout, dont 156 mangés par le HUD. Il ne restait que
-         * 150 px pour le plateau, qui débordait donc en haut et en bas.
+         * de haut en tout, dont 156 étaient mangés par l'ancien HUD.
          *
-         * Sous 420 px, le HUD se replie : les trois lignes de diagnostic
-         * disparaissent, les marges se resserrent, et le plateau récupère la
-         * place. Le diagnostic reste disponible en portrait et sur écran
-         * large, là où il ne coûte rien.
+         * La barre flottante coûte déjà bien moins, mais en paysage chaque
+         * pixel compte : les boutons se resserrent et l'historique s'ouvre
+         * sur une carte plus basse.
          */
         @media (max-height: 420px) {
-            .bar {
-                padding: 4px 12px;
-                padding-top: calc(4px + var(--safe-top));
-                gap: 8px;
-            }
-
-            /* Les lignes de mesure servent à RÉGLER le rendu, pas à jouer :
-               elles cèdent la place les premières. */
-            #status,
-            #hint,
-            #insets {
-                display: none;
-            }
-
             .foot {
-                padding: 4px 12px;
+                gap: 4px;
+                padding: 4px 8px;
                 padding-bottom: calc(4px + var(--safe-bottom));
-                gap: 8px;
             }
 
-            /* Le journal est un CONFORT — l'historique des tours passés. Le
-               plateau est le jeu : c'est le journal qui cède.
+            .foot .actions button {
+                min-width: 40px;
+                min-height: 40px;
+                padding: 0 8px;
+            }
 
-               « Au tour de X » et l'invite à lancer RESTENT : sans elles, le
-               joueur ne sait plus à qui est la main ni ce qu'on attend de
-               lui. On ne gagne pas de la place en rendant le jeu injouable. */
+            #whose-turn {
+                padding: 2px 10px;
+                font-size: 12px;
+            }
+
+            /* Le journal reste consultable, mais borné : une carte pleine
+               hauteur ne laisserait rien voir du plateau derrière. */
             #journal {
-                display: none;
+                max-height: 5em;
+            }
+
+            #journal-panel {
+                padding: 8px;
+                padding-bottom: calc(8px + var(--safe-bottom));
             }
         }
 
+        /*
+         * LA BARRE D'ACTION, FLOTTANTE au-dessus du plateau.
+         *
+         * Plus de bandeau opaque collé au bord : les boutons flottent, le
+         * plateau passe dessous. C'est le « style Waze » demandé par
+         * Quentin — l'écran appartient à la carte, les commandes ne font que
+         * s'y poser.
+         */
         .foot {
             position: fixed;
             left: 0;
@@ -167,27 +170,126 @@
             bottom: 0;
             z-index: 10;
             display: flex;
+            flex-direction: column;
             align-items: center;
-            gap: 14px;
-            padding: 10px 16px;
-            padding-bottom: calc(10px + var(--safe-bottom));
-            background: rgba(13, 21, 36, 0.82);
-            backdrop-filter: blur(8px);
-            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            gap: 8px;
+            padding: 8px 12px;
+            padding-bottom: calc(8px + var(--safe-bottom));
+            /* AUCUN FOND : c'est ce qui distingue une barre flottante d'un
+               bandeau. Chaque bouton porte le sien, et le plateau reste
+               visible entre eux. */
+            pointer-events: none;
         }
 
-        #progress { flex: 1 1 auto; min-width: 0; }
-
+        /* Les boutons, eux, restent cliquables : c'est le conteneur qui
+           laisse passer les gestes vers le plateau. */
+        .foot button,
         #whose-turn {
+            pointer-events: auto;
+        }
+
+        .foot .actions {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        /*
+         * À QUI EST LA MAIN : posé sur une pastille, et non sur un bandeau.
+         * Lisible au-dessus du plateau sans lui prendre une bande entière.
+         */
+        #whose-turn {
+            padding: 4px 14px;
             font-size: 13px;
             font-weight: 600;
             color: #e8edf9;
+            background: rgba(13, 21, 36, 0.78);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 999px;
+            backdrop-filter: blur(8px);
+        }
+
+        /* Les boutons flottants : ronds, posés sur le plateau. */
+        .foot .actions button {
+            min-width: 46px;
+            min-height: 46px;
+            padding: 0 12px;
+            background: rgba(13, 21, 36, 0.82);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            backdrop-filter: blur(8px);
+        }
+
+        /* LE LANCER est l'action principale : il se distingue des réglages,
+           sinon on cherche lequel des cinq boutons fait jouer. */
+        .foot .actions .roll {
+            padding: 0 20px;
+            font-weight: 700;
+            color: #1a1305;
+            background: linear-gradient(180deg, #f0d787 0%, #c9a349 100%);
+            border-color: #8a6d28;
+        }
+
+        .foot .actions button[aria-pressed="true"] {
+            border-color: #d4af37;
+            background: rgba(212, 175, 55, 0.22);
+        }
+
+        /*
+         * L'HISTORIQUE, derrière son bouton.
+         *
+         * Il occupait trois lignes en permanence pour un confort. Le plateau
+         * récupère la place, et le joueur l'ouvre quand il veut savoir ce
+         * qui vient de se passer.
+         */
+        #journal-panel {
+            position: fixed;
+            inset: 0;
+            z-index: 40;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            padding: 16px;
+            padding-bottom: calc(16px + var(--safe-bottom));
+            background: rgba(6, 10, 18, 0.55);
+        }
+
+        #journal-panel[hidden] { display: none; }
+
+        #journal-card {
+            width: min(460px, 100%);
+            padding: 14px 16px;
+            border-radius: 18px;
+            background: rgba(13, 21, 36, 0.96);
+            border: 1px solid rgba(212, 175, 55, 0.4);
+            backdrop-filter: blur(10px);
+        }
+
+        #journal-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: #d4af37;
+        }
+
+        #journal-close {
+            min-width: 36px;
+            min-height: 36px;
+            padding: 0;
+            font-size: 20px;
+            line-height: 1;
         }
 
         /* Ce que le dernier tour a produit : c'est ce qu'on vérifie à l'œil,
            face du dé contre nombre de cases parcourues. */
         #turn-log {
-            margin: 2px 0 4px;
+            margin-top: 8px;
             font-size: 12px;
             color: #d4af37;
         }
@@ -212,19 +314,6 @@
             background: rgba(13, 21, 36, 0.94);
             border: 1px solid rgba(212, 175, 55, 0.45);
             backdrop-filter: blur(10px);
-        }
-
-        /* LE DÉTAIL REPLIÉ par le bouton ℹ️. Le journal et la progression
-           sont un CONFORT ; le plateau est le jeu. Replier leur rend leur
-           hauteur sans toucher à ce qui est nécessaire pour jouer. */
-        body.hud-folded #journal,
-        body.hud-folded #progress-label,
-        body.hud-folded #progress-track,
-        body.hud-folded #actions-panel,
-        body.hud-folded #status,
-        body.hud-folded #hint,
-        body.hud-folded #insets {
-            display: none;
         }
 
         .action-prompt {
@@ -371,13 +460,22 @@
     <!-- La face lue, en grand, pendant que le HUD est effacé. -->
     <div id="cinema-result" aria-live="polite"></div>
 
-    <div class="bar" id="bar">
+    <!--
+         LE BANDEAU DE DIAGNOSTIC, réservé à la RECETTE.
+         Il servait à régler le cadrage : cases visibles, angle de vue,
+         taille d'une case en pixels, encoches mesurées. Quentin le veut
+         hors de l'écran de jeu — « minimaliste, style Waze ».
+         Il n'est pas supprimé pour autant : c'est l'instrumentation qui a
+         permis de régler le cadrage portrait, et la reconstruire de mémoire
+         coûterait cher. Il reparaît avec `?debug=1`, comme le cadre de
+         contrôle qu'il accompagne.
+    -->
+    <div class="bar" id="bar" hidden>
         <span>
             <span id="status">Chargement du plateau…</span>
             <span id="hint">un doigt déplace · deux doigts : pincer zoome, pivoter tourne, glisser incline</span>
             <span id="insets"></span>
         </span>
-        <button id="reset" type="button">Recadrer</button>
     </div>
 
     <!-- Où l'on en est dans le parcours : la vue suivie ne le dit plus
@@ -387,29 +485,53 @@
          que rien ne l'explique. -->
     <div id="actions-panel" hidden></div>
 
+    <!--
+         LA BARRE D'ACTION, flottante au-dessus du plateau.
+         Elle ne porte plus que des boutons et la ligne qui dit à qui est la
+         main. Le journal et la progression vivent maintenant derrière le
+         bouton 📜, et le diagnostic a quitté l'écran de jeu : c'est le
+         « minimaliste, style Waze » demandé par Quentin.
+    -->
     <div class="foot" id="foot">
-        <div id="progress">
-            <div id="whose-turn">Au tour de Alice</div>
-            <div id="turn-log">Lance le dé pour jouer</div>
-            <ul id="journal" aria-live="polite"></ul>
-            <div id="progress-label">Case 1 / 23</div>
-            <div id="progress-track"><div id="progress-fill"></div></div>
-        </div>
+        <!-- À QUI EST LA MAIN : la seule information qui reste à l'écran en
+             permanence. Sans elle, le joueur ne sait plus si c'est son tour,
+             et on ne gagne pas de la place en rendant le jeu injouable. -->
+        <div id="whose-turn">Au tour de …</div>
+
         <div class="actions">
-            <!-- LE BOUTON DISCRET : il replie le détail du bas — journal,
-                 progression — et rend cette hauteur au plateau. « Au tour
-                 de X » et le lancer RESTENT : sans eux le joueur ne sait
-                 plus à qui est la main ni ce qu'on attend de lui, et on ne
-                 gagne pas de la place en rendant le jeu injouable.
-                 `aria-pressed` porte l'état, comme pour le mode cinéma. -->
-            <button id="infos" type="button" aria-pressed="true" title="Afficher ou masquer le détail">ℹ️</button>
-            <button id="whole" type="button">Tout le plateau</button>
+            <button id="journal-open" type="button" title="Historique de la partie" aria-label="Historique de la partie">📜</button>
+            <button id="reset" type="button" title="Recadrer la vue" aria-label="Recadrer la vue">🎯</button>
+            <button id="whole" type="button" title="Tout le plateau" aria-label="Tout le plateau">🗺️</button>
             <!-- MODE CINÉMA : le lancer se regarde en gros plan, puis la vue
                  revient au plateau. Le choix est rangé d'une partie à
                  l'autre. `aria-pressed` porte l'état : un bouton qui bascule
                  doit dire s'il est enfoncé, sinon il ne s'annonce pas. -->
-            <button id="cinema" type="button" aria-pressed="false">🎬 Cinéma</button>
-            <button id="roll" type="button">Lancer <span id="dice-value">1</span></button>
+            <button id="cinema" type="button" aria-pressed="false" title="Mode cinéma" aria-label="Mode cinéma">🎬</button>
+            <button id="roll" class="roll" type="button">Lancer <span id="dice-value">1</span></button>
+        </div>
+    </div>
+
+    <!--
+         L'HISTORIQUE, derrière un bouton.
+         Il occupait trois lignes en permanence pour un CONFORT : savoir ce
+         qui vient de se passer. On le consulte quand on en a besoin, et le
+         plateau récupère la place le reste du temps.
+    -->
+    <div id="journal-panel" hidden>
+        <div id="journal-card">
+            <div id="journal-head">
+                <span>Historique</span>
+                <button id="journal-close" type="button" aria-label="Fermer l'historique">×</button>
+            </div>
+            <!-- `#progress` enveloppe la progression : `renderProgress` s'en
+                 sert pour la masquer quand le parcours n'a pas de sens, et
+                 sans lui elle ne met plus rien à jour du tout. -->
+            <div id="progress">
+                <div id="progress-label">Case 1 / 23</div>
+                <div id="progress-track"><div id="progress-fill"></div></div>
+            </div>
+            <ul id="journal" aria-live="polite"></ul>
+            <div id="turn-log">Lance le dé pour jouer</div>
         </div>
     </div>
 

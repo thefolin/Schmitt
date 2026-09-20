@@ -89,6 +89,14 @@ async function main(): Promise<void> {
   applySimulatedSafeArea(overrides);
   if (overrides.outline) document.body.classList.add('debug-outline');
 
+  // LE BANDEAU DE DIAGNOSTIC est réservé à la RECETTE. Il servait à régler le
+  // cadrage — cases visibles, angle, taille d'une case en pixels — et Quentin
+  // le veut hors de l'écran de jeu : « minimaliste, style Waze ». Il n'est pas
+  // supprimé pour autant : reconstruire cette instrumentation de mémoire
+  // coûterait cher, et elle reste ce qui permet de régler le portrait.
+  const diagnostics = document.getElementById('bar');
+  if (diagnostics) diagnostics.hidden = !overrides.outline;
+
   const scene = new BoardScene({
     container,
     // Les bandeaux sont MESURÉS, jamais devinés. Une constante en dur ignore
@@ -228,16 +236,26 @@ async function main(): Promise<void> {
       refresh();
   };
 
-  // LE BOUTON DISCRET : replier le détail du bas rend sa hauteur au
-  // plateau. Le recadrage suit immédiatement — `measureHudInsets` lit la
-  // hauteur RÉELLE des bandeaux, et sans cette remesure le plateau resterait
-  // cadré pour un HUD qui n'occupe plus la même place.
-  const infos = document.getElementById('infos');
-  infos?.addEventListener('click', () => {
-    const folded = document.body.classList.toggle('hud-folded');
-    infos.setAttribute('aria-pressed', folded ? 'false' : 'true');
+  // L'HISTORIQUE, derrière un bouton. Il occupait trois lignes en
+  // permanence pour un CONFORT — savoir ce qui vient de se passer. Le
+  // plateau récupère la place, et le joueur l'ouvre quand il en a besoin.
+  //
+  // Aucune remesure ici : le panneau se SUPERPOSE au plateau, il ne change
+  // pas la hauteur des bandeaux. C'est l'arbitrage retenu pour la modale
+  // d'action, et il vaut pour la même raison — un recadrage à chaque
+  // consultation ferait sauter l'image sous les yeux du joueur.
+  const journalPanel = document.getElementById('journal-panel');
+  const showJournal = (open: boolean): void => {
+    if (journalPanel) journalPanel.hidden = !open;
+  };
 
-    remeasure();
+  document.getElementById('journal-open')?.addEventListener('click', () => showJournal(true));
+  document.getElementById('journal-close')?.addEventListener('click', () => showJournal(false));
+
+  // Toucher à côté de la carte referme : c'est le geste attendu d'un
+  // panneau posé par-dessus, et il évite de viser une croix de 36 px.
+  journalPanel?.addEventListener('click', event => {
+    if (event.target === journalPanel) showJournal(false);
   });
 
   window.addEventListener('resize', remeasure);
