@@ -164,8 +164,19 @@ const COLUMN_RATIO = 790 / 1920;
  */
 const COLUMN_HEIGHT_FIT = 0.475;
 
-/** Écart entre le bord du parcours et une colonne. */
-const COLUMN_MARGIN = 70;
+/**
+ * Où les colonnes se posent, en part de la largeur du parcours.
+ *
+ * 0,25 : au quart et aux trois quarts, c'est-à-dire dans les deux couloirs
+ * que le serpentin laisse vides entre ses trois branches verticales. Le
+ * plateau officiel les place aux colonnes de grille 2 et 6 sur 8.
+ *
+ * Mesuré sur la disposition réelle plutôt que posé en dur : un parcours
+ * composé dans l'éditeur n'aura pas les mêmes creux, mais le quart et les
+ * trois quarts restent le meilleur pari — et les colonnes ne recouvrent
+ * jamais une case, puisqu'un test le vérifie sur toutes les paires.
+ */
+const COLUMN_INSET = 0.25;
 
 export interface TilePosition {
   x: number;
@@ -176,6 +187,14 @@ export class BoardTiles3D {
   readonly group = new Group();
 
   private positions: TilePosition[] = [];
+
+  /**
+   * Pas de la grille, retenu à la construction.
+   *
+   * Sert à savoir ce qu'une case occupe quand on cherche la place libre
+   * autour d'elle : sans lui, il faudrait redemander le layout.
+   */
+  private tileStep = 135;
   private table: Mesh | null = null;
   private readonly pawns = new Group();
   /** L'illustration de chaque case POSÉE, dans l'ordre du parcours. */
@@ -195,6 +214,7 @@ export class BoardTiles3D {
     this.clear();
 
     const step = layout.tileSize + layout.tileGap;
+    this.tileStep = step;
     this.positions = [];
 
     // Le parcours est la SUITE DES PLACEMENTS, pas le catalogue : sur un
@@ -543,7 +563,7 @@ export class BoardTiles3D {
     this.group.add(table);
     this.table = table;
 
-    this.createColumns(minX, maxX, (minZ + maxZ) / 2, depth);
+    this.createColumns(minX, maxX, minZ, maxZ);
   }
 
   /**
@@ -565,16 +585,36 @@ export class BoardTiles3D {
    * joueur tournait d'un quart de tour. Un sprite ne peut pas disparaître
    * ainsi, et `DoubleSide` n'a plus lieu d'être : un sprite n'a pas de dos.
    */
-  private createColumns(minX: number, maxX: number, z: number, depth: number): void {
-    const height = depth * COLUMN_HEIGHT_FIT;
-    const width = height * COLUMN_RATIO;
+  private createColumns(minX: number, maxX: number, minZ: number, maxZ: number): void {
 
+    // DANS LES CREUX DU PARCOURS, et non à l'extérieur.
+    //
+    // Quentin a entouré en rouge les colonnes telles qu'elles étaient —
+    // sorties du tapis, coupées par les bords de l'écran — et marqué d'une
+    // croix les deux zones vides À L'INTÉRIEUR du plateau, entre les
+    // branches du serpentin. C'est là qu'elles vont.
+    //
+    // Le serpentin laisse deux couloirs libres de six cases de haut, aux
+    // tiers de la largeur. Les colonnes y tiennent sans recouvrir une seule
+    // case, et le plateau cesse de déborder de l'écran — ce qui permet aussi
+    // à la caméra de se rapprocher, donc aux cases de gagner en lisibilité.
+    const span = maxX - minX;
     const sides = [
-      { image: COLUMN_LEFT_IMAGE, x: minX - COLUMN_MARGIN - width / 2, name: 'column-left' },
-      { image: COLUMN_RIGHT_IMAGE, x: maxX + COLUMN_MARGIN + width / 2, name: 'column-right' },
+      { image: COLUMN_LEFT_IMAGE, x: minX + span * COLUMN_INSET, name: 'column-left' },
+      { image: COLUMN_RIGHT_IMAGE, x: maxX - span * COLUMN_INSET, name: 'column-right' },
     ];
 
     for (const side of sides) {
+      // CHAQUE COLONNE EST MESURÉE DANS SON PROPRE COULOIR. Les deux creux
+      // ne sont pas à la même hauteur ni de la même longueur — les arcs du
+      // serpentin en traversent un plus bas que l'autre. Une taille commune
+      // en ferait déborder au moins une sur une case.
+      const room = this.freeRunAt(side.x, minZ, maxZ);
+      if (!room) continue;
+
+      const height = room.length * COLUMN_HEIGHT_FIT;
+      const width = height * COLUMN_RATIO;
+
       const texture = new TextureLoader().load(side.image);
       texture.colorSpace = SRGBColorSpace;
       this.textures.push(texture);
@@ -585,12 +625,57 @@ export class BoardTiles3D {
       // propre, il est mis à l'échelle au rendu.
       column.scale.set(width, height, 1);
 
-      // Le pied posé sur le tapis, le panneau montant vers le haut.
-      column.position.set(side.x, height / 2, z);
+      // Le pied posé sur le tapis, le panneau montant vers le haut, et
+      // centré sur SON couloir plutôt que sur le plateau entier.
+      column.position.set(side.x, height / 2, room.center);
       column.name = side.name;
 
       this.group.add(column);
     }
+  }
+
+  /**
+   * La plus longue bande libre de cases, sur une verticale donnée.
+   *
+   * Renvoie `null` si la verticale est entièrement occupée — auquel cas on
+   * ne pose pas de colonne du tout, plutôt que d'en poser une sur le jeu.
+   *
+   * MESURÉE sur les cases réellement posées, et non déduite de la forme du
+   * plateau : le rendu ne suppose rien du parcours (CLAUDE.md), et un
+   * plateau composé dans l'éditeur n'aura pas les creux du serpentin
+   * officiel.
+   */
+  private freeRunAt(
+    x: number,
+    minZ: number,
+    maxZ: number
+  ): { center: number; length: number } | null {
+    const step = this.tileStep;
+
+    // Les cases dont l'emprise croise cette verticale, triées par profondeur.
+    const blocked = this.positions
+      .filter((p): p is TilePosition => !!p && Math.abs(p.x - x) < step)
+      .map(p => p.z)
+      .sort((a, b) => a - b);
+
+    let bestStart = minZ - step / 2;
+    let bestLength = 0;
+    let cursor = minZ - step / 2;
+
+    for (const z of [...blocked, maxZ + step * 1.5]) {
+      const gap = z - step / 2 - cursor;
+
+      if (gap > bestLength) {
+        bestLength = gap;
+        bestStart = cursor;
+      }
+
+      cursor = Math.max(cursor, z + step / 2);
+    }
+
+    if (bestLength <= 0) return null;
+
+    return { center: bestStart + bestLength / 2, length: bestLength };
   }
 
   /** Vide le plateau, en libérant la mémoire graphique. */
