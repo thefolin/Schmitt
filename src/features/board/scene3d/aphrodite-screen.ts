@@ -107,10 +107,13 @@ export function showAphroditeScreen(
 
   const rule = document.createElement('p');
   rule.className = 'action-modal-line';
+  // LA RÈGLE, dans les termes de `god-favors` — partagés avec le rendu de
+  // `main`, pour que les deux disent la même chose. Le rappel de l'écran
+  // s'y ajoute sans le contredire : il dit ce qu'on attend ICI, maintenant.
   rule.textContent =
     slots === 1
-      ? `Un seul adversaire : il reçoit les deux dés.`
-      : `Un adversaire avance, l’autre recule.`;
+      ? `Un seul adversaire : associez-lui les deux dés.`
+      : `Associez un dé à chacun \u2014 chacun avance ou recule, librement.`;
   panel.appendChild(rule);
 
   const grid = document.createElement('div');

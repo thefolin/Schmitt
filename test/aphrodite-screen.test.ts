@@ -89,6 +89,49 @@ function options(row: number): { value: string; disabled: boolean }[] {
   }));
 }
 
+describe('Aphrodite — ce que l\'écran DIT au joueur', () => {
+  it('affiche une consigne, et pas un écran muet', () => {
+    // CE TEST A MANQUÉ DEUX FOIS DE SUITE. La consigne est restée sur
+    // l'ancienne règle — « un adversaire avance, l'autre recule » — parce
+    // qu'une édition ne s'était pas appliquée, puis elle a DISPARU parce
+    // qu'une autre avait emporté le `appendChild`. Les tests restaient verts
+    // dans les deux cas : aucun ne regardait le texte rendu.
+    showAphroditeScreen([1, 3], targets(3), 22, () => {});
+
+    const line = document.querySelector('.aphrodite-panel .action-modal-line');
+
+    expect(line).not.toBeNull();
+    expect(line!.textContent!.trim()).toBeTruthy();
+  });
+
+  it('ne dit PLUS qu\'un joueur doit reculer', () => {
+    // La contrainte a été retirée : chacun avance ou recule librement. Une
+    // consigne qui dirait le contraire ferait douter le joueur de ce que
+    // l'écran accepte.
+    showAphroditeScreen([1, 3], targets(3), 22, () => {});
+
+    const line = document.querySelector('.aphrodite-panel .action-modal-line')!;
+
+    expect(line.textContent).not.toMatch(/l.autre recule/i);
+  });
+
+  it('dit que chacun choisit son sens', () => {
+    showAphroditeScreen([1, 3], targets(3), 22, () => {});
+
+    const line = document.querySelector('.aphrodite-panel .action-modal-line')!;
+
+    expect(line.textContent).toMatch(/avance ou recule/i);
+  });
+
+  it('dit les deux dés quand un seul adversaire les reçoit', () => {
+    showAphroditeScreen([1, 3], targets(1), 22, () => {});
+
+    const line = document.querySelector('.aphrodite-panel .action-modal-line')!;
+
+    expect(line.textContent).toMatch(/deux d/i);
+  });
+});
+
 describe('Aphrodite — on ne déplace pas deux fois le même pion', () => {
   it('retire l\'adversaire déjà pris de l\'autre liste', () => {
     // La règle était DÉJÀ appliquée — « Valider » restait grisé — mais rien
