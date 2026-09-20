@@ -31,7 +31,7 @@ export const GOD_FAVORS: Record<number, GodFavor> = {
   4: {
     name: 'APHRODITE',
     icon: '💕',
-    description: 'Lancez 2 dés, choisissez 2 adversaires et associez 1 dé à chacun. Déplacez-les en avant ou arrière. Ils appliquent l\'effet de leur nouvel emplacement.'
+    description: 'Choisissez deux adversaires et associez un dé à chacun d\'eux. Vous pouvez les déplacer indépendamment, en avant ou en arrière. Ils appliquent alors l\'effet de leur nouvel emplacement.'
   },
   5: {
     name: 'HERMÈS',

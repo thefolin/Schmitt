@@ -79,6 +79,75 @@ describe('Aphrodite — l\'écran propose les adversaires', () => {
   });
 });
 
+/** Les options d'une ligne, avec leur disponibilité. */
+function options(row: number): { value: string; disabled: boolean }[] {
+  const lists = document.querySelectorAll<HTMLSelectElement>('.aphrodite-who');
+
+  return [...lists[row].options].map(option => ({
+    value: option.value,
+    disabled: option.disabled,
+  }));
+}
+
+describe('Aphrodite — on ne déplace pas deux fois le même pion', () => {
+  it('retire l\'adversaire déjà pris de l\'autre liste', () => {
+    // La règle était DÉJÀ appliquée — « Valider » restait grisé — mais rien
+    // ne disait pourquoi, et le joueur cherchait ce qui n\'allait pas.
+    showAphroditeScreen([3, 5], targets(4), 22, () => {});
+
+    const lists = document.querySelectorAll<HTMLSelectElement>('.aphrodite-who');
+    lists[0].value = '3';
+    lists[0].dispatchEvent(new Event('change'));
+
+    expect(options(1).find(o => o.value === '3')!.disabled).toBe(true);
+  });
+
+  it('vaut dans les DEUX sens', () => {
+    showAphroditeScreen([3, 5], targets(4), 22, () => {});
+
+    const lists = document.querySelectorAll<HTMLSelectElement>('.aphrodite-who');
+    lists[1].value = '4';
+    lists[1].dispatchEvent(new Event('change'));
+
+    expect(options(0).find(o => o.value === '4')!.disabled).toBe(true);
+  });
+
+  it('garde SA PROPRE sélection active', () => {
+    // C\'EST CE QUI VIDERAIT LA LISTE : à deux adversaires et deux lignes, il
+    // ne reste qu\'une option libre par ligne. Griser aussi la sienne ne
+    // laisserait plus rien à afficher.
+    showAphroditeScreen([3, 5], targets(2), 22, () => {});
+
+    for (const row of [0, 1]) {
+      const lists = document.querySelectorAll<HTMLSelectElement>('.aphrodite-who');
+      const mine = options(row).find(o => o.value === lists[row].value)!;
+
+      expect(mine.disabled).toBe(false);
+    }
+  });
+
+  it('laisse toujours au moins un choix par ligne', () => {
+    // Une liste entièrement grisée serait un cul-de-sac : le joueur ne
+    // pourrait plus rien changer.
+    showAphroditeScreen([3, 5], targets(2), 22, () => {});
+
+    for (const row of [0, 1]) {
+      expect(options(row).some(o => !o.disabled)).toBe(true);
+    }
+  });
+
+  it('ouvre sur deux adversaires DIFFÉRENTS', () => {
+    // Ouvrir sur deux fois le même laisserait « Valider » grisé sans que le
+    // joueur ait rien fait de mal.
+    showAphroditeScreen([3, 5], targets(3), 22, () => {});
+
+    const lists = document.querySelectorAll<HTMLSelectElement>('.aphrodite-who');
+
+    expect(lists[0].value).not.toBe(lists[1].value);
+  });
+});
+
+
 describe('Aphrodite — un dé ne sert qu\'une fois', () => {
   it('barre le dé déjà pris sur l\'autre ligne', () => {
     // C'est ce que le croquis de Quentin montre : le dé pris d'un côté se

@@ -79,7 +79,13 @@ export function showAphroditeScreen(
   /** Ce qui est décidé pour chaque ligne, au fur et à mesure. */
   const choices: (AphroditeChoice | null)[] = Array.from({ length: slots }, () => null);
 
-  /** Quel adversaire chaque ligne désigne. */
+  /**
+   * Quel adversaire chaque ligne désigne.
+   *
+   * Les premiers de la liste, et donc DISTINCTS d'emblée : ouvrir l'écran
+   * sur deux fois le même adversaire laisserait « Valider » grisé sans que
+   * le joueur ait rien fait de mal.
+   */
   const picks: number[] = targets.slice(0, slots).map(target => target.index);
 
   /** Quel dé chaque ligne a pris, par son rang dans le jet. */
@@ -183,6 +189,19 @@ export function showAphroditeScreen(
         option.value = String(target.index);
         option.textContent = `${target.name} — case ${target.position + 1}`;
         option.selected = target.index === picks[row];
+
+        // ON NE DÉPLACE PAS DEUX FOIS LE MÊME PION : un adversaire pris sur
+        // une autre ligne n'est plus proposé ici. La règle était déjà
+        // appliquée — « Valider » restait grisé — mais rien ne disait
+        // POURQUOI, et le joueur cherchait ce qui n'allait pas.
+        //
+        // SA PROPRE SÉLECTION RESTE TOUJOURS ACTIVE : à deux adversaires et
+        // deux lignes, il ne reste qu'une option libre par ligne. La griser
+        // aussi viderait la liste, qui n'afficherait plus rien du tout.
+        option.disabled =
+          target.index !== picks[row] &&
+          picks.some((pick, other) => other !== row && pick === target.index);
+
         who.appendChild(option);
       }
 
