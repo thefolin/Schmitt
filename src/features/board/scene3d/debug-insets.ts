@@ -11,6 +11,7 @@
  *   ?top=96&bottom=88          marges applicatives, en pixels
  *   ?safeTop=48&safeBottom=24  encoches système simulées
  *   ?debug=1                   trace le cadre visé à l'écran
+ *   ?favor=4                   force la faveur des dieux, sans attendre le dé
  *
  * Elles ne changent rien au comportement par défaut : sans paramètre, tout
  * est mesuré sur le DOM comme en production.
@@ -22,6 +23,22 @@ export interface InsetOverrides {
   safeTop: number | null;
   safeBottom: number | null;
   outline: boolean;
+  /**
+   * La faveur à forcer en recette, par sa SOMME — `?favor=4` pour Aphrodite.
+   *
+   * POURQUOI ÇA EXISTE : Aphrodite sort sur 1+3 ou 3+1, soit 2 jets sur 36.
+   * Il faut d'abord tomber sur une case temple, puis faire cette somme-là :
+   * une faveur sur dix-huit. La tester en jouant est impraticable.
+   *
+   * UN PARAMÈTRE D'URL PLUTÔT QU'UN BOUTON, et c'est délibéré. Un bouton
+   * « pour tester, on le supprimera après » reste : il faut y penser, et
+   * personne n'y pense. Celui-ci ne s'active que si on le demande, ne
+   * s'affiche jamais en partie, et ne coûte rien à laisser en place — c'est
+   * la convention déjà retenue pour `?debug=1` et les encoches simulées.
+   *
+   * `null` en l'absence du paramètre : le jeu tire ses dés normalement.
+   */
+  favor: number | null;
 }
 
 function readNumber(params: URLSearchParams, key: string): number | null {
@@ -42,6 +59,7 @@ export function readInsetOverrides(search: string): InsetOverrides {
     safeTop: readNumber(params, 'safeTop'),
     safeBottom: readNumber(params, 'safeBottom'),
     outline: params.get('debug') === '1',
+    favor: readFavorSum(params),
   };
 }
 
@@ -73,4 +91,20 @@ export function describeInsets(
   const free = Math.max(0, viewport.height - insets.top - insets.bottom);
 
   return `écran ${viewport.width}×${viewport.height} · marges ${insets.top}/${insets.bottom} · libre ${free}px`;
+}
+
+/**
+ * La faveur forcée par l'URL, ou `null`.
+ *
+ * Bornée aux sommes que deux dés peuvent produire : une valeur hors table ne
+ * désignerait aucune faveur, et mieux vaut l'ignorer que d'ouvrir un écran
+ * vide.
+ */
+function readFavorSum(params: URLSearchParams): number | null {
+  if (!params.has('favor')) return null;
+
+  const sum = Number(params.get('favor'));
+  if (!Number.isInteger(sum) || sum < 2 || sum > 12) return null;
+
+  return sum;
 }

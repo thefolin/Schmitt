@@ -5,7 +5,7 @@ import {
   showActionModal,
   favorStep,
 } from '@/features/board/scene3d/action-modal';
-import { readFavorRoll } from '@/features/board/scene3d/god-favor-roll';
+import { readFavorRoll, forcedFaces } from '@/features/board/scene3d/god-favor-roll';
 import { GOD_FAVORS } from '@/features/game/god-favors';
 import type { TurnOutcome } from '@/features/board/scene3d/turn-runner';
 import type { TileConfig } from '@/core/models/Tile';
@@ -556,4 +556,60 @@ describe('faveur des dieux — chaque dieu porte SON illustration', () => {
       expect(step.tile!.src).toBe(`/assets/cells/god_${sum}.png`);
     });
   }
+});
+
+describe('recette — forcer une faveur sans attendre le bon jet', () => {
+  it('donne bien la faveur demandée', () => {
+    // POURQUOI ÇA EXISTE : Aphrodite sort sur 1+3 ou 3+1 — deux jets sur
+    // trente-six, et encore faut-il être tombé sur un temple. Une faveur sur
+    // dix-huit : la tester en jouant est impraticable.
+    for (let sum = 3; sum <= 11; sum += 1) {
+      const [a, b] = forcedFaces(sum)!;
+
+      expect(a + b).toBe(sum);
+      expect(readFavorRoll(a, b).favor).toBe(GOD_FAVORS[sum]);
+    }
+  });
+
+  it('ne produit JAMAIS un double là où on attend une autre faveur', () => {
+    // C'EST LE PIÈGE : un double est la Colère des dieux quelle que soit sa
+    // valeur. Forcer la somme 8 avec 4+4 donnerait la Colère et non Arès —
+    // le paramètre de recette mentirait sur ce qu'il teste.
+    for (let sum = 3; sum <= 11; sum += 1) {
+      const [a, b] = forcedFaces(sum)!;
+
+      expect(a).not.toBe(b);
+      expect(readFavorRoll(a, b).double).toBe(false);
+    }
+  });
+
+  it('rend des faces qui existent sur un dé', () => {
+    for (let sum = 2; sum <= 12; sum += 1) {
+      const [a, b] = forcedFaces(sum)!;
+
+      expect(a).toBeGreaterThanOrEqual(1);
+      expect(a).toBeLessThanOrEqual(6);
+      expect(b).toBeGreaterThanOrEqual(1);
+      expect(b).toBeLessThanOrEqual(6);
+    }
+  });
+
+  it('donne la Colère pour les sommes qui n\'existent qu\'en double', () => {
+    // 2 ne se fait qu'en 1+1, 12 qu'en 6+6 : ce sont des doubles, donc la
+    // Colère. ZEUS (12) est inatteignable autrement, et c'est la table du
+    // plateau qui le veut.
+    expect(readFavorRoll(...forcedFaces(2)!).favor!.name).toContain('COLÈRE');
+    expect(readFavorRoll(...forcedFaces(12)!).favor!.name).toContain('COLÈRE');
+  });
+
+  it('ne force rien quand rien n\'est demandé', () => {
+    // Sans le paramètre, le jeu tire ses dés normalement.
+    expect(forcedFaces(null)).toBeNull();
+  });
+
+  it('ignore une somme que deux dés ne peuvent pas faire', () => {
+    for (const bogus of [0, 1, 13, 99, -4, 2.5]) {
+      expect(forcedFaces(bogus)).toBeNull();
+    }
+  });
 });

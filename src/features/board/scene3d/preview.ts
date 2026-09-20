@@ -43,6 +43,7 @@ import {
   rollSpan,
   CINEMA_HOLD_MS,
 } from './cinema-mode';
+import { forcedFaces } from './god-favor-roll';
 import {
   isShake,
   motionIntensity,
@@ -200,7 +201,8 @@ async function main(): Promise<void> {
     placed,
     scene,
     applyPreferredView,
-    refresh
+    refresh,
+    overrides.favor
   );
 
   // Basculer entre « tout voir » et « suivre le pion », quand le joueur
@@ -395,7 +397,9 @@ function attachDice(
   board: TileConfig[],
   scene: BoardScene,
   follow: () => void,
-  refresh: () => void
+  refresh: () => void,
+  /** La faveur forcée en recette (`?favor=4`), ou `null` en partie. */
+  forcedFavor: number | null
 ): (x: number, y: number) => boolean {
   // L'aire de jeu épouse le PLATEAU, et non un carré inventé : le dé roule
   // sur les cases et rebondit sur leurs bords. « Pas de je jette le dé dans
@@ -884,7 +888,13 @@ function attachDice(
    * fait soi-même ne se conteste pas — dans un jeu à boire, ça compte.
    */
   const throwFavor = (request: ThrowRequest, from?: { x: number; z: number }): void => {
-    favorDice.roll((a, b) => {
+    favorDice.roll((rolledA, rolledB) => {
+      // LA FAVEUR FORCÉE EN RECETTE (`?favor=4`). Aphrodite sort sur 2 jets
+      // sur 36, après être tombé sur un temple : la tester en jouant est
+      // impraticable. Sans le paramètre, `forced` vaut `null` et les faces
+      // sont celles que la physique a posées.
+      const forced = forcedFaces(forcedFavor);
+      const [a, b] = forced ?? [rolledA, rolledB];
       // LE SECOND JET D'APHRODITE NE PASSE PAS PAR LES RÈGLES DES FAVEURS.
       // `resolveGodFavor` lit la somme comme une nouvelle faveur ET rend la
       // main au joueur suivant : ces dés-là ne désignent rien, ils

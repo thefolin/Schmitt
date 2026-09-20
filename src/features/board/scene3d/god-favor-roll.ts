@@ -111,3 +111,41 @@ export function readFavorRoll(a: number, b: number): FavorRoll {
 export function grantsAthenaShield(roll: FavorRoll): boolean {
   return !roll.double && roll.sum === ATHENA_SUM;
 }
+
+/**
+ * Deux faces qui donnent la somme demandée — pour la recette seulement.
+ *
+ * POURQUOI ÇA EXISTE : Aphrodite sort sur 1+3 ou 3+1, soit deux jets sur
+ * trente-six, et encore faut-il être tombé sur un temple. Une faveur sur
+ * dix-huit : la tester en jouant est impraticable.
+ *
+ * UN DOUBLE EST LA COLÈRE DES DIEUX, quelle que soit sa valeur. Les faces
+ * rendues ne sont donc JAMAIS égales, sauf pour la somme 2, qui n'existe
+ * qu'en double (1+1) — demander la Colère donne bien un double, et demander
+ * Aphrodite ne peut pas tomber par accident sur elle.
+ *
+ * Renvoie `null` pour une somme qu'aucun couple de dés ne peut produire, ou
+ * quand rien n'est demandé.
+ */
+export function forcedFaces(sum: number | null): [number, number] | null {
+  if (sum === null) return null;
+  if (!Number.isInteger(sum) || sum < MIN_SUM || sum > MAX_SUM) return null;
+
+  // La somme 2 n'existe qu'en 1+1, et c'est justement la Colère des dieux.
+  if (sum === 2) return [1, 1];
+
+  // La somme 12 n'existe qu'en 6+6 : elle EST un double, donc la Colère.
+  // ZEUS (12) est inatteignable autrement — c'est la table du plateau qui
+  // le veut, pas une limite d'ici.
+  if (sum === 12) return [6, 6];
+
+  // Ailleurs, on écarte les deux faces pour ne pas produire un double : le
+  // premier dé prend la plus petite valeur possible qui laisse un écart.
+  const a = Math.max(1, sum - 6);
+  const b = sum - a;
+
+  // Un couple égal ne peut survenir que sur une somme paire : on décale.
+  if (a === b) return [a - 1, b + 1];
+
+  return [a, b];
+}
