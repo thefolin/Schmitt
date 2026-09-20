@@ -248,3 +248,145 @@
     min-height: 40px;
   }
 }
+
+/*
+ * L'ÉCRAN D'APHRODITE — qui part, avec quel dé, dans quel sens.
+ *
+ * Il reprend la mise en scène des autres modales (`.setup-screen`,
+ * `.setup-panel`) et n'ajoute que sa grille. Les listes déroulantes héritent
+ * de `.setup-panel select`, déjà réglé pour l'écran de setup : on ne
+ * redéfinit pas un style qui existe.
+ *
+ * La disposition suit le croquis de Quentin : une ligne par pion à
+ * déplacer, la liste à gauche, les deux colonnes « + » et « − » à droite.
+ */
+.aphrodite-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  margin-top: var(--sp-4);
+}
+
+.aphrodite-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.aphrodite-panel .aphrodite-who {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.aphrodite-columns {
+  display: flex;
+  flex: 0 0 auto;
+  gap: var(--sp-2);
+}
+
+.aphrodite-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-1);
+  border: 1px solid var(--marble-500);
+  border-radius: var(--radius-md);
+  background: var(--marble-800);
+}
+
+/* Le « + » et le « − » : ce sont EUX qui portent la direction. */
+.aphrodite-sign {
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--gold-400);
+}
+
+/*
+ * UN DÉ, dans une colonne.
+ *
+ * Chaque dé apparaît dans les DEUX colonnes : c'est ce qui permet de le
+ * prendre d'un côté et de le voir barré de l'autre, comme sur le croquis.
+ * Cible de 44 px au doigt, comme les cases du plateau.
+ */
+.aphrodite-die {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  color: var(--text-base);
+  background: var(--marble-700);
+  border: 2px solid var(--marble-500);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Le dé RETENU : entouré, comme le cercle du croquis. */
+.aphrodite-die.is-chosen {
+  color: var(--text-on-gold);
+  background: var(--grad-gold);
+  border-color: var(--gold-300);
+  box-shadow: var(--shadow-gold);
+}
+
+/*
+ * LE DÉ DÉJÀ PRIS AILLEURS — barré, comme sur le croquis.
+ *
+ * La barre est dessinée plutôt qu'écrite : un caractère de plus changerait
+ * la largeur du bouton, et les deux colonnes ne s'aligneraient plus.
+ */
+.aphrodite-die.is-blocked {
+  position: relative;
+  color: var(--text-muted);
+  background: var(--marble-900);
+  border-color: var(--marble-700);
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.aphrodite-die.is-blocked::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 10%;
+  right: 10%;
+  height: 2px;
+  background: var(--danger);
+  transform: rotate(-32deg);
+}
+
+/* Un bouton d'action hors d'atteinte doit se VOIR : sans cela, le joueur
+   tape sur « Valider » sans comprendre pourquoi rien ne se passe. */
+.aphrodite-panel .btn-primary:disabled {
+  filter: grayscale(0.7);
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/*
+ * ÉCRAN BAS — le paysage sur téléphone. La grille se resserre plutôt que de
+ * pousser les boutons hors de l'écran.
+ */
+@media (max-height: 420px) {
+  .aphrodite-grid {
+    gap: var(--sp-2);
+    margin-top: var(--sp-2);
+  }
+
+  .aphrodite-die {
+    min-width: 38px;
+    min-height: 38px;
+    font-size: var(--fs-md);
+  }
+
+  .aphrodite-sign {
+    font-size: var(--fs-md);
+  }
+}

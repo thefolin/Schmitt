@@ -54,6 +54,8 @@ import {
 import { readDeviceOverride } from './device';
 import { askForPlayers } from './setup-screen';
 import { modalSteps, runModalSteps, favorStep } from './action-modal';
+import { showAphroditeScreen } from './aphrodite-screen';
+import { APHRODITE_SUM } from './aphrodite-plan';
 // Les tokens du design system précèdent la feuille qui les consomme :
 // `setup-screen.css` en emploie 43, et sans eux l'écran s'affiche nu.
 import '@/styles/common/design-system.css';
@@ -516,6 +518,15 @@ function attachDice(
   let awaitingValidation = false;
 
   /**
+   * Le SECOND jet d'Aphrodite est-il attendu ?
+   *
+   * Il se distingue du premier : celui-là désignait la faveur, celui-ci
+   * déplace les pions. Sans ce drapeau, les faces du second jet seraient
+   * relues comme une nouvelle faveur.
+   */
+  let aphroditePending = false;
+
+  /**
    * Fait rouler le dé dans le sens de sa course.
    *
    * Un cube d'arête `a` qui avance de `v` sans glisser bascule à `2·v/a`,
@@ -874,6 +885,23 @@ function attachDice(
    */
   const throwFavor = (request: ThrowRequest, from?: { x: number; z: number }): void => {
     favorDice.roll((a, b) => {
+      // LE SECOND JET D'APHRODITE NE PASSE PAS PAR LES RÈGLES DES FAVEURS.
+      // `resolveGodFavor` lit la somme comme une nouvelle faveur ET rend la
+      // main au joueur suivant : ces dés-là ne désignent rien, ils
+      // déplacent, et le tour appartient toujours à celui qui a tiré
+      // Aphrodite.
+      if (aphroditePending) {
+        if (favorLinger !== null) {
+          window.clearTimeout(favorLinger);
+          favorLinger = null;
+        }
+
+        say(`\u{1F3B2} ${a} et ${b} — \u00e0 r\u00e9partir`);
+        openAphrodite(a, b);
+        refresh();
+        return;
+      }
+
       const roll = runner.resolveGodFavor(a, b);
 
       const line = roll.favor
@@ -902,6 +930,19 @@ function attachDice(
       const step = favorStep(roll);
       if (step) {
         awaitingValidation = runModalSteps([step], () => {
+          // APHRODITE NE S'ARRÊTE PAS À SON ANNONCE : elle demande un SECOND
+          // jet de deux dés, celui qui déplace. Le premier ne faisait que la
+          // désigner — c'est sa somme qui vaut 4.
+          //
+          // Les dés sont à nouveau POSÉS et le joueur les jette lui-même,
+          // comme pour le premier : « les 2 dés ne doivent pas se lancer
+          // automatiquement ». L'écran ne s'ouvrira qu'une fois leurs faces
+          // lues.
+          if (roll.favor && roll.sum === APHRODITE_SUM && !roll.double) {
+            offerAphroditeDice();
+            return;
+          }
+
           awaitingValidation = false;
           refresh();
         });
@@ -909,6 +950,84 @@ function attachDice(
 
       refresh();
     }, request, from);
+  };
+
+  /**
+   * Repose les deux dés pour le SECOND jet d'Aphrodite.
+   *
+   * DÉCLARÉE APRÈS SES APPELANTS, et ce n'est pas un oubli : ils ne
+   * l'appellent que depuis des callbacks — la validation d'une modale, la
+   * fin d'un lancer — qui se déclenchent bien après l'initialisation du
+   * module. Mesuré : un `const` appelé depuis un callback différé est
+   * initialisé à temps, alors qu'un appel immédiat lèverait un
+   * `ReferenceError`. Ne pas déplacer ces appels hors d'un callback.
+   *
+   * Le premier jet ne faisait que DÉSIGNER la faveur — c'est sa somme qui
+   * vaut 4. Celui-ci déplace les pions, et c'est un jet distinct : `main`
+   * en fait deux lui aussi.
+   *
+   * Le joueur les lance LUI-MÊME, comme le premier : « les 2 dés ne doivent
+   * pas se lancer automatiquement ». Le tour reste suspendu tout du long.
+   */
+  const offerAphroditeDice = (): void => {
+    aphroditePending = true;
+
+    say(
+      `\u{1F495} ${runner.currentPlayerName()} — relance les 2 d\u00e9s pour d\u00e9placer !`
+    );
+
+    scene.showWholeBoard();
+    showDice(duringFavor());
+    favorDice.rest();
+
+    refresh();
+  };
+
+  /**
+   * Ouvre l'écran d'Aphrodite avec les faces du second jet.
+   *
+   * L'écran ne LANCE rien : il reprend des dés déjà jetés sur le plateau, ce
+   * qui préserve à la fois « le joueur lance lui-même » et l'ordre voulu —
+   * dés d'abord, choix ensuite.
+   */
+  const openAphrodite = (a: number, b: number): void => {
+    aphroditePending = false;
+
+    const current = logic.getCurrentPlayerIndex();
+    const opponents = logic
+      .getPlayers()
+      .map((player, index) => ({
+        index,
+        name: player.name,
+        color: player.color,
+        position: player.position,
+      }))
+      .filter(player => player.index !== current);
+
+    showAphroditeScreen(
+      [a, b],
+      opponents,
+      logic.getLastPosition(),
+      moves => {
+        // LES RÈGLES APPLIQUENT LE DÉPLACEMENT, pas la scène :
+        // `setPlayerPosition` borne de son côté, et c'est elle qui fait foi.
+        for (const move of moves) logic.setPlayerPosition(move.player, move.to);
+
+        tiles.setPawns(runner.pawns());
+
+        for (const move of moves) {
+          const player = logic.getPlayers()[move.player];
+          const line = `\u{1F495} ${player?.name ?? ''} \u2014 case ${move.to + 1}`;
+          runner.log(line);
+        }
+
+        renderJournal(runner);
+        showDice(betweenFavors());
+
+        awaitingValidation = false;
+        refresh();
+      }
+    );
   };
 
   /** Lance le dé, si un lancer est attendu. */

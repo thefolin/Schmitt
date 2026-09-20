@@ -3,6 +3,7 @@ import {
   aphroditeLanding,
   aphroditePlan,
   aphroditeReady,
+  aphroditeTargets,
   type AphroditeChoice,
 } from '@/features/board/scene3d/aphrodite-plan';
 
@@ -194,5 +195,28 @@ describe('Aphrodite — un dé ne sert qu\'une fois', () => {
     // n'est pas tranché — `main` propose de lui donner les deux dés — mais
     // compter jusqu'à un plutôt que deux ne préjuge de rien.
     expect(aphroditeReady([choice()], 1)).toBe(true);
+  });
+});
+
+describe('Aphrodite — combien d\'adversaires elle déplace', () => {
+  it('en déplace deux dès qu\'il y en a assez', () => {
+    expect(aphroditeTargets(3)).toBe(2);
+    expect(aphroditeTargets(6)).toBe(2);
+  });
+
+  it('n\'en déplace qu\'UN dans une partie à deux', () => {
+    // C'EST LE CAS QUI BLOQUERAIT LA PARTIE : la faveur demande deux
+    // adversaires, le jeu se joue à partir de deux joueurs. Sans cette
+    // borne, l'écran en attendrait deux là où il n'en existe qu'un —
+    // « Valider » resterait refusé à jamais.
+    //
+    // Quentin a tranché : l'unique adversaire reçoit les DEUX dés.
+    expect(aphroditeTargets(2)).toBe(1);
+  });
+
+  it('ne compte jamais le joueur qui déclenche la faveur', () => {
+    // On ne se déplace pas soi-même avec Aphrodite.
+    expect(aphroditeTargets(1)).toBe(0);
+    expect(aphroditeTargets(0)).toBe(0);
   });
 });

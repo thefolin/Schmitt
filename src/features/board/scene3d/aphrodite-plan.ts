@@ -22,6 +22,15 @@
  * Module PUR : il se vérifie sans DOM, sans WebGL et sans partie en cours.
  */
 
+/**
+ * La somme qui désigne APHRODITE sur la table des faveurs.
+ *
+ * Un DOUBLE de 2 est la Colère des dieux, pas Aphrodite : `readFavorRoll`
+ * fait déjà cette distinction, et on la lui laisse plutôt que de comparer la
+ * somme ici.
+ */
+export const APHRODITE_SUM = 4;
+
 /** Le sens dans lequel Aphrodite pousse un pion. */
 export type AphroditeDirection = 'forward' | 'backward';
 
@@ -136,4 +145,25 @@ export function aphroditeReady(choices: AphroditeChoice[], expected: number): bo
   }
 
   return true;
+}
+
+/**
+ * Combien d'adversaires Aphrodite déplace, dans cette partie-ci.
+ *
+ * LA FAVEUR EN DEMANDE DEUX, et le jeu se joue à partir de deux joueurs : il
+ * n'y a alors qu'un seul adversaire. Quentin a tranché — l'unique adversaire
+ * reçoit LES DEUX DÉS. C'est la branche `both-dice` du rendu CSS, retenue
+ * sans la question posée au joueur : `main` demandait par une boîte de
+ * dialogue s'il préférait retirer une autre faveur, et ce choix est
+ * désormais fait une fois pour toutes.
+ *
+ * Sans cette borne, l'écran demanderait deux adversaires là où il n'en
+ * existe qu'un : « Valider » resterait refusé à jamais et la partie se
+ * bloquerait sur la faveur.
+ */
+export function aphroditeTargets(playerCount: number): number {
+  // Le joueur qui déclenche la faveur ne se déplace pas lui-même.
+  const opponents = Math.max(0, playerCount - 1);
+
+  return Math.min(2, opponents);
 }
