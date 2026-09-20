@@ -129,8 +129,32 @@ export function swipeToThrow(request: SwipeRequest): ThrowRequest {
     thrown: true,
     velocity: { x: nx * speed, y: ny * speed },
     speed,
-    // Le dé décolle proportionnellement à la vigueur : un lancer mou le fait
-    // glisser, un lancer franc le fait sauter.
-    verticalVelocity: -(200 + (speed / MAX_SWIPE_SPEED) * 400),
+    // LE DÉ EST JETÉ VERS LA TABLE, il n'est pas lobé.
+    //
+    // Quentin (20/09/2026) : « il a un drôle de lancer ». Le dé PLANAIT :
+    // mesuré, il montait à 75 unités — plus haut qu'il n'est large — et
+    // restait 23 images en l'air, un quart de seconde, à vitesse CONSTANTE.
+    // `DicePhysics` n'applique la friction qu'au sol, à juste titre : un
+    // objet en vol ne frotte sur rien. Le dé filait donc comme un frisbee
+    // au-dessus du plateau avant de tomber d'un coup.
+    //
+    // LA CAUSE était un signe. Dans `DicePhysics`, une vitesse verticale
+    // NÉGATIVE pousse vers le HAUT : on envoyait donc `-512`, c'est-à-dire un
+    // lob franc, en croyant faire plonger le dé.
+    //
+    // Mesuré, à vitesse de lancer égale :
+    //
+    //   -512  23 images en l'air, apogée 75   le lob d'avant
+    //      0  13 images,          apogée 49
+    //    350  11 images,          apogée 43   le dé retombe vite
+    //
+    // Le plancher de 11 images vient de `DicePhysics`, qui lâche toujours le
+    // dé à 50 unités de haut : c'est un module partagé avec le rendu CSS de
+    // `main`, on ne le touche pas.
+    //
+    // La composante reste liée à la vigueur, mais dans le BON sens : un
+    // lancer franc plaque le dé sur la table, un lancer mou le laisse
+    // retomber plus mollement.
+    verticalVelocity: 150 + (speed / MAX_SWIPE_SPEED) * 200,
   };
 }

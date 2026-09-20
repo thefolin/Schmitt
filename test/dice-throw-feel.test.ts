@@ -146,3 +146,99 @@ describe('3D-62 — le dé garde une taille de vrai dé', () => {
     expect(DIE_EDGE / TILE).toBeGreaterThan(0.4);
   });
 });
+
+/**
+ * 3D-66 — le dé est jeté VERS la table, il n'est pas lobé.
+ *
+ * Quentin (20/09/2026) : « il a un drôle de lancer ».
+ *
+ * LE DÉ PLANAIT. Mesuré image par image : il montait à 75 unités — plus haut
+ * qu'il n'est large — et restait 23 images en l'air, un quart de seconde, à
+ * vitesse HORIZONTALE CONSTANTE. `DicePhysics` n'applique la friction qu'au
+ * sol, à juste titre : un objet en vol ne frotte sur rien. Le dé filait donc
+ * comme un frisbee au-dessus du plateau, puis tombait d'un coup.
+ *
+ * LA CAUSE ÉTAIT UN SIGNE, et c'est le genre d'erreur qu'aucun test ne
+ * dénonce tant qu'on ne regarde pas la trajectoire : dans `DicePhysics`, une
+ * vitesse verticale NÉGATIVE pousse vers le HAUT. Le code envoyait `-512`,
+ * c'est-à-dire un lob franc, en croyant faire plonger le dé.
+ */
+
+/** Combien d'images le dé passe en l'air, et à quelle hauteur il monte. */
+function flightOf(velocity: { x: number; y: number }, verticalVelocity: number) {
+  const TRIALS = 40;
+  const speed = Math.hypot(velocity.x, velocity.y);
+  let airFrames = 0;
+  let apex = 0;
+
+  for (let trial = 0; trial < TRIALS; trial++) {
+    const physics = new DicePhysics(
+      WORLD_DICE_CONFIG,
+      { x: ARENA.width / 2, y: ARENA.height / 2 },
+      ARENA
+    );
+
+    physics.setTableBounds(
+      { minX: 0, maxX: ARENA.width, minY: 0, maxY: ARENA.height },
+      { top: true, right: true, bottom: true, left: true }
+    );
+
+    const angle = Math.random() * Math.PI * 2;
+    physics.throwWithVelocity(
+      { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed },
+      verticalVelocity,
+      { x: 0, y: 0 }
+    );
+
+    let guard = 0;
+    let inAir = 0;
+    let highest = 0;
+
+    while (physics.getState().isRolling && guard++ < 800) {
+      const state = physics.update(16);
+      if (state.height > 0.5) inAir++;
+      highest = Math.max(highest, state.height);
+    }
+
+    airFrames += inAir;
+    apex += highest;
+  }
+
+  return { airFrames: airFrames / TRIALS, apex: apex / TRIALS };
+}
+
+describe('3D-66 — le dé retombe vite au lieu de planer', () => {
+  it('ne reste pas un quart de seconde en l\'air', () => {
+    // 23 images, c'est ce que donnait le lob. À 60 images par seconde, le dé
+    // traversait un quart de seconde sans rien toucher, à vitesse constante :
+    // c'est très exactement ce qui se voyait comme « un drôle de lancer ».
+    const franc = gesture(300, 120);
+
+    expect(flightOf(franc.velocity, franc.verticalVelocity).airFrames).toBeLessThan(15);
+  });
+
+  it('ne monte pas plus haut qu\'une case n\'est large', () => {
+    // Le dé montait à 75 unités sur un plateau où une case fait 120 et le dé
+    // 58 : il survolait le plateau au lieu d'y rouler.
+    const franc = gesture(300, 120);
+
+    expect(flightOf(franc.velocity, franc.verticalVelocity).apex).toBeLessThan(60);
+  });
+
+  it('plaque le dé vers la table, quelle que soit la vigueur', () => {
+    // Le geste franc ne doit pas lober DAVANTAGE que le geste mou : c'est ce
+    // qu'on attend d'un dé jeté sur une table.
+    const doux = gesture(30, 300);
+    const violent = gesture(500, 100);
+
+    expect(flightOf(violent.velocity, violent.verticalVelocity).apex).toBeLessThanOrEqual(
+      flightOf(doux.velocity, doux.verticalVelocity).apex
+    );
+  });
+
+  it('pousse bien VERS LE BAS, et non vers le haut', () => {
+    // LE SIGNE, nommé explicitement. Dans `DicePhysics`, négatif = vers le
+    // haut : c'est contre-intuitif, et c'est ce qui a produit le défaut.
+    expect(gesture(300, 120).verticalVelocity).toBeGreaterThan(0);
+  });
+});
