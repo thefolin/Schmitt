@@ -71,16 +71,42 @@ export const DIE_EDGE = 58;
  *   1200  3,6 cases     le geste franc
  *   1500  saturation, la distance cesse de croître
  *
- * 400-1200 donne donc un rapport de UN À TROIS entre le geste le plus doux et
- * le plus vif : c'est ça, la sensation de lancer.
+ * ÉLARGIE ENCORE le 20/09/2026. Quentin : « je ne le vois pas assez rouler,
+ * j'ai une sale sensation à voir les dés rouler ».
+ *
+ * La ROTATION n'était pas en cause, et c'est ce que la mesure a montré : un
+ * dé qui roule sans glisser montre une nouvelle face tous les 58 unités,
+ * c'est-à-dire tous les demi-pas de case. Avec 2,2 cases parcourues, il ne
+ * montrait donc que 4 ou 5 faces sur toute sa course — trop peu pour qu'on
+ * voie un dé rouler plutôt que glisser.
+ *
+ * Le remède n'est pas de le faire tourner plus vite, ce qui donnerait un dé
+ * qui patine : c'est de le faire aller PLUS LOIN. La friction n'y change
+ * presque rien — la vitesse tombe surtout aux rebonds, pas par frottement —
+ * donc tout se joue sur la vitesse de lancer. Mesuré sur 60 lancers par
+ * palier, avec le dé à 58 :
+ *
+ *    400   0,8 case    1,7 face vue
+ *    800   1,6 case    3,4 faces
+ *   1200   2,5 cases   5,1 faces
+ *   1800   3,3 cases   6,9 faces
+ *   2400   4,0 cases   8,3 faces
+ *   3000   saturation, la distance cesse de croître
+ *
+ * 500-2300 fait donc parcourir de 1 à 4 cases, soit de 2 à 8 faces montrées :
+ * on VOIT le dé rouler. La durée reste autour de la seconde, elle dépend peu
+ * de la vigueur.
+ *
+ * Ce réglage n'est possible que depuis que le dé a été réduit à 58 (#62) : à
+ * 86, le même parcours aurait couvert beaucoup plus de plateau.
  *
  * La borne de 900 avait été posée pour que le dé ne quitte pas la fenêtre de
  * sept cases de la vue suivie. Cette crainte était infondée : la caméra SUIT
  * le dé pendant qu'il roule (`followPoint` à chaque image), donc la fenêtre se
  * déplace avec lui et il ne peut pas sortir de l'écran.
  */
-const VELOCITY_MIN = 400;
-const VELOCITY_MAX = 1200;
+const VELOCITY_MIN = 500;
+const VELOCITY_MAX = 2300;
 
 export const WORLD_DICE_CONFIG: DicePhysicsConfig = {
   size: DIE_EDGE,

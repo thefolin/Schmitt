@@ -4,6 +4,7 @@ import {
   GRAB_LIFT,
   MIN_SWIPE_SPEED,
 } from '@/features/board/scene3d/dice-gesture';
+import { WORLD_DICE_CONFIG } from '@/features/board/scene3d/dice-world-config';
 
 /**
  * 3D-49 — lancer le dé d'un geste, comme un vrai joueur.
@@ -66,9 +67,14 @@ describe('3D-49 — la conversion écran → monde', () => {
     // Un geste très rapide ne doit pas expédier le dé hors du plateau : les
     // bornes de l'aire le retiendraient, mais on verrait un dé qui rebondit
     // contre les murs au lieu de rouler.
+    //
+    // LE PLAFOND EST CELUI DE LA CONFIGURATION, et non un nombre écrit ici :
+    // la plage a été élargie deux fois pour rendre le lancer sensible (#62,
+    // #69), et un chiffre figé dans le test aurait fait échouer chaque
+    // réglage sans rien dire de faux.
     const violent = swipeToThrow({ dx: 0, dy: -4000, ms: 16, worldPerPixel: 8 });
 
-    expect(violent.speed).toBeLessThanOrEqual(1400);
+    expect(violent.speed).toBeLessThanOrEqual(WORLD_DICE_CONFIG.velocityMax);
   });
 
   it('garde un lancer minimum sur un geste mou', () => {
@@ -106,7 +112,7 @@ describe('3D-49 — les gestes qui ne sont pas des lancers', () => {
     const instant = swipeToThrow({ dx: 0, dy: -200, ms: 0, worldPerPixel: 4 });
 
     expect(Number.isFinite(instant.speed)).toBe(true);
-    expect(instant.speed).toBeLessThanOrEqual(1400);
+    expect(instant.speed).toBeLessThanOrEqual(WORLD_DICE_CONFIG.velocityMax);
   });
 });
 

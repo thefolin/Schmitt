@@ -1,7 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { swipeToThrow } from '@/features/board/scene3d/dice-gesture';
 import { DicePhysics } from '@/features/dice/DicePhysics';
-import { WORLD_DICE_CONFIG, DIE_EDGE } from '@/features/board/scene3d/dice-world-config';
+import {
+  WORLD_DICE_CONFIG,
+  DIE_EDGE,
+  rollingSpinRate,
+} from '@/features/board/scene3d/dice-world-config';
+import { readTopFace } from '@/features/dice/dice-faces';
 
 /**
  * 3D-62 — le lancer doit SE SENTIR.
@@ -240,5 +245,127 @@ describe('3D-66 — le dé retombe vite au lieu de planer', () => {
     // LE SIGNE, nommé explicitement. Dans `DicePhysics`, négatif = vers le
     // haut : c'est contre-intuitif, et c'est ce qui a produit le défaut.
     expect(gesture(300, 120).verticalVelocity).toBeGreaterThan(0);
+  });
+});
+
+/**
+ * 3D-69 — on doit VOIR le dé rouler, pas seulement se déplacer.
+ *
+ * Quentin (20/09/2026) : « je ne le vois pas assez rouler, j'ai une sale
+ * sensation à voir les dés rouler ».
+ *
+ * CE QUI SE MESURE, et qui décrit cette sensation mieux qu'une distance : le
+ * nombre de FACES que le dé montre pendant sa course. Un dé qui roule sans
+ * glisser bascule d'un quart de tour par face, donc change de face tous les
+ * 58 unités — la longueur de son arête. Avec 2,2 cases parcourues, il n'en
+ * montrait que 4 ou 5 : trop peu pour qu'on le voie rouler plutôt que glisser.
+ *
+ * LA ROTATION N'ÉTAIT PAS EN CAUSE, et c'est ce que la mesure a établi avant
+ * qu'on y touche : le dé bascule exactement comme il doit, une face tous les
+ * 58 unités. Le faire tourner plus vite aurait donné un dé qui PATINE, ce qui
+ * est pire — la rotation ne correspondrait plus au déplacement, et c'est
+ * précisément le défaut que toute la refonte supprime.
+ *
+ * Le remède est donc de le faire aller PLUS LOIN. La friction n'y change
+ * presque rien : la vitesse tombe surtout aux rebonds. Tout se joue sur la
+ * vitesse de lancer, élargie de 400-1200 à 500-2300.
+ */
+
+/** Combien de faces différentes le dé montre pendant sa course. */
+function facesShown(velocity: { x: number; y: number }, verticalVelocity: number): number {
+  const TRIALS = 40;
+  const speed = Math.hypot(velocity.x, velocity.y);
+  let total = 0;
+
+  for (let trial = 0; trial < TRIALS; trial++) {
+    const physics = new DicePhysics(
+      WORLD_DICE_CONFIG,
+      { x: ARENA.width / 2, y: ARENA.height / 2 },
+      ARENA
+    );
+
+    physics.setTableBounds(
+      { minX: 0, maxX: ARENA.width, minY: 0, maxY: ARENA.height },
+      { top: true, right: true, bottom: true, left: true }
+    );
+
+    const angle = Math.random() * Math.PI * 2;
+    physics.throwWithVelocity(
+      { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed },
+      verticalVelocity,
+      { x: 0, y: 0 }
+    );
+
+    let guard = 0;
+    let changes = 0;
+    let last = readTopFace(physics.getState().orientation);
+
+    while (physics.getState().isRolling && guard++ < 2000) {
+      const state = physics.update(16);
+
+      // Le roulement imposé par la scène : un cube d'arête `a` qui avance de
+      // `v` sans glisser bascule à `2·v/a`.
+      if (state.height <= 0.5) {
+        const moving = Math.hypot(state.velocity.x, state.velocity.y);
+
+        if (moving >= 1) {
+          const rate = rollingSpinRate(moving);
+          state.spin.x = (-state.velocity.y / moving) * rate;
+          state.spin.z = (state.velocity.x / moving) * rate;
+          state.spin.y *= 0.9;
+        }
+      }
+
+      const face = readTopFace(state.orientation);
+      if (face !== last) {
+        changes++;
+        last = face;
+      }
+    }
+
+    total += changes;
+  }
+
+  return total / TRIALS;
+}
+
+describe('3D-69 — le dé montre assez de faces pour qu\'on le voie rouler', () => {
+  it('en montre plusieurs, même sur un geste doux', () => {
+    // Moins de trois faces, et le dé a l'air de glisser d'un bloc.
+    const doux = gesture(80, 200);
+
+    expect(facesShown(doux.velocity, doux.verticalVelocity)).toBeGreaterThan(3);
+  });
+
+  it('en montre franchement plus sur un geste vif', () => {
+    // C'EST LA SENSATION. Elle ne tient pas à la vitesse de rotation — qui
+    // est juste — mais à la distance parcourue.
+    const violent = gesture(500, 100);
+
+    expect(facesShown(violent.velocity, violent.verticalVelocity)).toBeGreaterThan(6);
+  });
+
+  it('montre d\'autant plus de faces que le geste est vif', () => {
+    const doux = gesture(30, 300);
+    const violent = gesture(500, 100);
+
+    expect(facesShown(violent.velocity, violent.verticalVelocity)).toBeGreaterThan(
+      facesShown(doux.velocity, doux.verticalVelocity)
+    );
+  });
+
+  it('garde la rotation ACCORDÉE au déplacement', () => {
+    // Le garde-fou qui empêche de « corriger » la sensation en faisant
+    // tourner le dé plus vite : un dé qui patine ment sur son déplacement, et
+    // c'est le défaut que toute la refonte supprime. Un cube qui roule sans
+    // glisser montre une face par longueur d'arête parcourue.
+    const franc = gesture(300, 120);
+    const faces = facesShown(franc.velocity, franc.verticalVelocity);
+
+    const travelled = tilesTravelled(franc.velocity, franc.verticalVelocity) * 120;
+    const expected = travelled / DIE_EDGE;
+
+    // Large tolérance : les rebonds et le vol initial décalent le compte.
+    expect(faces).toBeLessThan(expected * 1.6);
   });
 });
