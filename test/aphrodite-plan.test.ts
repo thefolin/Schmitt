@@ -9,13 +9,15 @@ import {
 /**
  * Où Aphrodite envoie les pions.
  *
- * CE QUI SE VÉRIFIE ICI NE DÉPEND D'AUCUNE DES TROIS QUESTIONS encore
- * ouvertes chez Quentin — la contrainte de direction, l'étendue de la
- * sélection dans l'application, le cas à deux joueurs. Quel que soit l'écran
- * qu'il choisira, un dé de 4 vers l'avant depuis la case 7 mène à la case 11.
+ * Le calcul lui-même ne dépend d'aucun choix d'écran : un dé de 4 vers
+ * l'avant depuis la case 7 mène à la case 11, quelle que soit la façon dont
+ * on le demande.
  *
- * Le reste de la faveur — l'écran, l'enchaînement des effets — attend ses
- * réponses.
+ * S'Y AJOUTE DEPUIS UNE RÈGLE TRANCHÉE PAR QUENTIN : un joueur part en
+ * avant, l'autre en arrière. Ce sont les colonnes « + » et « − » de son
+ * sketch qui portent la direction, et chacune reçoit un dé. La règle écrite
+ * disait seulement « déplacez-les en avant ou arrière », et `main` laissait
+ * les deux aller du même côté — c'est donc un CHANGEMENT, décidé par lui.
  */
 
 const LAST = 22;
@@ -93,10 +95,13 @@ describe('Aphrodite — le plan des deux déplacements', () => {
 });
 
 describe('Aphrodite — un dé ne sert qu\'une fois', () => {
-  it('accepte deux joueurs et deux dés distincts', () => {
+  it('accepte deux joueurs, deux dés et les deux sens', () => {
     expect(
       aphroditeReady(
-        [choice({ player: 1, diceSlot: 0 }), choice({ player: 2, diceSlot: 1 })],
+        [
+          choice({ player: 1, diceSlot: 0, direction: 'forward' }),
+          choice({ player: 2, diceSlot: 1, direction: 'backward' }),
+        ],
         2
       )
     ).toBe(true);
@@ -121,8 +126,8 @@ describe('Aphrodite — un dé ne sert qu\'une fois', () => {
     expect(
       aphroditeReady(
         [
-          choice({ player: 1, diceSlot: 0, dice: 3 }),
-          choice({ player: 2, diceSlot: 1, dice: 3 }),
+          choice({ player: 1, diceSlot: 0, dice: 3, direction: 'forward' }),
+          choice({ player: 2, diceSlot: 1, dice: 3, direction: 'backward' }),
         ],
         2
       )
@@ -132,7 +137,10 @@ describe('Aphrodite — un dé ne sert qu\'une fois', () => {
   it('refuse de déplacer deux fois le même joueur', () => {
     expect(
       aphroditeReady(
-        [choice({ player: 1, diceSlot: 0 }), choice({ player: 1, diceSlot: 1 })],
+        [
+          choice({ player: 1, diceSlot: 0, direction: 'forward' }),
+          choice({ player: 1, diceSlot: 1, direction: 'backward' }),
+        ],
         2
       )
     ).toBe(false);
@@ -143,6 +151,42 @@ describe('Aphrodite — un dé ne sert qu\'une fois', () => {
     // message d'erreur après coup.
     expect(aphroditeReady([choice()], 2)).toBe(false);
     expect(aphroditeReady([], 2)).toBe(false);
+  });
+
+  it('refuse que les deux partent DU MÊME CÔTÉ', () => {
+    // RÈGLE TRANCHÉE PAR QUENTIN en lisant son sketch : ce sont les colonnes
+    // « + » et « − » qui portent la direction, et chacune reçoit un dé. Un
+    // joueur part donc en avant, l'autre en arrière.
+    //
+    // C'est un CHANGEMENT : la règle écrite dit « déplacez-les en avant ou
+    // arrière » sans l'imposer, et `main` laisse les deux aller du même
+    // côté.
+    expect(
+      aphroditeReady(
+        [
+          choice({ player: 1, diceSlot: 0, direction: 'forward' }),
+          choice({ player: 2, diceSlot: 1, direction: 'forward' }),
+        ],
+        2
+      )
+    ).toBe(false);
+
+    expect(
+      aphroditeReady(
+        [
+          choice({ player: 1, diceSlot: 0, direction: 'backward' }),
+          choice({ player: 2, diceSlot: 1, direction: 'backward' }),
+        ],
+        2
+      )
+    ).toBe(false);
+  });
+
+  it('n\'impose AUCUN sens quand un seul joueur est déplacé', () => {
+    // À deux joueurs il n'y a qu'un adversaire : lui demander d'aller à la
+    // fois en avant et en arrière n'aurait aucun sens.
+    expect(aphroditeReady([choice({ direction: 'forward' })], 1)).toBe(true);
+    expect(aphroditeReady([choice({ direction: 'backward' })], 1)).toBe(true);
   });
 
   it('accepte un seul choix quand un seul est attendu', () => {

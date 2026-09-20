@@ -99,15 +99,22 @@ export function aphroditePlan(
 /**
  * Les choix sont-ils complets et recevables ?
  *
- * UN DÉ NE SERT QU'UNE FOIS. C'est la seule contrainte que la règle pose
- * explicitement — « associez 1 dé à chacun » — et c'est aussi celle que le
+ * UN DÉ NE SERT QU'UNE FOIS. C'est la seule contrainte que la règle écrite
+ * pose explicitement — « associez 1 dé à chacun » — et c'est celle que le
  * sketch de Quentin rend visible en barrant le dé déjà pris dans l'autre
  * colonne. La vérifier ici permet à l'écran de refuser « Valider » plutôt
  * que d'afficher une erreur après coup.
  *
- * ON NE VÉRIFIE PAS LES DIRECTIONS : savoir s'il faut un joueur en avant et
- * un en arrière, ou si chacun est libre, n'est pas tranché. Trancher ici
- * reviendrait à inventer une règle.
+ * UN JOUEUR PART EN AVANT, L'AUTRE EN ARRIÈRE. Quentin l'a tranché en
+ * lisant son propre sketch : ce sont les colonnes « + » et « − » qui
+ * portent la direction, et chacune reçoit un dé. La règle écrite disait
+ * seulement « déplacez-les en avant ou arrière », et `main` laissait les
+ * deux aller du même côté — c'est donc un CHANGEMENT de règle, décidé par
+ * lui et non déduit du dessin.
+ *
+ * La contrainte ne s'applique QUE lorsque deux adversaires sont déplacés :
+ * à deux joueurs il n'y en a qu'un, et lui imposer deux directions à la
+ * fois n'aurait aucun sens.
  */
 export function aphroditeReady(choices: AphroditeChoice[], expected: number): boolean {
   if (choices.length !== expected) return false;
@@ -120,6 +127,13 @@ export function aphroditeReady(choices: AphroditeChoice[], expected: number): bo
   // leur rang dans le jet et non par leur face : deux dés peuvent montrer le
   // même nombre, et ce sont bien deux dés différents.
   const slots = new Set(choices.map(choice => choice.diceSlot));
+  if (slots.size !== choices.length) return false;
 
-  return slots.size === choices.length;
+  // Les deux sens sont pris, un par colonne.
+  if (choices.length === 2) {
+    const directions = new Set(choices.map(choice => choice.direction));
+    if (directions.size !== 2) return false;
+  }
+
+  return true;
 }
