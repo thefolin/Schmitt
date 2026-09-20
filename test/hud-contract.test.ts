@@ -144,3 +144,34 @@ describe('HUD — le diagnostic a quitté l\'écran de jeu', () => {
     expect(scene).toMatch(/diagnostics\.hidden\s*=\s*!overrides\.outline/);
   });
 });
+
+describe('HUD — le bouton de recette d\'Aphrodite', () => {
+  it('existe dans la barre du bas', () => {
+    // Aphrodite sort sur deux jets sur trente-six, après être tombé sur un
+    // temple : une faveur sur dix-huit. L'atteindre en jouant est
+    // impraticable, et Quentin veut la tester au clic.
+    expect(pageIds().has('test-aphrodite')).toBe(true);
+
+    const foot = page.slice(page.indexOf('<div class="foot"'), page.indexOf('</body>'));
+    expect(foot).toContain('id="test-aphrodite"');
+  });
+
+  it('est masqué en partie normale', () => {
+    // Laissé visible, il finirait pressé par un joueur qui se demande ce
+    // que c'est — et Aphrodite déplacerait deux pions sans raison.
+    expect(page).toMatch(/<button id="test-aphrodite"[^>]*\bhidden\b/);
+    expect(scene).toMatch(/aphroditeTest\.hidden\s*=\s*!debugMode/);
+  });
+
+  it('passe par le VRAI chemin de la faveur', () => {
+    // Un raccourci qui ouvrirait l'écran directement testerait autre chose
+    // que le jeu : c'est le lancer des deux dés, la suspension du tour et
+    // le retour à la partie qu'on veut éprouver, pas seulement l'affichage.
+    const handler = scene.slice(
+      scene.indexOf("const aphroditeTest"),
+      scene.indexOf("document.getElementById('roll')")
+    );
+
+    expect(handler).toContain('offerAphroditeDice()');
+  });
+});

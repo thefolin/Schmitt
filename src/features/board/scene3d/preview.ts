@@ -209,7 +209,8 @@ async function main(): Promise<void> {
     scene,
     applyPreferredView,
     refresh,
-    overrides.favor
+    overrides.favor,
+    overrides.outline
   );
 
   // Basculer entre « tout voir » et « suivre le pion », quand le joueur
@@ -406,7 +407,9 @@ function attachDice(
   follow: () => void,
   refresh: () => void,
   /** La faveur forcée en recette (`?favor=4`), ou `null` en partie. */
-  forcedFavor: number | null
+  forcedFavor: number | null,
+  /** La recette est-elle ouverte (`?debug=1`) ? */
+  debugMode: boolean
 ): (x: number, y: number) => boolean {
   // L'aire de jeu épouse le PLATEAU, et non un carré inventé : le dé roule
   // sur les cases et rebondit sur leurs bords. « Pas de je jette le dé dans
@@ -1215,6 +1218,31 @@ function attachDice(
   // Le dé est POSÉ avant que la partie commence : sans cela il attend à
   // l'origine du monde, dans un coin, au lieu du milieu du tapis.
   restDie();
+
+  // LE BOUTON DE RECETTE D'APHRODITE. Elle sort sur deux jets sur
+  // trente-six, après être tombé sur un temple : une faveur sur dix-huit.
+  //
+  // IL PASSE PAR LE VRAI CHEMIN — `offerAphroditeDice`, celui qu'emprunte
+  // une faveur tirée en jouant. Un raccourci qui ouvrirait l'écran
+  // directement testerait autre chose que le jeu : c'est le lancer des deux
+  // dés, la suspension du tour et le retour à la partie qu'on veut
+  // éprouver, pas seulement l'affichage.
+  //
+  // Il ne paraît qu'avec `?debug=1` : laissé visible en partie, il finirait
+  // pressé par un joueur qui se demande ce que c'est.
+  const aphroditeTest = document.getElementById('test-aphrodite');
+  if (aphroditeTest) {
+    aphroditeTest.hidden = !debugMode;
+
+    aphroditeTest.addEventListener('click', () => {
+      // Pendant un lancer ou une marche, on ne s'invite pas : la scène est
+      // déjà occupée, et deux séquences en vol se marcheraient dessus.
+      if (frame !== null || walking || favorDice.rolling || awaitingValidation) return;
+
+      awaitingValidation = true;
+      offerAphroditeDice();
+    });
+  }
 
   document.getElementById('roll')?.addEventListener('click', roll);
 
