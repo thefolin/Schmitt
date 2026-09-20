@@ -1,0 +1,20 @@
+{
+  "bundleId": "com.schmittodyssee.app",
+  "appName": "Schmitt Odyssée",
+  "appNameShort": "Schmitt",
+  "version": "1.0.0",
+  "buildNumber": 1,
+  "minimumOSVersion": "13.0",
+  "targetSDK": "17.0",
+  "developmentTeam": "",
+  "signingIdentity": "Apple Development",
+  "_comments": {
+    "bundleId": "Must match Capacitor appId in capacitor.config.ts",
+    "version": "Synced from package.json; update there, not here",
+    "buildNumber": "Incremented for each release; auto-managed by CI/CD",
+    "minimumOSVersion": "Capacitor 6 requires iOS 13+",
+    "targetSDK": "Latest stable iOS SDK version",
+    "developmentTeam": "Apple Team ID (leave empty for auto-signing with Apple ID)",
+    "signingIdentity": "Use 'Apple Development' for free Apple ID; 'iPhone Distribution' for App Store"
+  }
+}

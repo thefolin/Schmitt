@@ -1,0 +1,61 @@
+.PHONY: ios-setup ios-dev ios-test ios-build ios-clean ios-help
+
+# iOS Build Makefile for Schmitt Odyssée
+# Usage: make -f Makefile.ios <target>
+# Or add to main Makefile if it exists
+
+iOS_CONFIG := ios/build.config.json
+BUILD_SCRIPT := ./scripts/ios-build.sh
+
+# Default target
+.DEFAULT_GOAL := ios-help
+
+# Colors
+BLUE := \033[0;34m
+GREEN := \033[0;32m
+RED := \033[0;31m
+NC := \033[0m # No Color
+
+ios-help:
+	@echo "$(BLUE)=== Schmitt Odyssée iOS Build Targets ===$(NC)"
+	@echo ""
+	@echo "$(GREEN)Development:$(NC)"
+	@echo "  make -f Makefile.ios ios-setup   Initialize iOS platform (one-time)"
+	@echo "  make -f Makefile.ios ios-dev     Build debug for simulator"
+	@echo "  make -f Makefile.ios ios-test    Build debug for device"
+	@echo ""
+	@echo "$(GREEN)Release:$(NC)"
+	@echo "  make -f Makefile.ios ios-build   Build release archive"
+	@echo "  make -f Makefile.ios ios-clean   Clean build artifacts"
+	@echo ""
+	@echo "$(GREEN)Info:$(NC)"
+	@echo "  make -f Makefile.ios ios-status  Show build configuration"
+	@echo "  make -f Makefile.ios ios-help    Show this help"
+	@echo ""
+
+ios-setup:
+	@npm run ios:setup
+
+ios-dev:
+	@npm run ios:dev
+
+ios-test:
+	@npm run ios:test
+
+ios-build:
+	@npm run ios:build
+
+ios-clean:
+	@npm run ios:clean
+
+ios-status:
+	@echo "$(BLUE)iOS Build Configuration:$(NC)"
+	@echo ""
+	@node -e "const c = require('./$(iOS_CONFIG)'); console.log('  App Name: ' + c.appName); console.log('  Bundle ID: ' + c.bundleId); console.log('  Version: ' + c.version); console.log('  Build Number: ' + c.buildNumber); console.log('  Target SDK: ' + c.targetSDK); console.log('  Min iOS: ' + c.minimumOSVersion);"
+	@echo ""
+	@echo "$(BLUE)Environment:$(NC)"
+	@echo "  Node: $$(node --version)"
+	@echo "  npm: $$(npm --version)"
+	@echo "  Xcode: $$(xcodebuild -version 2>/dev/null | head -1 || echo 'not found')"
+	@echo "  CocoaPods: $$(pod --version 2>/dev/null || echo 'not found')"
+	@echo ""

@@ -18,9 +18,11 @@
     "android:build": "npm run build:mobile && cap sync android",
     "android:open": "npm run android:build && cap open android",
     "android:dev": "npm run build:mobile && cap sync android && cap run android",
-    "ios:build": "npm run build:mobile && cap sync ios",
-    "ios:open": "npm run ios:build && cap open ios",
-    "ios:dev": "npm run build:mobile && cap sync ios && cap run ios"
+    "ios:setup": "node scripts/validate-env.js && ./scripts/ios-build.sh setup",
+    "ios:dev": "node scripts/validate-env.js && ./scripts/ios-build.sh dev",
+    "ios:test": "node scripts/validate-env.js && ./scripts/ios-build.sh test",
+    "ios:build": "node scripts/validate-env.js && ./scripts/ios-build.sh release",
+    "ios:clean": "./scripts/ios-build.sh clean"
   },
   "devDependencies": {
     "@types/estree": "^1.0.8",
