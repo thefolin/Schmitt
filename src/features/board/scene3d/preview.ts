@@ -14,7 +14,7 @@ import { WORLD_DICE_CONFIG, rollingSpinRate } from './dice-world-config';
 import { diceArena } from './dice-arena';
 import { FavorDice } from './favor-dice';
 import { duringFavor, betweenFavors, type DiceVisibility } from './dice-on-stage';
-import { grabProbes, gestureOwner } from './grab-zone';
+import { grabProbes, gestureOwner, followsFinger } from './grab-zone';
 import { walkPath } from './pawn-path';
 import { walkFrame } from './pawn-walk';
 import { swipeToThrow, GRAB_LIFT, type ThrowRequest } from './dice-gesture';
@@ -901,7 +901,18 @@ function attachDiceGrab(
    * est inclinée.
    */
   const follow = (clientX: number, clientY: number): void => {
-    if (!holding) return;
+    // DEUX VERROUS, et le second est celui qui manquait. `holding` dit que le
+    // doigt tient le dé ; `canRoll()` dit qu'un lancer est encore attendu.
+    //
+    // Quentin : « il suit le curseur après l'avoir jeté ». Si le `pointerup`
+    // n'arrive pas — souris sortie de la fenêtre, geste interrompu par le
+    // système, `preventDefault` sur certaines WebViews — `holding` reste vrai
+    // et le dé continue de coller au curseur PENDANT qu'il roule. Deux
+    // autorités se disputaient alors sa position : la physique et le doigt.
+    //
+    // Dès que le dé est lancé, `canRoll()` devient faux : le dé cesse d'être
+    // au doigt, quoi qu'ait fait le relâchement. « Qu'il vive tout seul. »
+    if (!followsFinger(holding, canRoll())) return;
 
     const point = scene.screenToBoard(clientX, clientY, Dice3DScene.halfSize + GRAB_LIFT);
     if (!point) return;
@@ -958,6 +969,21 @@ function attachDiceGrab(
     }
   };
 
+  /**
+   * Coupe la prise, sans rien lancer.
+   *
+   * Filet pour les cas où le relâchement n'arrive jamais : la souris quitte
+   * la fenêtre, l'onglet passe en arrière-plan, le système interrompt le
+   * geste. Sans lui, `holding` reste vrai indéfiniment et le dé colle au
+   * curseur pour le reste de la partie.
+   */
+  const letGo = (): void => {
+    if (!holding) return;
+
+    holding = false;
+    setHeld(false);
+  };
+
   container.addEventListener(
     'pointerdown',
     event => {
@@ -987,10 +1013,14 @@ function attachDiceGrab(
   window.addEventListener('pointermove', event => follow(event.clientX, event.clientY));
 
   window.addEventListener('pointerup', event => release(event.clientX, event.clientY));
-  window.addEventListener('pointercancel', () => {
-    if (!holding) return;
-    holding = false;
-    setHeld(false);
+  window.addEventListener('pointercancel', letGo);
+
+  // Le curseur qui SORT de la fenêtre sans relâcher : sans cela le dé reste
+  // en main et suit le pointeur au retour.
+  window.addEventListener('pointerleave', letGo);
+  window.addEventListener('blur', letGo);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) letGo();
   });
 
   // Rendu à la caméra pour qu'elle se taise quand le geste appartient au dé.

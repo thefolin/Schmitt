@@ -56,6 +56,28 @@ export function grabProbes(x: number, y: number): { x: number; y: number }[] {
   }));
 }
 
+/**
+ * Le dé doit-il encore suivre le doigt ?
+ *
+ * Quentin (20/09/2026) : « il suit le curseur après l'avoir jeté, il
+ * faudrait qu'il parte de lui-même, qu'il vive tout seul ».
+ *
+ * DEUX CONDITIONS, et c'est la seconde qui manquait. `holding` dit que le
+ * doigt tient le dé ; `awaitingThrow` dit qu'un lancer est encore attendu.
+ *
+ * Si le relâchement n'arrive jamais — souris sortie de la fenêtre, geste
+ * interrompu par le système — `holding` reste vrai et le dé continue de
+ * coller au curseur PENDANT qu'il roule. Deux autorités se disputent alors sa
+ * position : la physique qui le fait rouler, et le doigt qui le traîne. La
+ * physique perd, et le dé ne vit plus sa vie.
+ *
+ * Dès qu'il est lancé, il cesse d'être au doigt, quoi qu'ait fait le
+ * relâchement.
+ */
+export function followsFinger(holding: boolean, awaitingThrow: boolean): boolean {
+  return holding && awaitingThrow;
+}
+
 /** Qui prend un geste qui commence à cet endroit. */
 export type GestureOwner = 'dice' | 'camera';
 

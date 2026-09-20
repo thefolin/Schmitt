@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   grabProbes,
   gestureOwner,
+  followsFinger,
   GRAB_PADDING_PX,
 } from '@/features/board/scene3d/grab-zone';
 
@@ -85,5 +86,37 @@ describe('3D-63 — la zone de prise est plus large que le dé', () => {
     const seen = new Set(probes.map(p => `${p.x},${p.y}`));
 
     expect(seen.size).toBe(probes.length);
+  });
+});
+
+describe('3D-65 — le dé lâché vit sa vie', () => {
+  it('suit le doigt tant qu\'on le tient et qu\'il n\'est pas lancé', () => {
+    expect(followsFinger(true, true)).toBe(true);
+  });
+
+  it('CESSE de suivre dès qu\'il est lancé', () => {
+    // Quentin : « il suit le curseur après l'avoir jeté, il faudrait qu'il
+    // parte de lui-même, qu'il vive tout seul ».
+    //
+    // C'est le verrou qui manquait. Si le relâchement n'arrive jamais —
+    // souris sortie de la fenêtre, geste interrompu par le système — la
+    // prise reste vraie et le dé colle au curseur PENDANT qu'il roule.
+    expect(followsFinger(true, false)).toBe(false);
+  });
+
+  it('ne suit pas un doigt qui ne tient rien', () => {
+    expect(followsFinger(false, true)).toBe(false);
+  });
+
+  it('ne laisse jamais deux autorités déplacer le dé', () => {
+    // L'INVARIANT, et c'est lui qui produisait le défaut : la physique fait
+    // rouler le dé, le doigt le traîne, et la physique perd. Tant qu'un
+    // lancer est en cours, le doigt n'a plus la main — quel que soit l'état
+    // de la prise.
+    const rolling = false;
+
+    for (const holding of [true, false]) {
+      expect(followsFinger(holding, rolling)).toBe(false);
+    }
   });
 });
