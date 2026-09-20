@@ -8,7 +8,6 @@ import {
   TextureLoader,
   SRGBColorSpace,
   Color,
-  DoubleSide,
   Sprite,
   SpriteMaterial,
   type Texture,
@@ -498,13 +497,21 @@ export class BoardTiles3D {
   /**
    * Pose les deux colonnes de pouvoirs de part et d'autre du parcours.
    *
-   * DEBOUT, et non à plat : ce sont des colonnes. Posées au sol elles se
-   * liraient de biais sous une vue plongeante — et le joueur incline la vue
-   * comme il veut depuis #74, donc une image couchée deviendrait illisible
-   * dès qu'il se rapproche de l'horizontale.
+   * DES SPRITES, et non des plans. Quentin les veut « toujours face à la
+   * caméra, quel que soit l'angle de vue » : c'est exactement ce qu'est un
+   * sprite dans Three.js, et il n'y a donc RIEN à écrire pour l'obtenir.
+   * Aucun code de réorientation, aucune mise à jour par image — le moteur
+   * les oriente au rendu, ce qui est aussi plus juste qu'un calcul fait à la
+   * main une fois par tour.
    *
-   * `DoubleSide` parce qu'on peut tourner autour du plateau : une colonne
-   * qui disparaît quand on passe derrière ferait un trou dans le décor.
+   * C'est le même mécanisme que les badges de statut des pions (SCH-17), et
+   * pour la même raison : le joueur incline et pivote la vue comme il veut
+   * depuis #74, donc rien de plat ne reste lisible.
+   *
+   * CE QUE ÇA CHANGE par rapport aux plans précédents : un plan orienté une
+   * fois pour toutes se présentait de profil — donc invisible — dès que le
+   * joueur tournait d'un quart de tour. Un sprite ne peut pas disparaître
+   * ainsi, et `DoubleSide` n'a plus lieu d'être : un sprite n'a pas de dos.
    */
   private createColumns(minX: number, maxX: number, z: number, depth: number): void {
     const height = depth * COLUMN_HEIGHT_FIT;
@@ -520,12 +527,13 @@ export class BoardTiles3D {
       texture.colorSpace = SRGBColorSpace;
       this.textures.push(texture);
 
-      const column = new Mesh(
-        new PlaneGeometry(width, height),
-        new MeshLambertMaterial({ map: texture, transparent: true, side: DoubleSide })
-      );
+      const column = new Sprite(new SpriteMaterial({ map: texture, transparent: true }));
 
-      // Le pied posé sur le tapis, la colonne montant vers le haut.
+      // `scale` tient lieu de dimensions : un sprite n'a pas de géométrie
+      // propre, il est mis à l'échelle au rendu.
+      column.scale.set(width, height, 1);
+
+      // Le pied posé sur le tapis, le panneau montant vers le haut.
       column.position.set(side.x, height / 2, z);
       column.name = side.name;
 

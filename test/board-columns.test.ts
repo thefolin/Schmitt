@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { Mesh } from 'three';
+import { Sprite, Object3D } from 'three';
 import { BoardTiles3D } from '@/features/board/scene3d/board-tiles-3d';
 import type { TileConfig } from '@/core/models/Tile';
 import type { BoardLayoutConfig } from '@/features/board/camera/board-layout.config';
@@ -43,8 +43,8 @@ function boardOf(count: number): void {
   );
 }
 
-function column(side: 'left' | 'right'): Mesh | null {
-  return (tiles.group.getObjectByName(`column-${side}`) as Mesh | undefined) ?? null;
+function column(side: 'left' | 'right'): Object3D | null {
+  return tiles.group.getObjectByName(`column-${side}`) ?? null;
 }
 
 describe('colonnes — elles encadrent le parcours', () => {
@@ -89,30 +89,37 @@ describe('colonnes — elles encadrent le parcours', () => {
   });
 });
 
-describe('colonnes — elles se tiennent debout', () => {
-  it('les dresse au-dessus du tapis, et non couchées dessus', () => {
-    // DEBOUT, parce que ce sont des colonnes : posées à plat elles se
-    // liraient de biais, et le joueur incline la vue comme il veut (#74).
+describe('colonnes — elles font toujours face au joueur', () => {
+  it('en fait des SPRITES, et non des plans', () => {
+    // C'EST LA DEMANDE DE QUENTIN : « toujours face à la caméra, peu importe
+    // l'angle de vue ». Un sprite l'est par construction — le moteur
+    // l'oriente au rendu, sans une ligne de code de réorientation.
+    //
+    // Ce test ne vérifie donc pas un calcul, il vérifie le CHOIX DE TYPE :
+    // repasser à un `Mesh` plan ramènerait le défaut que ça corrige, une
+    // colonne qui se présente de profil dès qu'on tourne d'un quart de tour.
+    boardOf(5);
+
+    expect(column('left')).toBeInstanceOf(Sprite);
+    expect(column('right')).toBeInstanceOf(Sprite);
+  });
+
+  it('les dresse au-dessus du tapis', () => {
     boardOf(5);
 
     const table = tiles.group.getObjectByName('table')!;
 
     expect(column('left')!.position.y).toBeGreaterThan(table.position.y);
-    expect(column('left')!.rotation.x).toBeCloseTo(0, 5);
   });
 
   it('garde les proportions de l\'image', () => {
     // 790×1920 : hautes et étroites. Les étirer écraserait les dieux.
+    // Un sprite n'a pas de géométrie : ses dimensions sont dans `scale`.
     boardOf(8);
 
-    const geometry = column('left')!.geometry as {
-      parameters: { width: number; height: number };
-    };
+    const size = column('left')!.scale;
 
-    expect(geometry.parameters.width / geometry.parameters.height).toBeCloseTo(
-      790 / 1920,
-      2
-    );
+    expect(size.x / size.y).toBeCloseTo(790 / 1920, 2);
   });
 });
 
