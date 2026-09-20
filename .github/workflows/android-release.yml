@@ -70,6 +70,27 @@ jobs:
           export CAPACITOR_PLATFORM=true
           npm run build
 
+      # L'APK OUVRE LA SCÈNE 3D, et non le rendu CSS.
+      #
+      # Capacitor n'expose aucune « page d'entrée » : il sert `webDir` et
+      # ouvre le fichier nommé `index.html`. Or tout ce qu'il y a à tester
+      # sur téléphone vit dans `index-3d.html` — mode cinéma, secousse,
+      # colonnes des dieux, tracé du plateau, contrôles de caméra. Un APK
+      # ouvrant `index.html` n'en montrerait rien.
+      #
+      # La bascule se fait ICI plutôt que dans le dépôt : le site garde son
+      # accueil CSS, et seul l'APK change de page. Le rendu CSS reste
+      # d'ailleurs embarqué, sous son nom d'origine.
+      #
+      # À RETIRER le jour où la refonte fusionne dans `main` : `index.html`
+      # portera alors la scène 3D, et cette étape n'aura plus lieu d'être.
+      - name: Ouvrir la scène 3D dans l'APK
+        run: |
+          cd dist
+          mv index.html index-css.html
+          mv index-3d.html index.html
+          ls -la *.html
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
