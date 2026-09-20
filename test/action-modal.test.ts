@@ -178,6 +178,26 @@ describe('modale — le jeu attend la validation', () => {
   });
 });
 
+/**
+ * Est-elle réellement escamotée À L'ÉCRAN ?
+ *
+ * CE DÉTAIL A COÛTÉ UN ALLER-RETOUR SUR L'APK. Le premier test lisait la
+ * propriété `hidden`, qui restait `true` pendant que la modale s'affichait :
+ * l'attribut ne vaut qu'un `display: none` de la feuille par défaut du
+ * navigateur, et `.setup-screen` pose `display: flex`, qui l'emporte. Le
+ * DOM disait « cachée », l'écran montrait le contraire, et le test croyait
+ * la zone couverte.
+ *
+ * jsdom ne calcule aucun style : on vérifie donc `display` posé sur
+ * l'élément, qui est ce que le code contrôle désormais sans dépendre de
+ * l'ordre des feuilles.
+ */
+function escamotee(selector: string): boolean {
+  const element = document.querySelector<HTMLElement>(selector)!;
+
+  return element.hidden && element.style.display === 'none';
+}
+
 describe('modale — on peut aller voir le plateau et revenir', () => {
   it('escamote sans rendre la main', () => {
     // C'EST LE POINT : « Voir le plateau » ne solde pas le tour. Si elle
@@ -188,7 +208,7 @@ describe('modale — on peut aller voir le plateau et revenir', () => {
 
     document.querySelector<HTMLButtonElement>('#action-peek')!.click();
 
-    expect(document.querySelector<HTMLElement>('.action-modal')!.hidden).toBe(true);
+    expect(escamotee('.action-modal')).toBe(true);
     expect(done).not.toHaveBeenCalled();
   });
 
@@ -197,11 +217,11 @@ describe('modale — on peut aller voir le plateau et revenir', () => {
     // resterait suspendue sans que rien ne l'explique.
     showActionModal({ title: 'Test', lines: ['x'] }, () => {});
 
-    expect(document.querySelector<HTMLElement>('#action-recall')!.hidden).toBe(true);
+    expect(escamotee('#action-recall')).toBe(true);
 
     document.querySelector<HTMLButtonElement>('#action-peek')!.click();
 
-    expect(document.querySelector<HTMLElement>('#action-recall')!.hidden).toBe(false);
+    expect(escamotee('#action-recall')).toBe(false);
   });
 
   it('ramène la modale au rappel', () => {
@@ -210,8 +230,8 @@ describe('modale — on peut aller voir le plateau et revenir', () => {
     document.querySelector<HTMLButtonElement>('#action-peek')!.click();
     document.querySelector<HTMLButtonElement>('#action-recall')!.click();
 
-    expect(document.querySelector<HTMLElement>('.action-modal')!.hidden).toBe(false);
-    expect(document.querySelector<HTMLElement>('#action-recall')!.hidden).toBe(true);
+    expect(escamotee('.action-modal')).toBe(false);
+    expect(escamotee('#action-recall')).toBe(true);
   });
 
   it('emporte le rappel en validant', () => {
@@ -261,5 +281,58 @@ describe('modale — la prise du titre de Poulet s\'annonce', () => {
     const content = modalContent(plainTurn({ chicken: { rank: 2 } }), tile({ type: 'chicken', name: 'POULET' }));
 
     expect(content!.lines.join(' ')).toContain('distribuera');
+  });
+});
+
+describe('modale — elle dit OÙ le pion s\'est posé', () => {
+  it('annonce la case et son nom', () => {
+    // Demande de Quentin après essai sur l'APK : la modale énonçait la règle
+    // sans dire d'où elle venait. Le pion est petit et la caméra bouge — on
+    // ne voit pas toujours sur quelle case il s'est arrêté.
+    const content = modalContent(
+      plainTurn({ to: 6, drinks: { player: 0, amount: 3 } }),
+      tile({ icon: '🍺', name: 'BUVEZ 3 GORGÉES' })
+    );
+
+    expect(content!.tile).toContain('Case 7');
+    expect(content!.tile).toContain('BUVEZ 3 GORGÉES');
+  });
+
+  it('compte comme la barre de progression, à partir de un', () => {
+    // DEUX NUMÉROTATIONS SE CONTREDIRAIENT sous les yeux du joueur : la
+    // barre annonce « Case 7 / 23 » au même moment, juste en dessous.
+    const content = modalContent(plainTurn({ to: 0, drinks: { player: 0, amount: 2 } }), tile());
+
+    expect(content!.tile).toContain('Case 1');
+  });
+
+  it('annonce la case D\'ARRIVÉE quand une flèche a déplacé le pion', () => {
+    // C'EST LE PIÈGE : le dé pose le pion sur une case, la flèche l'envoie
+    // ailleurs. Annoncer la case du dé désignerait un endroit que le pion a
+    // déjà quitté, et la règle énoncée ne serait pas celle de la case
+    // montrée.
+    const content = modalContent(
+      plainTurn({
+        to: 4,
+        effect: { type: 'forward_2', from: 4, to: 6 },
+        drinks: { player: 0, amount: 3 },
+      }),
+      tile()
+    );
+
+    expect(content!.tile).toContain('Case 7');
+    expect(content!.tile).not.toContain('Case 5');
+  });
+
+  it('reste affichable si la case est inconnue', () => {
+    const content = modalContent(plainTurn({ to: 3, winner: 'Bastien' }), null);
+
+    expect(content!.tile).toBe('Case 4');
+  });
+
+  it('affiche la case dans la carte', () => {
+    showActionModal({ title: 'T', tile: 'Case 7 · 🐔 POULET', lines: ['x'] }, () => {});
+
+    expect(document.querySelector('.action-modal-tile')!.textContent).toContain('Case 7');
   });
 });

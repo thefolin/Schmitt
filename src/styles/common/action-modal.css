@@ -27,6 +27,21 @@
   backdrop-filter: blur(6px);
 }
 
+/*
+ * ESCAMOTER LA MODALE, pour de bon.
+ *
+ * `.setup-screen` pose `display: flex`, qui l'emporte sur l'attribut
+ * `hidden` — celui-ci ne vaut qu'un `display: none` de la feuille par
+ * défaut du navigateur, que la moindre règle d'auteur écrase. Sans cette
+ * règle, « Voir le plateau » marquait bien l'élément caché dans le DOM et
+ * la modale restait affichée à l'écran. Défaut remonté par Quentin sur
+ * l'APK, et que le test ne voyait pas : il lisait la propriété `hidden`,
+ * pas le style calculé.
+ */
+.action-modal[hidden] {
+  display: none;
+}
+
 /* Les colonnes grecques du setup n'ont pas leur place ici : elles cadrent
    une page entière, pas une carte posée sur un plateau. */
 .action-modal::before,
@@ -42,8 +57,37 @@
   color: var(--text-base);
 }
 
-/* La première phrase est celle qui compte : c'est l'action à faire. */
-.action-modal-line:first-of-type {
+/*
+ * OÙ LE PION S'EST POSÉ — « Case 7 · 🐔 POULET ».
+ *
+ * Discrète et au-dessus de l'action : elle SITUE, elle n'est pas ce qu'il
+ * faut faire. Lui donner le poids de l'énoncé ferait hésiter entre les deux.
+ */
+.action-modal-tile {
+  margin-top: var(--sp-2);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: center;
+  color: var(--gold-400);
+}
+
+/*
+ * La première phrase est celle qui compte : c'est l'action à faire.
+ *
+ * `:first-of-type` NE CONVIENT PAS ici — il désigne le premier <p> de la
+ * carte, et la ligne de case en est un aussi depuis qu'elle existe. La règle
+ * ne visait donc plus rien, et l'énoncé perdait son relief sans que rien ne
+ * le signale.
+ *
+ * On désigne donc la ligne qui SUIT la case, ou le titre quand la case est
+ * inconnue. Deux sélecteurs frères plutôt qu'un `:nth-of-type(… of …)` :
+ * cette syntaxe n'existe que pour `:nth-child`, et un sélecteur invalide
+ * annulerait toute la règle sur le navigateur d'Android 5.1.
+ */
+.action-modal-tile + .action-modal-line,
+.action-modal-panel h2 + .action-modal-line {
   font-family: var(--font-display);
   font-size: var(--fs-xl);
   color: var(--text-strong);
@@ -136,8 +180,14 @@
     font-size: var(--fs-md);
   }
 
-  .action-modal-line:first-of-type {
+  .action-modal-tile + .action-modal-line,
+  .action-modal-panel h2 + .action-modal-line {
     font-size: var(--fs-lg);
+  }
+
+  .action-modal-tile {
+    margin-top: var(--sp-1);
+    font-size: var(--fs-xs);
   }
 
   .action-modal-buttons {

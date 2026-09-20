@@ -30,6 +30,17 @@ import { buildActionText, buildSubtitle, withGulpSymbol } from '@/features/game/
 export interface ModalContent {
   /** Le titre, court : ce qui vient d'arriver. */
   title: string;
+  /**
+   * OÙ le pion s'est arrêté — « Case 7 · 🐔 POULET ».
+   *
+   * Demande de Quentin après essai sur l'APK : la modale énonçait la règle
+   * sans dire d'où elle venait. Le pion est petit et la caméra bouge : on ne
+   * voit pas toujours sur quelle case il s'est posé, et l'énoncé seul ne
+   * permet pas de le vérifier.
+   *
+   * Vide quand la case est inconnue — la modale s'affiche quand même.
+   */
+  tile: string;
   /** Les phrases à lire à la table, dans l'ordre où elles s'appliquent. */
   lines: string[];
 }
@@ -53,6 +64,10 @@ export function modalContent(
   tile: TileConfig | null = null,
   shield: SettledShield | null = null
 ): ModalContent | null {
+  // LA CASE OÙ LE PION S'EST RÉELLEMENT ARRÊTÉ : celle d'après la flèche
+  // quand il y en a eu une, et non celle où le dé l'avait posé. Annoncer la
+  // case de départ d'une flèche désignerait un endroit que le pion a quitté.
+  const landed = outcome.effect ? outcome.effect.to : outcome.to;
   const lines: string[] = [];
 
   // LE BOUCLIER D'ABORD : il a intercepté une sanction, et ce qui suit se lit
@@ -121,7 +136,24 @@ export function modalContent(
 
   if (lines.length === 0) return null;
 
-  return { title: modalTitle(outcome), lines };
+  return { title: modalTitle(outcome), tile: tileLabel(landed, tile), lines };
+}
+
+/**
+ * Où le pion s'est arrêté, en une ligne.
+ *
+ * Le numéro suit la MÊME convention que la barre de progression : le joueur
+ * compte à partir de un. Deux numérotations pour le même plateau se
+ * contrediraient sous les yeux du joueur, qui a les deux à l'écran.
+ */
+function tileLabel(position: number, tile: TileConfig | null): string {
+  const number = `Case ${position + 1}`;
+  if (!tile) return number;
+
+  const name = tile.name?.trim();
+  const icon = tile.icon?.trim();
+
+  return [number, [icon, name].filter(Boolean).join(' ')].filter(Boolean).join(' \u00b7 ');
 }
 
 /** Le titre, tiré de ce qui domine le tour. */
@@ -165,6 +197,25 @@ export function showActionModal(
 ): ActionModalHandles {
   let pending = true;
 
+  /**
+   * Montre ou escamote la modale.
+   *
+   * `hidden` NE SUFFIT PAS, et c'est le défaut que Quentin a vu sur l'APK :
+   * l'attribut ne vaut qu'un `display: none` de la feuille par défaut du
+   * navigateur, et `.setup-screen` — dont la modale emprunte la mise en
+   * scène — pose `display: flex`. La modale restait donc affichée alors que
+   * le DOM la disait cachée.
+   *
+   * Le style est posé EN PLUS de l'attribut plutôt qu'à sa place : `hidden`
+   * porte le sens pour les lecteurs d'écran, `display` fait le travail sans
+   * dépendre de l'ordre des feuilles.
+   */
+  const reveal = (element: HTMLElement, shown: boolean): void => {
+    element.hidden = !shown;
+    element.style.display = shown ? '' : 'none';
+  };
+
+
   const screen = document.createElement('div');
   screen.className = 'setup-screen action-modal';
   screen.id = 'action-modal';
@@ -175,6 +226,15 @@ export function showActionModal(
   const title = document.createElement('h2');
   title.textContent = content.title;
   panel.appendChild(title);
+
+  // OÙ LE PION S'EST POSÉ, avant ce qu'il faut y faire : le joueur situe
+  // d'abord, applique ensuite.
+  if (content.tile) {
+    const where = document.createElement('p');
+    where.className = 'action-modal-tile';
+    where.textContent = content.tile;
+    panel.appendChild(where);
+  }
 
   for (const text of content.lines) {
     const line = document.createElement('p');
@@ -214,20 +274,23 @@ export function showActionModal(
   recall.className = 'action-modal-recall';
   recall.id = 'action-recall';
   recall.textContent = '\u{1F4DC} Revenir à l’action';
-  recall.hidden = true;
+  // L’état initial passe par le MÊME chemin que les bascules : deux façons
+  // de cacher le même bouton finiraient par diverger, et c’est exactement ce
+  // qui vient d’arriver à la modale.
+  reveal(recall, false);
 
   const peek = (): void => {
     if (!pending) return;
 
-    screen.hidden = true;
-    recall.hidden = false;
+    reveal(screen, false);
+    reveal(recall, true);
   };
 
   const restore = (): void => {
     if (!pending) return;
 
-    screen.hidden = false;
-    recall.hidden = true;
+    reveal(screen, true);
+    reveal(recall, false);
   };
 
   const validate = (): void => {
