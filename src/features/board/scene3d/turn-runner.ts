@@ -533,6 +533,51 @@ export class TurnRunner {
     this.logic.cancelPendingShield();
   }
 
+  /**
+   * Applique la case où un pion a été DÉPOSÉ par une faveur.
+   *
+   * Aphrodite déplace deux adversaires, et la règle le dit : « Ils appliquent
+   * alors l'effet de leur nouvel emplacement. » Sans cela, les pions
+   * changeaient de case et rien ne se passait — le déplacement restait sans
+   * conséquence.
+   *
+   * CE N'EST PAS UN TOUR. Le pion n'a pas lancé de dé, ne se déplace plus, et
+   * la main ne change pas : c'est le joueur d'Aphrodite qui joue toujours. On
+   * ne rejoue donc PAS `playTurn`, qui avancerait le pion et passerait la
+   * main.
+   *
+   * LES MÊMES RÈGLES QUE SUR UN TOUR ORDINAIRE, et non une seconde
+   * implémentation : `applyDrinking` et `applyChicken` sont ceux qu'emploie
+   * `playTurn`. Le Poulet posé par la case compte donc pour de bon, et le
+   * temple ouvre la faveur des dieux.
+   */
+  public applyLanding(player: number, position: number): TurnOutcome {
+    const who = this.logic.getPlayers()[player];
+
+    const drinking = this.applyDrinking(player, position);
+    const chicken = this.applyChicken(player, position);
+    const winner = this.logic.checkVictory();
+
+    return {
+      player,
+      playerName: who?.name ?? '',
+      // Aucun dé n'a été lancé pour arriver là : la face ne veut rien dire,
+      // et la donner ferait croire à un déplacement qui n'a pas eu lieu.
+      dice: 0,
+      steps: 0,
+      from: position,
+      to: position,
+      returning: who?.isReturning ?? false,
+      effect: null,
+      schmittPower: false,
+      winner: winner ? winner.name : null,
+      chicken,
+      // La sentence du Poulet tombe sur un JET : il n'y en a pas eu ici.
+      chickenPenalty: null,
+      ...drinking,
+    };
+  }
+
   /** Qui doit jouer maintenant. */
   public currentPlayerName(): string {
     return this.logic.getPlayers()[this.logic.getCurrentPlayerIndex()]?.name ?? '';

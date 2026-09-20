@@ -1041,7 +1041,34 @@ function attachDice(
         renderJournal(runner);
         showDice(betweenFavors());
 
-        awaitingValidation = false;
+        // LES CASES D'ARRIVÉE JOUENT, comme la règle le dit : « Ils
+        // appliquent alors l'effet de leur nouvel emplacement. » Sans cela
+        // les pions changeaient de case et rien ne se passait — le
+        // déplacement restait sans conséquence.
+        //
+        // Les étapes de TOUS les pions déplacés sont enchaînées d'un seul
+        // tenant, dans l'ordre des lignes de l'écran : le joueur valide
+        // l'une après l'autre, et la main ne revient qu'à la fin.
+        const landings = moves.flatMap(move =>
+          modalSteps(runner.applyLanding(move.player, move.to), board[move.to] ?? null)
+        );
+
+        if (landings.length === 0) {
+          awaitingValidation = false;
+          refresh();
+          return;
+        }
+
+        for (const line of landings.flatMap(step => step.lines)) runner.log(line);
+        renderJournal(runner);
+
+        runModalSteps(landings, () => {
+          tiles.setPawns(runner.pawns());
+
+          awaitingValidation = false;
+          refresh();
+        });
+
         refresh();
       }
     );
