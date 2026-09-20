@@ -53,6 +53,11 @@ import {
 } from './shake';
 import { tableAnnouncement } from './table-announcements';
 import { readDeviceOverride } from './device';
+import { askForPlayers } from './setup-screen';
+// Les tokens du design system précèdent la feuille qui les consomme :
+// `setup-screen.css` en emploie 43, et sans eux l'écran s'affiche nu.
+import '@/styles/common/design-system.css';
+import '@/styles/common/setup-screen.css';
 import { GameLogic } from '@/features/game/game.logic';
 import { TurnRunner } from './turn-runner';
 import { loadTileConfigs, TILE_CONFIGS } from '@/features/tiles/tile.config';
@@ -115,11 +120,15 @@ async function main(): Promise<void> {
   // et se contente de l'afficher.
   const logic = new GameLogic();
   logic.setBoardSize(positions.length);
-  logic.startGame([
-    { name: 'Alice', color: '#e2483d' },
-    { name: 'Bastien', color: '#3d7fc4' },
-    { name: 'Chloé', color: '#2f8f4e' },
-  ]);
+
+  // QUI JOUE ? La scène attend la réponse avant de commencer. Elle démarrait
+  // jusqu'ici sur trois joueurs écrits en dur — Alice, Bastien, Chloé — ce
+  // qui interdisait de jouer à quatre, de se nommer et de choisir sa
+  // couleur. Sur un jeu à boire qui se joue en soirée, c'est bloquant.
+  //
+  // Les noms sont retenus d'une partie à l'autre : on ne se renomme pas à
+  // chaque manche.
+  logic.startGame(await askForPlayers());
 
   const runner = new TurnRunner(logic);
 
