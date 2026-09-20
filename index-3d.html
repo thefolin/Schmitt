@@ -293,6 +293,56 @@
             font-size: 20px;
             line-height: 1;
         }
+        /* LE MODE CINÉMA, pendant que le dé roule.
+           Le HUD s'efface pour laisser l'écran au dé — c'est la moitié de ce
+           que le mode apporte, l'autre étant le cadre resserré.
+
+           En FONDU et non en `display: none` : faire disparaître les barres
+           d'un coup ferait sauter la mise en page, et le retour serait aussi
+           brutal que le départ. La transition dure le temps d'un clignement.
+
+           `pointer-events` suit l'opacité : un bouton invisible mais encore
+           cliquable est un piège, surtout au doigt. */
+        body.cinema-rolling #bar,
+        body.cinema-rolling .foot,
+        body.cinema-rolling #actions-panel {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        #bar, .foot, #actions-panel {
+            transition: opacity 260ms ease;
+        }
+
+        /* Le bouton dit s'il est enfoncé, et pas seulement par sa couleur :
+           `aria-pressed` porte l'état pour qui ne voit pas l'écran. */
+        #cinema[aria-pressed="true"] {
+            background: #c9a227;
+            color: #1a1a1a;
+        }
+
+        /* LE RÉSULTAT EN GROS PLAN, le temps de le lire.
+           Le HUD est masqué à cet instant : sans cet affichage, la face
+           lue ne serait écrite nulle part. */
+        #cinema-result {
+            position: fixed;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            font-size: clamp(3rem, 18vh, 8rem);
+            font-weight: 700;
+            color: #f5f0e6;
+            text-shadow: 0 4px 24px rgba(0, 0, 0, 0.85);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 200ms ease;
+            z-index: 50;
+        }
+
+        #cinema-result.shown {
+            opacity: 1;
+        }
+
     </style>
 </head>
 <body>
@@ -304,6 +354,9 @@
     <!-- Cadre de contrôle, visible avec ?debug=1 : le plateau doit être
          centré dans lui, et sa ligne médiane passer au milieu du plateau. -->
     <div id="frame"></div>
+
+    <!-- La face lue, en grand, pendant que le HUD est effacé. -->
+    <div id="cinema-result" aria-live="polite"></div>
 
     <div class="bar" id="bar">
         <span>
@@ -331,6 +384,11 @@
         </div>
         <div class="actions">
             <button id="whole" type="button">Tout le plateau</button>
+            <!-- MODE CINÉMA : le lancer se regarde en gros plan, puis la vue
+                 revient au plateau. Le choix est rangé d'une partie à
+                 l'autre. `aria-pressed` porte l'état : un bouton qui bascule
+                 doit dire s'il est enfoncé, sinon il ne s'annonce pas. -->
+            <button id="cinema" type="button" aria-pressed="false">🎬 Cinéma</button>
             <button id="roll" type="button">Lancer <span id="dice-value">1</span></button>
         </div>
     </div>

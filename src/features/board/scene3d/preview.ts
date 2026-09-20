@@ -36,6 +36,12 @@ import { walkPath } from './pawn-path';
 import { walkFrame } from './pawn-walk';
 import { swipeToThrow, GRAB_LIFT, type ThrowRequest } from './dice-gesture';
 import { describeTurn, JOURNAL_MAX } from './turn-journal';
+import {
+  readCinemaMode,
+  toggleCinemaMode,
+  rollSpan,
+  CINEMA_HOLD_MS,
+} from './cinema-mode';
 import { tableAnnouncement } from './table-announcements';
 import { readDeviceOverride } from './device';
 import { GameLogic } from '@/features/game/game.logic';
@@ -482,7 +488,63 @@ function attachDice(
    * marge sans rendre le dé trop petit — 40 px sur un Pixel 10, plus la zone
    * de prise de 12 px de chaque côté (#63), soit 64 px de cible.
    */
-  const ROLL_SPAN = 11 * 120;
+  /** Le nombre de cases que cadre le mode plateau, et la taille d'une case. */
+  const BOARD_SPAN_TILES = 11;
+  const TILE = 120;
+
+  /**
+   * Le mode choisi par le joueur, relu au démarrage.
+   *
+   * Tenu en mémoire plutôt que relu à chaque lancer : la lecture du stockage
+   * peut jeter, et le moment du lancer n'est pas celui de s'en apercevoir.
+   */
+  let cinema = readCinemaMode();
+
+  const cinemaButton = document.getElementById('cinema');
+  const cinemaResult = document.getElementById('cinema-result');
+
+  /** Le cadre du lancer en cours, selon le mode. */
+  const currentSpan = (): number => rollSpan(cinema, TILE, BOARD_SPAN_TILES);
+
+  /** Efface le HUD le temps de la prise de vue. */
+  const dimHud = (on: boolean): void => {
+    document.body.classList.toggle('cinema-rolling', on);
+  };
+
+  /**
+   * La pause en cours, s'il y en a une.
+   *
+   * Retenue pour pouvoir l'ANNULER : sans cela, un joueur qui recadre ou
+   * relance pendant les deux secondes verrait le HUD se rallumer et la vue
+   * s'élargir au milieu de son geste, commandés par un lancer déjà fini.
+   */
+  let holding: number | null = null;
+
+  /** Interrompt la pause et remet le HUD, quoi qu'il se soit passé. */
+  const endCinemaHold = (): void => {
+    if (holding !== null) {
+      window.clearTimeout(holding);
+      holding = null;
+    }
+
+    showCinemaFace(null);
+    dimHud(false);
+  };
+
+  /** Montre la face lue, en grand, pendant que le HUD est effacé. */
+  const showCinemaFace = (face: number | null): void => {
+    if (!cinemaResult) return;
+
+    cinemaResult.textContent = face === null ? '' : String(face);
+    cinemaResult.classList.toggle('shown', face !== null);
+  };
+
+  /** Met le bouton en accord avec l'état, à l'écran comme pour l'annonce. */
+  const showCinemaState = (): void => {
+    cinemaButton?.setAttribute('aria-pressed', String(cinema));
+  };
+
+  showCinemaState();
 
   /**
    * Temps pendant lequel les deux dés du temple restent posés.
@@ -508,7 +570,21 @@ function attachDice(
     camX = start.x;
     camZ = start.y;
 
-    scene.followPoint(camX, camZ, ROLL_SPAN);
+    // LE CADRE DIT LE MODE. C'est la seule différence côté caméra entre
+    // regarder le dé rouler au milieu du jeu et le voir en gros plan.
+    scene.followPoint(camX, camZ, currentSpan());
+
+    // Une pause qui traînerait est interrompue : elle appartient au lancer
+    // précédent, et rallumerait le HUD en plein milieu de celui-ci.
+    endCinemaHold();
+
+    // Le HUD s'efface dès le départ du dé, et le résultat précédent avec
+    // lui : le laisser à l'écran pendant le nouveau lancer annoncerait une
+    // face qui n'est plus la bonne.
+    if (cinema) {
+      dimHud(true);
+      showCinemaFace(null);
+    }
   };
 
   const step = (): void => {
@@ -582,7 +658,24 @@ function attachDice(
 
     // Retour SOUPLE à la vue du plateau : un saut de caméra à l'instant où
     // le dé s'immobilise ferait perdre le résultat de vue.
-    easeBack(scene, camX, camZ, ROLL_SPAN, follow);
+    //
+    // EN MODE CINÉMA, la face reste lisible un instant avant que la vue
+    // s'élargisse. C'est tout ce que la pause achète, et c'est ce que
+    // Quentin a demandé : « résultat lisible 2-3 secondes ». Le HUD étant
+    // masqué, la face est écrite en grand au milieu de l'écran — sans quoi
+    // elle ne serait affichée nulle part.
+    if (cinema) {
+      showCinemaFace(face);
+
+      holding = window.setTimeout(() => {
+        holding = null;
+        showCinemaFace(null);
+        dimHud(false);
+        easeBack(scene, camX, camZ, currentSpan(), follow);
+      }, CINEMA_HOLD_MS);
+    } else {
+      easeBack(scene, camX, camZ, currentSpan(), follow);
+    }
 
     // Le tour est raconté par `describeTurn`, et consigné dans l'historique
     // que GameLogic tient déjà. On ne tient pas un second journal à côté :
@@ -614,6 +707,13 @@ function attachDice(
   const offerFavorDice = (): void => {
     const pending = runner.getAwaitingGodFavor();
     if (!pending) return;
+
+    // LA PAUSE CINÉMA PREND FIN ICI, même si ses deux secondes ne sont pas
+    // écoulées. La faveur DIT au joueur d'attraper les dés (`say`) et cadre
+    // le plateau entier : avec le HUD encore masqué, la consigne serait
+    // invisible, et les deux cadrages se contrediraient. La face du tour a
+    // déjà été lue — le pion a fini de marcher.
+    endCinemaHold();
 
     // Le plateau porte DEUX cases « faveur des dieux » : deux tirages peuvent
     // s'enchaîner à moins de quatre secondes. Le minuteur du tirage précédent
@@ -735,6 +835,19 @@ function attachDice(
   restDie();
 
   document.getElementById('roll')?.addEventListener('click', roll);
+
+  cinemaButton?.addEventListener('click', () => {
+    // PENDANT UN LANCER, on ne bascule pas : le cadre est déjà posé et le
+    // HUD déjà effacé. Changer d'avis en vol laisserait la vue à mi-chemin,
+    // avec un HUD masqué qu'aucune fin de séquence ne viendrait rallumer.
+    if (frame !== null || walking || favorDice.rolling) return;
+
+    cinema = toggleCinemaMode();
+    showCinemaState();
+
+    // Quitter le mode remet le HUD tout de suite, sans attendre un lancer.
+    if (!cinema) endCinemaHold();
+  });
 
   // ATTRAPER LE DÉ AU DOIGT plutôt que par un bouton. Le déclenchement se
   // fait PAR LE CONTEXTE, comme Quentin le préfère : le dé répond quand un
