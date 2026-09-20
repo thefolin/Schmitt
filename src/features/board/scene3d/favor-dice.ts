@@ -16,6 +16,7 @@
  */
 
 import { Dice3DScene } from './dice-3d-scene';
+import { BoardTiles3D } from './board-tiles-3d';
 import { DicePhysics } from '@/features/dice/DicePhysics';
 import { WORLD_DICE_CONFIG, rollingSpinRate } from './dice-world-config';
 import type { DiceArena } from './dice-arena';
@@ -173,7 +174,7 @@ export class FavorDice {
     for (const die of this.dice) {
       const start = die.physics.getState().position;
 
-      die.view.setPosition(start.x, Dice3DScene.halfSize, start.y);
+      die.view.setPosition(start.x, BoardTiles3D.diceSurface + Dice3DScene.halfSize, start.y);
     }
   }
 
@@ -236,7 +237,7 @@ export class FavorDice {
         die.view.setOrientation(state.orientation);
         die.view.setPosition(
           state.position.x,
-          Dice3DScene.halfSize + Math.max(0, state.height),
+          BoardTiles3D.diceSurface + Dice3DScene.halfSize + Math.max(0, state.height),
           state.position.y
         );
 

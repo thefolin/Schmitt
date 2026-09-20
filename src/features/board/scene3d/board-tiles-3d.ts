@@ -327,7 +327,12 @@ export class BoardTiles3D {
         x: pawn.position.x,
         z: pawn.position.z,
         radius: PAWN_RADIUS * 1.15,
-        top: TILE_THICKNESS + PAWN_HEIGHT,
+        // `top` est compté AU-DESSUS DES CASES, dans le même repère que la
+        // hauteur de vol du dé — laquelle vaut 0 quand le dé est posé sur le
+        // plateau. Le donner en coordonnées monde (donc 28 de plus) ferait
+        // croire les pions plus hauts qu'ils ne sont, et un dé les
+        // traverserait au lieu de les survoler, ou l'inverse.
+        top: PAWN_HEIGHT,
       });
     }
 
@@ -337,6 +342,26 @@ export class BoardTiles3D {
   /** Le pion d'un joueur, pour le déplacer sans le recréer. */
   public pawnOf(index: number): Mesh | null {
     return (this.pawns.getObjectByName(`pawn-${index}`) as Mesh | undefined) ?? null;
+  }
+
+  /**
+   * La surface sur laquelle le dé roule, en unités monde.
+   *
+   * Quentin (20/09/2026) : « je vois que les dés traversent les joueurs et
+   * les cases ».
+   *
+   * IL AVAIT RAISON, et le défaut était grossier : le dé était posé à la
+   * hauteur de la TABLE (y = 0) alors que les cases ont 28 unités
+   * d'épaisseur. Il roulait donc ENFONCÉ de 28 dans le plateau — la moitié de
+   * sa propre hauteur — et passait visuellement sous les pions, qui sont
+   * posés SUR les cases.
+   *
+   * Aucun test ne pouvait le dire : les collisions étaient justes, la
+   * physique aussi. C'est la hauteur d'affichage qui était fausse, et elle ne
+   * se voit qu'à l'écran.
+   */
+  public static get diceSurface(): number {
+    return TILE_THICKNESS;
   }
 
   /** Hauteur d'un pion au repos, au-dessus du plateau. */

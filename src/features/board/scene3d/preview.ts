@@ -401,7 +401,7 @@ function attachDice(
     // partirait de là où le dé s'était arrêté et le dé sauterait.
     physics = physicsAt();
 
-    die.setPosition(matCentre.x, Dice3DScene.halfSize, matCentre.z);
+    die.setPosition(matCentre.x, BoardTiles3D.diceSurface + Dice3DScene.halfSize, matCentre.z);
   };
 
   let frame: number | null = null;
@@ -477,7 +477,7 @@ function attachDice(
     // plateau, il n'y a plus de repère intermédiaire à convertir.
     die.setPosition(
       state.position.x,
-      Dice3DScene.halfSize + Math.max(0, state.height),
+      BoardTiles3D.diceSurface + Dice3DScene.halfSize + Math.max(0, state.height),
       state.position.y
     );
 
