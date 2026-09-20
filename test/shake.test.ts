@@ -3,7 +3,6 @@ import {
   isShake,
   motionIntensity,
   motionAvailable,
-  motionNeedsPermission,
   GRAVITY,
   SHAKE_THRESHOLD,
   SHAKE_DEBOUNCE_MS,
@@ -146,35 +145,31 @@ describe('secousse — un geste ne lance qu\'un dé', () => {
 
 describe('secousse — savoir si les capteurs existent', () => {
   it('répond sans jeter, quel que soit l\'environnement', () => {
-    // jsdom n'expose pas `DeviceMotionEvent` : la réponse est `false`, et
-    // c'est exactement ce qu'il faut — le bouton reste le chemin sûr.
     expect(() => motionAvailable()).not.toThrow();
-    expect(() => motionNeedsPermission()).not.toThrow();
   });
 
-  it('n\'exige pas de permission là où les capteurs n\'existent pas', () => {
-    expect(motionNeedsPermission()).toBe(false);
+  it('reconnaît l\'API quand elle est là', () => {
+    // MESURÉ : jsdom expose `DeviceMotionEvent` — je le croyais absent, il
+    // est là. C'est précisément l'argument du code : la PRÉSENCE de l'API ne
+    // prouve rien sur le capteur derrière. Un navigateur de bureau l'expose
+    // sans accéléromètre, et jsdom aussi.
+    //
+    // C'est pourquoi la scène ne s'y fie pas : elle s'abonne, puis attend
+    // une lecture CHIFFRÉE avant d'annoncer le geste (`sensorsAnswered` dans
+    // `preview.ts`). Sans quoi, tout navigateur de bureau prétendrait savoir
+    // détecter une secousse.
+    expect(motionAvailable()).toBe(true);
   });
 
-  it('reconnaît un appareil qui demande une permission', () => {
-    // Reconnu à la PRÉSENCE de `requestPermission`, et non à un nom
-    // d'appareil : la liste des appareils concernés change, la présence de
-    // la méthode non.
+  it('dit `false` là où l\'API n\'existe pas', () => {
     const scope = window as unknown as { DeviceMotionEvent?: unknown };
     const previous = scope.DeviceMotionEvent;
 
     try {
-      scope.DeviceMotionEvent = { requestPermission: () => Promise.resolve('granted') };
-
-      expect(motionAvailable()).toBe(true);
-      expect(motionNeedsPermission()).toBe(true);
-
-      // Et un appareil qui expose l'événement SANS la méthode n'en demande pas.
-      scope.DeviceMotionEvent = function () {} as unknown;
-      expect(motionNeedsPermission()).toBe(false);
+      delete scope.DeviceMotionEvent;
+      expect(motionAvailable()).toBe(false);
     } finally {
-      if (previous === undefined) delete scope.DeviceMotionEvent;
-      else scope.DeviceMotionEvent = previous;
+      scope.DeviceMotionEvent = previous;
     }
   });
 });

@@ -150,19 +150,3 @@ export function motionAvailable(): boolean {
 
   return typeof (window as { DeviceMotionEvent?: unknown }).DeviceMotionEvent !== 'undefined';
 }
-
-/**
- * Cet appareil exige-t-il une permission avant d'écouter ?
- *
- * Reconnu à la présence de `requestPermission` sur le constructeur, ce qui
- * est la seule manière fiable de le savoir : la liste des appareils
- * concernés change, la présence de la méthode non.
- */
-export function motionNeedsPermission(): boolean {
-  if (!motionAvailable()) return false;
-
-  const constructor = (window as { DeviceMotionEvent?: { requestPermission?: unknown } })
-    .DeviceMotionEvent;
-
-  return typeof constructor?.requestPermission === 'function';
-}

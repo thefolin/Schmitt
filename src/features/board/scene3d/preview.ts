@@ -44,8 +44,8 @@ import {
 } from './cinema-mode';
 import {
   isShake,
+  motionIntensity,
   motionAvailable,
-  motionNeedsPermission,
   type MotionReading,
 } from './shake';
 import { tableAnnouncement } from './table-announcements';
@@ -551,17 +551,28 @@ function attachDice(
   };
 
   /**
-   * DIT au joueur que le geste est disponible.
+   * DIT au joueur comment lancer, d'après ce qu'on a CONSTATÉ.
    *
    * Sans consigne, une secousse ne se devine pas : le joueur reste au bouton
    * et le geste n'existe que pour qui a lu le journal des modifications.
    * C'est la même raison qui fait annoncer « attrape les 2 dés » quand la
    * faveur des dieux arrive.
+   *
+   * Mais la consigne ne PROMET QUE CE QUI MARCHE : annoncer le geste sur un
+   * appareil qui ne mesure rien enverrait le joueur secouer dans le vide, et
+   * il conclurait que l'application est cassée plutôt que son téléphone
+   * dépourvu de capteur.
    */
-  const sayShakeReady = (): void => {
-    if (!listening) return;
+  const sayHowToRoll = (shakes: boolean): void => {
+    if (!cinema) return;
 
-    say(`\u{1F3B2} ${runner.currentPlayerName()} — secoue le téléphone ou appuie sur Lancer`);
+    const who = runner.currentPlayerName();
+
+    say(
+      shakes
+        ? `\u{1F3B2} ${who} — secoue le téléphone ou appuie sur Lancer`
+        : `\u{1F3B2} ${who} — appuie sur Lancer`
+    );
   };
 
   showCinemaState();
@@ -810,7 +821,35 @@ function attachDice(
   let lastShake: number | null = null;
   let listening = false;
 
+  /**
+   * Un capteur a-t-il déjà envoyé une lecture CHIFFRÉE ?
+   *
+   * C'est la seule preuve qu'il mesure vraiment. L'existence de
+   * `DeviceMotionEvent` n'en est pas une : un navigateur de bureau l'expose
+   * sans accéléromètre derrière.
+   */
+  let sensorsAnswered = false;
+
+  /**
+   * Combien de temps on laisse au capteur pour se manifester.
+   *
+   * Les capteurs qui fonctionnent émettent plusieurs fois par seconde : trois
+   * secondes sont larges. Passé ce délai sans lecture chiffrée, on coupe
+   * l'écoute et le bouton reste seul — sans que le joueur ait eu à répondre
+   * à quoi que ce soit.
+   */
+  const SENSOR_PROBE_MS = 3000;
+
   const onMotion = (event: DeviceMotionEvent): void => {
+    // LA PREUVE QUE LE CAPTEUR MESURE : une lecture chiffrée, et pas
+    // seulement un événement qui arrive. Certains appareils émettent des
+    // événements dont tous les axes sont nuls — c'est `motionIntensity` qui
+    // fait la différence, en renvoyant `null` dans ce cas.
+    if (!sensorsAnswered && motionIntensity(event as MotionReading) !== null) {
+      sensorsAnswered = true;
+      sayHowToRoll(true);
+    }
+
     // Le mode a pu être coupé depuis l'abonnement : on n'agit pas en dehors.
     if (!cinema) return;
 
@@ -826,34 +865,51 @@ function attachDice(
   };
 
   /**
-   * S'abonne aux capteurs, si l'appareil en a et les accorde.
+   * S'abonne aux capteurs, et CONSTATE s'ils répondent.
    *
-   * La permission ne peut être demandée que depuis un geste de
-   * l'utilisateur : l'abonnement part donc du bouton de bascule, pas du
-   * chargement de la page. Un refus ne casse rien — le bouton reste.
+   * Quentin (via PO, 20/09/2026) : « pas de demande de permission au joueur,
+   * détecte automatiquement si les capteurs marchent. Zéro friction. »
+   *
+   * C'est possible sur la cible du projet. `requestPermission` est une
+   * particularité d'iOS, et iOS est ABANDONNÉ depuis le 19/09/2026 : sur
+   * Android, les capteurs de mouvement ne demandent jamais rien. La demande
+   * de Quentin décrit donc le comportement réel de sa cible, et la retirer
+   * ne coûte aucune fonctionnalité.
+   *
+   * LA DÉTECTION EST UNE OBSERVATION, pas une question posée à l'API.
+   * `DeviceMotionEvent` peut exister sans que le capteur envoie quoi que ce
+   * soit — un navigateur de bureau l'expose, un téléphone sans
+   * accéléromètre aussi. On s'abonne donc, et on regarde si des lectures
+   * CHIFFRÉES arrivent : c'est la seule preuve qui vaille.
    */
-  const listenForShakes = async (): Promise<void> => {
-    if (listening || !motionAvailable()) return;
-
-    if (motionNeedsPermission()) {
-      try {
-        const ask = (
-          window as unknown as {
-            DeviceMotionEvent: { requestPermission: () => Promise<string> };
-          }
-        ).DeviceMotionEvent.requestPermission;
-
-        if ((await ask()) !== 'granted') return;
-      } catch {
-        // Refusé, ou demandé hors d'un geste : on s'en tient au bouton.
-        return;
-      }
+  const listenForShakes = (): void => {
+    if (listening || !motionAvailable()) {
+      sayHowToRoll(false);
+      return;
     }
 
     window.addEventListener('devicemotion', onMotion);
     listening = true;
 
-    sayShakeReady();
+    // On ne promet rien tant qu'aucune lecture n'est arrivée : annoncer le
+    // geste sur un appareil muet enverrait le joueur secouer dans le vide.
+    sayHowToRoll(false);
+
+    // Si rien de chiffré n'arrive dans ce délai, l'appareil ne mesure pas —
+    // et le bouton reste seul, sans que le joueur ait eu à répondre à quoi
+    // que ce soit. Trois secondes : les capteurs émettent plusieurs fois par
+    // seconde quand ils fonctionnent, c'est large.
+    window.setTimeout(() => {
+      if (!sensorsAnswered) stopListening();
+    }, SENSOR_PROBE_MS);
+  };
+
+  /** Coupe l'écoute : l'appareil ne mesure rien d'exploitable. */
+  const stopListening = (): void => {
+    if (!listening) return;
+
+    window.removeEventListener('devicemotion', onMotion);
+    listening = false;
   };
 
   const roll = (): void => {
@@ -929,7 +985,7 @@ function attachDice(
     // L'ABONNEMENT PART D'ICI, et non du chargement : la permission aux
     // capteurs ne peut être demandée que depuis un geste de l'utilisateur.
     // Ce clic en est un.
-    if (cinema) void listenForShakes();
+    if (cinema) listenForShakes();
 
     // Quitter le mode remet le HUD tout de suite, sans attendre un lancer.
     if (!cinema) endCinemaHold();
