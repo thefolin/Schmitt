@@ -23,6 +23,7 @@
 
 import type { TileConfig } from '@/core/models/Tile';
 import type { TurnOutcome } from './turn-runner';
+import type { FavorRoll } from './god-favor-roll';
 import { tableAnnouncement } from './table-announcements';
 import { buildActionText, buildSubtitle, withGulpSymbol } from '@/features/game/action-text';
 
@@ -453,4 +454,73 @@ export function runModalSteps(
   playNext();
 
   return true;
+}
+
+/**
+ * Les illustrations des dieux, rangées par SOMME des deux dés.
+ *
+ * LEUR CORRESPONDANCE A ÉTÉ VÉRIFIÉE EN LES REGARDANT, une par une, et non
+ * déduite de leur nom. Un commentaire de `main-camera.ts` s'y était refusé —
+ * « rien ne dit à quelle faveur chacun correspond, le deviner reviendrait à
+ * afficher le mauvais dieu » — et la prudence était juste : le nom d'un
+ * fichier ne prouve rien.
+ *
+ * Les neuf portent bien leur dieu, attributs à l'appui : la chouette et la
+ * lance d'ATHÉNA (3), les cœurs d'APHRODITE (4), le caducée et les sandales
+ * ailées d'HERMÈS (5), la lyre d'APOLLON (6), l'arc et le carquois
+ * d'ARTÉMIS (7), l'épée et le bouclier d'ARÈS (8), la grappe de DIONYSOS
+ * (9), l'enclume et le marteau d'HÉPHAÏSTOS (10), le trident de
+ * POSÉIDON (11).
+ *
+ * Elles suivent donc la table CORRIGÉE du plateau (#34) — c'est Artémis qui
+ * porte le 7, la faveur ajoutée lors de cette correction, et non la
+ * numérotation d'avant.
+ *
+ * LES SOMMES 2 ET 12 N'ONT PAS D'ILLUSTRATION : ce sont les doubles, la
+ * COLÈRE DES DIEUX et ZEUS. Les fichiers n'existent pas, et on n'en invente
+ * pas — l'étape s'affiche alors avec son texte, sans image.
+ */
+const GOD_ART: Record<number, string> = {
+  3: '/assets/cells/god_3.png',
+  4: '/assets/cells/god_4.png',
+  5: '/assets/cells/god_5.png',
+  6: '/assets/cells/god_6.png',
+  7: '/assets/cells/god_7.png',
+  8: '/assets/cells/god_8.png',
+  9: '/assets/cells/god_9.png',
+  10: '/assets/cells/god_10.png',
+  11: '/assets/cells/god_11.png',
+};
+
+/**
+ * L'écran d'une faveur des dieux : le dieu obtenu, et ce qu'il fait faire.
+ *
+ * MÊME FORME QUE LES CASES, comme Quentin l'a demandé — illustration, règle,
+ * et les mêmes boutons. Une faveur est une règle à appliquer à la table au
+ * même titre qu'une case : rien ne justifie qu'elle s'annonce autrement.
+ *
+ * La description est celle des règles officielles, avec 🍺 substitué à
+ * l'affichage (SCH-12) : on ne réécrit pas le texte de référence.
+ *
+ * Renvoie `null` quand les dés n'ont donné aucune faveur — il n'y a alors
+ * rien à annoncer.
+ */
+export function favorStep(roll: FavorRoll): ModalStep | null {
+  if (!roll.favor) return null;
+
+  const source = GOD_ART[roll.sum];
+
+  return {
+    title: `${roll.favor.icon} ${roll.favor.name}`,
+    tile: source
+      ? { src: source, alt: roll.favor.name, amount: null }
+      : null,
+    lines: [
+      // LA SOMME EST DITE : c'est elle qui désigne la faveur sur le plateau,
+      // et le joueur vient de lire les deux faces. Sans elle, il ne peut pas
+      // vérifier que l'application lit les mêmes dés que lui.
+      `${roll.a} + ${roll.b} = ${roll.sum}`,
+      withGulpSymbol(roll.favor.description),
+    ],
+  };
 }

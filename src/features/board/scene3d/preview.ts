@@ -53,7 +53,7 @@ import {
 } from './shake';
 import { readDeviceOverride } from './device';
 import { askForPlayers } from './setup-screen';
-import { modalSteps, runModalSteps } from './action-modal';
+import { modalSteps, runModalSteps, favorStep } from './action-modal';
 // Les tokens du design system précèdent la feuille qui les consomme :
 // `setup-screen.css` en emploie 43, et sans eux l'écran s'affiche nu.
 import '@/styles/common/design-system.css';
@@ -891,6 +891,21 @@ function attachDice(
         favorLinger = null;
         showDice(betweenFavors());
       }, FAVOR_DICE_LINGER_MS);
+
+      // LA FAVEUR S'ANNONCE COMME UNE CASE : le dieu, sa règle, et les mêmes
+      // boutons. Une faveur est une règle à appliquer à la table au même
+      // titre qu'une case — rien ne justifie qu'elle s'annonce autrement.
+      //
+      // Le tour reste SUSPENDU tant qu'elle n'est pas validée : la faveur se
+      // joue à la table, et le joueur suivant ne doit pas lancer pendant ce
+      // temps.
+      const step = favorStep(roll);
+      if (step) {
+        awaitingValidation = runModalSteps([step], () => {
+          awaitingValidation = false;
+          refresh();
+        });
+      }
 
       refresh();
     }, request, from);

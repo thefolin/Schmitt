@@ -3,7 +3,10 @@ import {
   modalSteps,
   runModalSteps,
   showActionModal,
+  favorStep,
 } from '@/features/board/scene3d/action-modal';
+import { readFavorRoll } from '@/features/board/scene3d/god-favor-roll';
+import { GOD_FAVORS } from '@/features/game/god-favors';
 import type { TurnOutcome } from '@/features/board/scene3d/turn-runner';
 import type { TileConfig } from '@/core/models/Tile';
 
@@ -459,3 +462,98 @@ describe('modale — elle n\'arbitre rien', () => {
   });
 });
 
+
+describe('faveur des dieux — elle s\'annonce comme une case', () => {
+  /** Le jet qui donne une faveur, sans passer par la physique. */
+  function favorRoll(a: number, b: number) {
+    return readFavorRoll(a, b);
+  }
+
+  it('montre le dieu, et dit sa règle', () => {
+    // Demande de Quentin : « même spec que les cases » — image + règle +
+    // boutons. Une faveur est une règle à appliquer à la table au même titre
+    // qu'une case.
+    const step = favorStep(favorRoll(1, 2))!;
+
+    expect(step.title).toContain('ATHÉNA');
+    expect(step.tile!.src).toBe('/assets/cells/god_3.png');
+    expect(step.lines.join(' ')).toContain('bouclier');
+  });
+
+  it('dit la somme, pour que le joueur vérifie les dés qu\'il voit', () => {
+    // Sans elle, impossible de contrôler que l'application lit les mêmes
+    // faces que lui — et dans un jeu à boire, ça se conteste.
+    const step = favorStep(favorRoll(4, 5))!;
+
+    expect(step.lines[0]).toBe('4 + 5 = 9');
+  });
+
+  it('écrit les gorgées avec le symbole (SCH-12)', () => {
+    const step = favorStep(favorRoll(1, 2))!;
+
+    expect(step.lines.join(' ')).toContain('\u{1F37A}');
+    expect(step.lines.join(' ')).not.toMatch(/gorgées?/i);
+  });
+
+  it('s\'affiche SANS image pour les doubles, plutôt que d\'en inventer une', () => {
+    // La COLÈRE DES DIEUX (2) et ZEUS (12) n'ont pas d'illustration : les
+    // fichiers n'existent pas. On affiche le texte seul — mettre l'image
+    // d'un autre dieu serait pire que pas d'image.
+    const wrath = favorStep(favorRoll(1, 1))!;
+    const zeus = favorStep(favorRoll(6, 6))!;
+
+    expect(wrath.tile).toBeNull();
+    expect(zeus.tile).toBeNull();
+    expect(wrath.lines.join(' ')).toBeTruthy();
+  });
+
+  it('se joue avec les mêmes boutons qu\'une case', () => {
+    const step = favorStep(favorRoll(1, 2))!;
+
+    runModalSteps([step], () => {});
+
+    expect(document.querySelector('#action-peek')).not.toBeNull();
+    expect(document.querySelector('#action-validate')!.textContent).toBe('Valider');
+    expect(document.querySelector<HTMLImageElement>('.action-modal-art')!.getAttribute('src'))
+      .toBe('/assets/cells/god_3.png');
+  });
+});
+
+describe('faveur des dieux — chaque dieu porte SON illustration', () => {
+  /**
+   * LA CORRESPONDANCE A ÉTÉ VÉRIFIÉE EN REGARDANT LES NEUF IMAGES, attributs
+   * à l'appui — la chouette d'Athéna, la lyre d'Apollon, le trident de
+   * Poséidon. Un commentaire de `main-camera.ts` s'y était refusé faute de
+   * preuve, et cette prudence était juste : le nom d'un fichier ne prouve
+   * rien.
+   *
+   * Ce test fige le résultat de cette vérification. Il échouera si la table
+   * des faveurs est renumérotée sans que les images suivent — ce qui s'est
+   * DÉJÀ produit (#34, décalage d'un cran sur les sommes 3 à 7).
+   */
+  const ATTENDU: Record<number, string> = {
+    3: 'ATHÉNA',
+    4: 'APHRODITE',
+    5: 'HERMÈS',
+    6: 'APOLLON',
+    7: 'ARTÉMIS',
+    8: 'ARÈS',
+    9: 'DIONYSOS',
+    10: 'HÉPHAÏSTOS',
+    11: 'POSÉIDON',
+  };
+
+  for (const [sum, name] of Object.entries(ATTENDU)) {
+    it(`donne ${name} pour la somme ${sum}`, () => {
+      const favor = GOD_FAVORS[Number(sum)];
+
+      expect(favor.name).toBe(name);
+
+      // Un jet NON double qui fait cette somme : les doubles sont la Colère.
+      const a = Number(sum) > 6 ? 6 : 1;
+      const step = favorStep(readFavorRoll(a, Number(sum) - a))!;
+
+      expect(step.tile!.src).toBe(`/assets/cells/god_${sum}.png`);
+    });
+  }
+});
