@@ -39,6 +39,19 @@ const MAX_SUM = 12;
 const WRATH_SUM = 2;
 
 /**
+ * ATHÉNA, la seule faveur qui LAISSE QUELQUE CHOSE derrière elle.
+ *
+ * Les autres se résolvent dans le tour où elles tombent. Le bouclier se
+ * garde jusqu'à ce qu'une sanction arrive, et il interdit de gagner tant
+ * qu'on le porte : c'est un état du joueur, pas une annonce.
+ *
+ * Nommé ici plutôt qu'écrit en clair dans le moteur de tour : la somme vient
+ * de `GOD_FAVORS`, et un 3 perdu au milieu d'une condition ne dit pas de
+ * quelle faveur il parle.
+ */
+export const ATHENA_SUM = 3;
+
+/**
  * La case qui appelle la faveur des dieux.
  *
  * C'est le type `power`, et c'est là que tenait le défaut : la case s'appelle
@@ -81,4 +94,20 @@ export function readFavorRoll(a: number, b: number): FavorRoll {
     double,
     favor: valid ? GOD_FAVORS[key] ?? null : null,
   };
+}
+
+/**
+ * Ce tirage donne-t-il le bouclier d'Athéna ?
+ *
+ * La question posée est « quelle FAVEUR a été obtenue », pas « quelle somme
+ * est sortie ». Les deux ne coïncident pas : un double est la colère quelle
+ * que soit sa valeur, et c'est déjà ce que `readFavorRoll` tranche.
+ *
+ * Aucun double ne peut faire 3, qui est impair — le garde-fou ne sert donc
+ * pas à écarter un cas connu. Il est là pour que la règle reste juste si
+ * `ATHENA_SUM` changeait un jour : la lecture du tirage resterait alors la
+ * seule autorité, au lieu que deux fichiers décident séparément.
+ */
+export function grantsAthenaShield(roll: FavorRoll): boolean {
+  return !roll.double && roll.sum === ATHENA_SUM;
 }

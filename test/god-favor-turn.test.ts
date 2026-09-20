@@ -217,3 +217,81 @@ describe('3D-60 — le plateau officiel porte DEUX cases faveur', () => {
     }
   });
 });
+
+/**
+ * SCH-33 — ATHÉNA laisse un bouclier derrière elle.
+ *
+ * Les faveurs se jouent À LA TABLE : l'application les énonce, les joueurs
+ * les appliquent. Athéna fait exception pour une raison précise — elle ne
+ * demande AUCUN choix au moment où elle tombe (« choisissez un objet
+ * bouclier » ne désigne personne), et elle laisse un ÉTAT DURABLE qui décide
+ * de la victoire : tant qu'on porte le bouclier, on ne peut pas gagner.
+ *
+ * LE DÉFAUT : la scène 3D savait UTILISER le bouclier (`resolveShield`) mais
+ * ne l'accordait jamais. Le rendu CSS le fait depuis toujours
+ * (`main-camera.ts`). Côté 3D, rien ne mettait l'état à vrai : `resolveShield`
+ * était donc du code mort, et le badge du bouclier ne pouvait jamais
+ * s'afficher.
+ */
+describe('SCH-33 — le bouclier d\'Athéna est réellement donné', () => {
+  /** Amène Alice sur le temple, prête à tirer. */
+  function reachTemple(): void {
+    runner.playTurn(TEMPLE);
+  }
+
+  it('donne le bouclier sur une somme de 3', () => {
+    reachTemple();
+    runner.resolveGodFavor(1, 2);
+
+    expect(logic.getPlayers()[0].hasAthenaShield).toBe(true);
+  });
+
+  it('ne le donne à personne d\'autre', () => {
+    reachTemple();
+    runner.resolveGodFavor(1, 2);
+
+    expect(logic.getPlayers()[1].hasAthenaShield).toBe(false);
+  });
+
+  it('ne le donne pas sur une autre faveur', () => {
+    reachTemple();
+    runner.resolveGodFavor(5, 6);
+
+    expect(logic.getPlayers()[0].hasAthenaShield).toBe(false);
+  });
+
+  it('ne le donne pas sur la colère des dieux', () => {
+    // NE TESTE PAS le garde-fou sur le double, et ne le peut pas : un double
+    // ne fait que des sommes PAIRES (2, 4, 6, 8, 10, 12), jamais 3. Ce cas
+    // échoue donc déjà sur la somme, et `!roll.double` reste une précaution
+    // qu'aucun tirage ne peut mettre en défaut — vérifié, et conservé dans le
+    // code au cas où `ATHENA_SUM` changerait.
+    //
+    // Ce que le test vérifie vraiment : un double 4 — somme 8, normalement
+    // ARÈS — ne donne pas le bouclier. C'est un vrai tirage de partie.
+    reachTemple();
+    runner.resolveGodFavor(4, 4);
+
+    expect(logic.getPlayers()[0].hasAthenaShield).toBe(false);
+  });
+
+  it('rend `resolveShield` utilisable, ce qui était le but', () => {
+    // C'EST LA LIVRAISON. Le renvoi existait déjà et ne pouvait pas servir :
+    // aucun chemin 3D ne mettait jamais le bouclier à vrai. La boucle est
+    // maintenant complète — on obtient le bouclier, une sanction arrive, on
+    // la renvoie.
+    reachTemple();
+    runner.resolveGodFavor(1, 2);
+
+    expect(logic.getPlayers()[0].hasAthenaShield).toBe(true);
+
+    // Une sanction tombe sur la porteuse : le bouclier la RETIENT.
+    logic.addDrinks(0, 2);
+    const pending = logic.getPendingShield();
+    expect(pending).not.toBeNull();
+
+    // Elle la renvoie sur Bastien, et se défait du bouclier.
+    runner.resolveShield(1);
+    expect(logic.getPlayers()[0].hasAthenaShield).toBe(false);
+  });
+});

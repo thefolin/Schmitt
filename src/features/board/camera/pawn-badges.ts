@@ -38,9 +38,10 @@ export const ZEUS_POWER_BADGE = {
  * s'en serve, et il empêche de gagner tant qu'on le possède — un statut de
  * cette portée doit se voir sur le plateau.
  *
- * ⚠️ La faveur n'est pas encore implémentée : `hasAthenaShield` existe dans le
- * modèle mais rien ne le met jamais à vrai. Le badge est donc branché et
- * testé, mais reste invisible en partie tant qu'Athéna n'est pas codée.
+ * La faveur EST implémentée des deux côtés : le rendu CSS l'accorde dans
+ * `main-camera.ts`, et la scène 3D dans `TurnRunner.resolveGodFavor`. Cet
+ * avertissement disait le contraire et était périmé — il datait du moment où
+ * `hasAthenaShield` existait dans le modèle sans que rien ne le mette à vrai.
  */
 export const ATHENA_SHIELD_BADGE = {
   icon: '\u{1F6E1}\u{FE0F}', // 🛡️

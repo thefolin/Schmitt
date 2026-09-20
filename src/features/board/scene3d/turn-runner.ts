@@ -1,7 +1,12 @@
 import type { GameLogic } from '@/features/game/game.logic';
 import type { TileConfig } from '@/core/models/Tile';
 import { isArrowTile, arrowDirection } from './arrow-tile';
-import { isGodFavorTile, readFavorRoll, type FavorRoll } from './god-favor-roll';
+import {
+  isGodFavorTile,
+  readFavorRoll,
+  grantsAthenaShield,
+  type FavorRoll,
+} from './god-favor-roll';
 import { pawnMarks, type PawnMark } from './pawn-marks';
 
 /**
@@ -432,9 +437,20 @@ export class TurnRunner {
    * demandent de choisir une cible, de relancer un dé ou de poser un shooter
    * — rien de tout cela ne se décide sans le joueur.
    *
-   * Seule la COLÈRE DES DIEUX est comptée : elle ne demande aucun choix, et
-   * elle passe par `addDrinks`, seul endroit où le bouclier d'Athéna
-   * intercepte.
+   * DEUX FAVEURS FONT EXCEPTION, pour la même raison : elles ne demandent
+   * aucun choix au joueur au moment où elles tombent.
+   *
+   *   - la COLÈRE DES DIEUX sert un cul sec, et passe par `addDrinks`, seul
+   *     endroit où le bouclier d'Athéna intercepte.
+   *   - ATHÉNA donne un objet bouclier. « Choisissez un objet bouclier » ne
+   *     demande pas de désigner un joueur : le choix vient PLUS TARD, quand
+   *     une sanction arrive et qu'il faut dire sur qui la renvoyer — et ce
+   *     mécanisme existe déjà (`getPendingShield`, `resolveShield`).
+   *
+   * Le bouclier est un ÉTAT DURABLE, pas une annonce : il se garde jusqu'à
+   * être utilisé et interdit de gagner tant qu'on le porte. Laisser les
+   * joueurs le tenir de tête reviendrait à leur demander de se souvenir d'une
+   * règle qui décide de la victoire.
    */
   public resolveGodFavor(a: number, b: number): FavorRoll {
     const roll = readFavorRoll(a, b);
@@ -444,6 +460,14 @@ export class TurnRunner {
 
     if (pending && roll.double) {
       this.logic.addDrinks(pending.player, WRATH_DRINKS);
+    }
+
+    // LE BOUCLIER EST ACCORDÉ, comme le fait le jeu qui tourne. Sans cela,
+    // `resolveShield` juste en dessous ne pouvait jamais servir, et le badge
+    // du bouclier ne pouvait jamais s'afficher : rien ne mettait l'état à
+    // vrai côté 3D.
+    if (pending && grantsAthenaShield(roll)) {
+      this.logic.grantAthenaShield(pending.player);
     }
 
     this.logic.nextPlayer();
