@@ -8,6 +8,7 @@ import {
   TextureLoader,
   SRGBColorSpace,
   Color,
+  DoubleSide,
   Sprite,
   SpriteMaterial,
   type Texture,
@@ -79,38 +80,55 @@ const TILE_COLOR_DEFAULT = 0xb9c0d0;
 const PAWN_RADIUS = 26;
 const PAWN_HEIGHT = 46;
 
-/** Couleur du plateau sous les cases. */
-const TABLE_COLOR = 0x11512f;
+/**
+ * Couleur du plateau sous les cases.
+ *
+ * NOIR, demandé par Quentin en remplacement de l'image de plateau complet.
+ * Le vert de tapis de jeu qui précédait entrait en concurrence avec les
+ * couleurs des cases ; un fond noir les laisse porter le regard, et il
+ * s'accorde au plateau imprimé, dont le fond est lui-même très sombre.
+ *
+ * Pas tout à fait 0x000000 : un noir absolu efface la tranche des cases et
+ * le relief disparaît. Ce gris très sombre garde l'assise visible sans se
+ * faire remarquer.
+ */
+const TABLE_COLOR = 0x0a0a0c;
 
 /** Marge du tapis autour des cases. */
 const TABLE_PADDING = 90;
 
 /**
- * L'illustration posée sous le plateau.
+ * Les deux colonnes de pouvoirs, posées de part et d'autre du parcours.
  *
- * Quentin l'a demandée en arrière-plan du plateau 3D. C'est le visuel du
- * plateau PHYSIQUE : le motif grec, le titre, et les cases telles qu'elles
- * sont imprimées.
+ * Quentin a d'abord demandé le plateau imprimé entier en fond, puis l'a
+ * remplacé par un fond NOIR et ces deux colonnes. Le premier essai montrait
+ * les 23 cases une seconde fois sous celles qu'on joue ; ces colonnes-ci ne
+ * portent que la TABLE DES FAVEURS, qui n'existe nulle part ailleurs dans la
+ * scène — elle n'est lue que par `GOD_FAVORS`, dans le code.
  *
- * ELLE EST POSÉE SOUS LES CASES, pas à la place. Les cases 3D restent la
- * vérité du jeu — ce sont elles que le pion foule et que les règles lisent.
- * L'image donne le décor et l'identité du plateau ; elle ne le remplace pas.
+ * C'est donc un décor qui AJOUTE quelque chose : le joueur qui tire une
+ * faveur lit à quoi correspond sa somme, comme sur le plateau réel.
  *
- * Réduite de 4000×4500 à 1820×2048 avant d'entrer dans le dépôt : 8,2 Mo
- * d'origine pour un APK qui vise Android 5.1, c'était plus que tout le reste
- * des illustrations réunies.
+ * gauche : ATHÉNA 3, APHRODITE 4, HERMÈS 5, APOLLON 6, ARTÉMIS 7
+ * droite : ARTÉMIS 7, ARÈS 8, DIONYSOS 9, HÉPHAÏSTOS 10, POSÉIDON 11
  */
-const TABLE_IMAGE = 'assets/board-backdrop.png';
+const COLUMN_LEFT_IMAGE = 'assets/column-favors-left.png';
+const COLUMN_RIGHT_IMAGE = 'assets/column-favors-right.png';
+
+/** Proportions des colonnes, hautes et étroites (790×1920). */
+const COLUMN_RATIO = 790 / 1920;
 
 /**
- * Part de la surface du tapis que l'image occupe.
+ * Hauteur des colonnes, en part de la profondeur du parcours.
  *
- * L'image est plus HAUTE que large (0,89) alors que le parcours officiel est
- * plus LARGE que haut (1,68) : l'étirer pour couvrir le tapis déformerait le
- * motif et le titre. On la pose donc à ses proportions, centrée, comme un
- * tapis de jeu posé sur une table plus grande.
+ * Assez hautes pour se lire, sans forcer la caméra à s'éloigner et à
+ * rapetisser les cases — c'est la lisibilité des cases qui a décidé du
+ * cadrage (#75), et elle prime sur le décor.
  */
-const TABLE_IMAGE_FIT = 0.92;
+const COLUMN_HEIGHT_FIT = 0.95;
+
+/** Écart entre le bord du parcours et une colonne. */
+const COLUMN_MARGIN = 70;
 
 export interface TilePosition {
   x: number;
@@ -474,40 +492,45 @@ export class BoardTiles3D {
     this.group.add(table);
     this.table = table;
 
-    this.createBackdrop((minX + maxX) / 2, (minZ + maxZ) / 2, width, depth);
+    this.createColumns(minX, maxX, (minZ + maxZ) / 2, depth);
   }
 
   /**
-   * Pose l'illustration du plateau physique sous les cases.
+   * Pose les deux colonnes de pouvoirs de part et d'autre du parcours.
    *
-   * SUR UN PLAN À PART, et non en texture du tapis : le tapis couvre toute
-   * la table, alors que l'image garde ses proportions. Deux objets, deux
-   * rôles — la table donne l'assise, l'image donne le décor.
+   * DEBOUT, et non à plat : ce sont des colonnes. Posées au sol elles se
+   * liraient de biais sous une vue plongeante — et le joueur incline la vue
+   * comme il veut depuis #74, donc une image couchée deviendrait illisible
+   * dès qu'il se rapproche de l'horizontale.
    *
-   * Placée entre le tapis (y = −1) et les cases (y = 0), assez près du tapis
-   * pour ne jamais passer devant une case.
+   * `DoubleSide` parce qu'on peut tourner autour du plateau : une colonne
+   * qui disparaît quand on passe derrière ferait un trou dans le décor.
    */
-  private createBackdrop(x: number, z: number, width: number, depth: number): void {
-    const texture = new TextureLoader().load(TABLE_IMAGE);
-    texture.colorSpace = SRGBColorSpace;
-    this.textures.push(texture);
+  private createColumns(minX: number, maxX: number, z: number, depth: number): void {
+    const height = depth * COLUMN_HEIGHT_FIT;
+    const width = height * COLUMN_RATIO;
 
-    // À SES PROPRES PROPORTIONS. L'image est plus haute que large, le
-    // parcours plus large que haut : l'étirer déformerait le titre et le
-    // motif grec, qui sont l'identité du plateau.
-    const ratio = 4000 / 4500;
-    const fit = Math.min(width / ratio, depth) * TABLE_IMAGE_FIT;
+    const sides = [
+      { image: COLUMN_LEFT_IMAGE, x: minX - COLUMN_MARGIN - width / 2, name: 'column-left' },
+      { image: COLUMN_RIGHT_IMAGE, x: maxX + COLUMN_MARGIN + width / 2, name: 'column-right' },
+    ];
 
-    const backdrop = new Mesh(
-      new PlaneGeometry(fit * ratio, fit),
-      new MeshLambertMaterial({ map: texture, transparent: true })
-    );
+    for (const side of sides) {
+      const texture = new TextureLoader().load(side.image);
+      texture.colorSpace = SRGBColorSpace;
+      this.textures.push(texture);
 
-    backdrop.rotation.x = -Math.PI / 2;
-    backdrop.position.set(x, -0.5, z);
-    backdrop.name = 'backdrop';
+      const column = new Mesh(
+        new PlaneGeometry(width, height),
+        new MeshLambertMaterial({ map: texture, transparent: true, side: DoubleSide })
+      );
 
-    this.group.add(backdrop);
+      // Le pied posé sur le tapis, la colonne montant vers le haut.
+      column.position.set(side.x, height / 2, z);
+      column.name = side.name;
+
+      this.group.add(column);
+    }
   }
 
   /** Vide le plateau, en libérant la mémoire graphique. */
