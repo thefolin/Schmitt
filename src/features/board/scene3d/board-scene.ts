@@ -81,6 +81,14 @@ const CAMERA_FOV_DEG = 38;
  */
 const FOLLOW_SPAN_TILES = 7;
 
+/**
+ * Taille minimale d'une case pour que la vue d'ensemble reste jouable.
+ *
+ * 48 px est la cible tactile recommandée, et c'est aussi ce qu'il faut pour
+ * lire l'illustration d'une case à bout de bras sur une table.
+ */
+const MIN_TILE_PIXELS = 48;
+
 const MIN_TILT_DEG = 12;
 const MAX_TILT_DEG = 78;
 
@@ -282,8 +290,54 @@ export class BoardScene {
         this.safeArea.bottom
     );
 
-    // Un écran plus large que haut : le plateau officiel y tient en entier.
-    return viewport.width > free;
+    // LA DÉCISION SE PREND SUR LA LISIBILITÉ MESURÉE, et non sur la forme de
+    // l'écran.
+    //
+    // Le critère était « plus large que haut », ce qui rangeait un TÉLÉPHONE
+    // COUCHÉ parmi les grands écrans. Mesuré sur le Pixel 10 de Quentin,
+    // capture à l'appui : 866 × 306 avec la barre d'URL ouverte, soit une
+    // case à 46 px — SOUS la cible tactile de 48 — alors que le code lui
+    // promettait la vue d'ensemble comme à un portable de 1440 px, où la même
+    // case ferait 142 px.
+    //
+    // Le commentaire d'origine annonçait 67 px sur un Pixel 10 : c'était une
+    // mesure prise SANS la barre du navigateur. En vrai usage elle est là.
+    //
+    // On mesure donc ce que la vue d'ensemble DONNERAIT, et on ne la retient
+    // que si elle reste lisible. La forme de l'écran n'entre plus en compte,
+    // ce qui règle du même coup le cas du téléphone couché comme celui de la
+    // fenêtre de bureau étroite.
+    void free;
+
+    return this.wholeBoardTilePixels() >= MIN_TILE_PIXELS;
+  }
+
+  /**
+   * Taille d'une case, en pixels, si l'on montrait tout le plateau.
+   *
+   * MESURÉE et non déduite : on cadre réellement le plateau entier, on lit ce
+   * qu'une case y ferait, puis on remet la vue comme on l'a trouvée. C'est la
+   * même méthode que le reste du cadrage — la taille apparente dépend de la
+   * distance en projection conique, elle ne se déduit pas d'un rapport de
+   * rectangles.
+   *
+   * Un calcul « à la main » sur les dimensions du plateau donnait la même
+   * réponse partout : `framing.rotated` décrit le cadre tourné, pas la
+   * surface occupée, et les deux ne se ressemblent pas.
+   */
+  private wholeBoardTilePixels(): number {
+    const tile = this.followed;
+    const point = this.focus;
+
+    this.showWholeBoard();
+    const pixels = this.worldToScreenPixels(this.tileSize);
+
+    // La vue est remise exactement comme elle était : cette mesure ne doit
+    // rien changer à ce que le joueur regarde.
+    if (point) this.followPoint(point.x, point.z, point.span);
+    else if (tile !== null) this.followTile(tile);
+
+    return pixels;
   }
 
   /** Le cadrage retenu : orientation et échelle. Exposé pour être mesuré. */

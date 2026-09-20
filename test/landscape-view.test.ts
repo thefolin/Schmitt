@@ -161,3 +161,51 @@ describe('3D-48 — le choix se fait sur la place RESTANTE', () => {
     expect(scene.prefersWholeBoard()).toBe(true);
   });
 });
+
+describe('3D-75 — la vue se décide sur la LISIBILITÉ, pas sur la forme', () => {
+  it('reste en vue d\'ensemble sur un téléphone couché, si les cases restent lisibles', () => {
+    // Quentin : « il faut détecter quand on est sur téléphone, que ce soit en
+    // horizontal ou en vertical ».
+    //
+    // Le critère était « plus large que haut », ce qui rangeait un téléphone
+    // COUCHÉ parmi les grands écrans sans jamais vérifier ce qu'on y voyait.
+    // Sa capture du Pixel 10 annonçait elle-même « case ≈ 57 px » : au-dessus
+    // de la cible tactile, donc jouable — mais c'était une COÏNCIDENCE, pas
+    // une garantie.
+    mount(866, 306, { top: 25, bottom: 25 });
+    scene.showWholeBoard();
+
+    expect(scene.worldToScreenPixels(120)).toBeGreaterThanOrEqual(48);
+    expect(scene.prefersWholeBoard()).toBe(true);
+  });
+
+  it('BASCULE en vue suivie quand la vue d\'ensemble devient illisible', () => {
+    // LE CAS QUE L'ANCIEN CRITÈRE NE POUVAIT PAS VOIR : un écran large mais
+    // très bas — téléphone couché, barre d'URL ouverte, clavier visible —
+    // reste « plus large que haut » tout en ne montrant plus rien.
+    mount(900, 150, { top: 25, bottom: 25 });
+
+    expect(scene.prefersWholeBoard()).toBe(false);
+  });
+
+  it('ne change pas ce que le joueur regarde en prenant sa mesure', () => {
+    // La mesure cadre RÉELLEMENT le plateau entier pour lire la taille d'une
+    // case, puis remet la vue. Si elle laissait la vue modifiée, consulter
+    // l'état le changerait — un piège classique.
+    mount(412, 932, { top: 96, bottom: 88 });
+    scene.followTile(7);
+
+    const before = scene.getFocusCenter();
+    scene.prefersWholeBoard();
+    const after = scene.getFocusCenter();
+
+    expect(after.x).toBeCloseTo(before.x, 3);
+    expect(after.z).toBeCloseTo(before.z, 3);
+  });
+
+  it('rend la même réponse si on la demande deux fois', () => {
+    mount(866, 306, { top: 25, bottom: 25 });
+
+    expect(scene.prefersWholeBoard()).toBe(scene.prefersWholeBoard());
+  });
+});

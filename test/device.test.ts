@@ -103,3 +103,73 @@ describe('détection d\'appareil — la recette peut forcer les deux cas', () =>
     expect(readDeviceOverride('?device=tablette').force).toBeUndefined();
   });
 });
+
+describe('3D-75 — un téléphone reste un téléphone, dans les deux sens', () => {
+  /** Simule un téléphone tenu dans une orientation donnée. */
+  function phone(type: string, width: number, height: number): void {
+    Object.defineProperty(window, 'matchMedia', {
+      value: (query: string) => ({ matches: query.includes('coarse') }),
+      configurable: true,
+      writable: true,
+    });
+
+    Object.defineProperty(window, 'screen', {
+      value: { orientation: { type }, width, height },
+      configurable: true,
+    });
+  }
+
+  it('reconnaît le téléphone en PORTRAIT', () => {
+    phone('portrait-primary', 412, 915);
+
+    expect(isHandheld()).toBe(true);
+  });
+
+  it('reconnaît le même téléphone en PAYSAGE', () => {
+    // Quentin : « il faut détecter quand on est sur téléphone, que ce soit en
+    // horizontal ou en vertical ».
+    //
+    // C'est le piège qu'une détection par la FORME DE L'ÉCRAN aurait ouvert :
+    // un téléphone couché est plus large que haut, comme un ordinateur. Tout
+    // ce qui dépendrait de « plus large que haut » traiterait le Pixel 10 de
+    // Quentin en paysage comme un poste fixe.
+    phone('landscape-primary', 915, 412);
+
+    expect(isHandheld()).toBe(true);
+  });
+
+  it('répond PAREIL dans les quatre orientations', () => {
+    // L'INVARIANT : la détection porte sur les CAPACITÉS de l'appareil — un
+    // doigt, un écran qui tourne — et jamais sur la façon dont on le tient.
+    // Ces capacités ne changent pas quand on pivote le téléphone.
+    const answers = [
+      'portrait-primary',
+      'portrait-secondary',
+      'landscape-primary',
+      'landscape-secondary',
+    ].map(type => {
+      phone(type, 412, 915);
+      return isHandheld();
+    });
+
+    expect(new Set(answers).size).toBe(1);
+    expect(answers[0]).toBe(true);
+  });
+
+  it('ne prend pas un ordinateur pour un téléphone, même en fenêtre étroite', () => {
+    // L'autre bord : une fenêtre de bureau réduite à une colonne est plus
+    // haute que large, sans être un téléphone pour autant.
+    Object.defineProperty(window, 'matchMedia', {
+      value: (query: string) => ({ matches: query.includes('fine') }),
+      configurable: true,
+      writable: true,
+    });
+
+    Object.defineProperty(window, 'screen', {
+      value: { orientation: {}, width: 400, height: 900 },
+      configurable: true,
+    });
+
+    expect(isHandheld()).toBe(false);
+  });
+});
