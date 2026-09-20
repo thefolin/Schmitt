@@ -5,6 +5,7 @@ import {
   PlaneGeometry,
   BoxGeometry,
   CylinderGeometry,
+  CircleGeometry,
   TextureLoader,
   SRGBColorSpace,
   Color,
@@ -42,6 +43,42 @@ import {
  * plutôt qu'un dessin sur le tapis.
  */
 const TILE_THICKNESS = 28;
+
+/**
+ * Finesse du contour d'une case ronde.
+ *
+ * 32 côtés : le bord se lit comme un cercle même quand le joueur zoome à
+ * fond, sans peser sur les téléphones d'entrée de gamme, qui sont la cible.
+ * À 16 on voit le polygone, à 64 on paie le double pour rien.
+ */
+const TILE_SEGMENTS = 32;
+
+/**
+ * Les cases qui se distinguent du parcours ordinaire.
+ *
+ * Quentin : « les ajustements ne s'appliquent qu'à 3 cases — les pouvoirs
+ * des dieux et le Schmitt. Les 20 autres restent comme avant. »
+ *
+ * Ce sont les trois cases du plateau officiel qui ne font pas boire mais
+ * DÉCLENCHENT quelque chose : deux temples de la faveur des dieux (rangs 4
+ * et 18) et le Schmitt (rang 11). Les distinguer à l'œil aide : le joueur
+ * voit de loin qu'il va tomber sur un événement, pas sur une gorgée.
+ *
+ * Reconnu par le TYPE, et non par le rang : un plateau composé dans
+ * l'éditeur peut les poser ailleurs, et le rendu ne suppose rien de la forme
+ * du parcours (CLAUDE.md).
+ */
+const SPECIAL_TILE_TYPES = new Set(['power', 'temple', 'schmitt_call']);
+
+/**
+ * De combien une case spéciale dépasse les autres.
+ *
+ * 1,25 et non 2 : MESURÉ. Le pas de grille vaut 135 et une case ordinaire
+ * 120, donc son voisin commence à 135 du centre — une case spéciale ne peut
+ * pas dépasser 150 de diamètre sans le recouvrir. Doubler (240) mordrait de
+ * 52 sur chaque voisine.
+ */
+const SPECIAL_TILE_SCALE = 1.25;
 
 /**
  * Couleurs des cases par famille d'effet.
@@ -120,11 +157,12 @@ const COLUMN_RATIO = 790 / 1920;
 /**
  * Hauteur des colonnes, en part de la profondeur du parcours.
  *
- * Assez hautes pour se lire, sans forcer la caméra à s'éloigner et à
- * rapetisser les cases — c'est la lisibilité des cases qui a décidé du
- * cadrage (#75), et elle prime sur le décor.
+ * RÉDUITE DE MOITIÉ à la demande de Quentin : à 0,95 elles dominaient le
+ * plateau et forçaient la caméra à s'éloigner, donc à rapetisser les cases.
+ * C'est la lisibilité des cases qui a décidé du cadrage (#75), et elle prime
+ * sur le décor.
  */
-const COLUMN_HEIGHT_FIT = 0.95;
+const COLUMN_HEIGHT_FIT = 0.475;
 
 /** Écart entre le bord du parcours et une colonne. */
 const COLUMN_MARGIN = 70;
@@ -216,8 +254,20 @@ export class BoardTiles3D {
     // qui distingue le dessus de la tranche. Un matériau qui l'ignore rend
     // six faces de la même couleur, et le volume ne se voit pas — c'est ce
     // qui faisait paraître le plateau plat au premier jet.
+    // TROIS CASES SONT RONDES ET PLUS GRANDES : les deux temples de la
+    // faveur des dieux et le Schmitt. Quentin les veut distinctes du reste
+    // du parcours, qui garde ses pavés carrés.
+    //
+    // Un jeton plutôt qu'un pavé, et un jeton plus large : le joueur voit de
+    // loin qu'il va tomber sur un événement, pas sur une gorgée.
+    const special = SPECIAL_TILE_TYPES.has(tile.type);
+    const width = bounds.width * (special ? SPECIAL_TILE_SCALE : 1);
+    const height = bounds.height * (special ? SPECIAL_TILE_SCALE : 1);
+
     const body = new Mesh(
-      new BoxGeometry(bounds.width, TILE_THICKNESS, bounds.height),
+      special
+        ? new CylinderGeometry(width / 2, width / 2, TILE_THICKNESS, TILE_SEGMENTS)
+        : new BoxGeometry(width, TILE_THICKNESS, height),
       new MeshLambertMaterial({ color })
     );
     body.position.y = TILE_THICKNESS / 2;
@@ -229,7 +279,9 @@ export class BoardTiles3D {
     // faces, et une case deviendrait un cube d'affiches. Une case est une
     // pièce posée sur la table — sa tranche est de la matière.
     const face = new Mesh(
-      new PlaneGeometry(bounds.width * 0.94, bounds.height * 0.94),
+      special
+        ? new CircleGeometry((width / 2) * 0.94, TILE_SEGMENTS)
+        : new PlaneGeometry(width * 0.94, height * 0.94),
       new MeshLambertMaterial({
         // La couleur reste SOUS l'illustration : pendant le chargement, et
         // si l'image n'arrive jamais, la case se lit quand même. Sur un
