@@ -41,6 +41,13 @@ jobs:
           export CAPACITOR_PLATFORM=true
           npm run build
 
+      - name: Open 3D scene in APK
+        run: |
+          cd dist
+          mv index.html index-css.html
+          mv index-3d.html index.html
+          ls -la *.html
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
