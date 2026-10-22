@@ -88,10 +88,63 @@ describe('HUD — la barre d\'action porte les commandes', () => {
 });
 
 describe('HUD — l\'historique n\'est plus affiché d\'office', () => {
-  it('range le journal dans un panneau masqué', () => {
+  it('range le journal dans un tiroir fermé', () => {
     // « Ne pas afficher l'historique directement » : il occupait trois lignes
     // en permanence pour un confort. Le plateau récupère la place.
-    expect(page).toMatch(/<div id="journal-panel"[^>]*\bhidden\b/);
+    //
+    // CE N'EST PLUS `hidden` QUI LE FERME : le panneau coulisse depuis la
+    // gauche, et un `display: none` empêcherait toute transition. L'état
+    // vit dans `data-open`, comme pour le panneau des dés.
+    expect(page).toMatch(/<div id="journal-panel"[^>]*data-open="false"/);
+  });
+
+  it('empêche le tiroir fermé de happer les gestes de caméra', () => {
+    // UN TIROIR TRANSLATÉ HORS DE L'ÉCRAN RESTE DANS L'ARBRE : sans
+    // `pointer-events: none`, il intercepterait les gestes lancés depuis le
+    // bord de l'écran, et le plateau ne tournerait plus de ce côté.
+    expect(page).toMatch(/#journal-panel\s*\{[^}]*pointer-events:\s*none/);
+    expect(page).toMatch(/#dice-panel\s*\{[^}]*pointer-events:\s*none/);
+  });
+
+  it('garde l\'onglet ATTEIGNABLE quand son panneau est ouvert', () => {
+    // VU EN IMAGE, invisible au DOM : une règle héritée du temps où le
+    // bouton vivait dans la barre du bas l'effaçait à l'ouverture. Mesuré à
+    // 0 × 0 px — il ne restait plus aucun moyen de refermer hors la croix,
+    // alors que l'onglet est précisément censé basculer.
+    expect(page).not.toMatch(/body\[data-dice-panel="open"\]\s*#dice-open\s*\{[^}]*display:\s*none/);
+
+    // Il suit le panneau plutôt que de rester collé au bord, sinon il
+    // passerait dessous.
+    expect(page).toMatch(/body\[data-dice-panel="open"\]\s*\.edge-right\s*\{[^}]*translate/);
+  });
+
+  it('arrête la barre du bas au panneau, et non au bord de l\'écran', () => {
+    // MESURÉ : 500 px de large alors que le plateau n'en occupait que 290.
+    // Ses boutons de droite passaient SOUS le panneau et devenaient
+    // intouchables — « Lancer » le premier.
+    // LA RÈGLE PRINCIPALE, et non celle de la media query : `.foot {`
+    // apparaît deux fois, et viser la première attrapait la mauvaise.
+    const start = page.indexOf('\n        .foot {');
+    const foot = page.slice(start, page.indexOf('}', start));
+
+    expect(foot).toMatch(/right:\s*var\(--dice-panel\)/);
+  });
+
+  it('pose les deux onglets sur les bords, et non dans la barre du bas', () => {
+    // Demande de Quentin : « bouton 📜 à gauche, bouton 🎲 à droite ». Le
+    // geste part d'où le panneau arrive.
+    // LA BARRE S'ARRÊTE À SA PROPRE FERMETURE, et non à `</body>` : les
+    // onglets vivent APRÈS elle dans la page, et un découpage trop large
+    // les attraperait alors qu'ils en sont justement sortis.
+    const start = page.indexOf('<div class="foot"');
+    const foot = page.slice(start, page.indexOf('\n    </div>', start));
+
+    expect(foot).toContain('id="roll"');
+    expect(foot).not.toContain('id="journal-open"');
+    expect(foot).not.toContain('id="dice-open"');
+
+    expect(page).toMatch(/<button id="journal-open"[^>]*class="edge-tab edge-left"/);
+    expect(page).toMatch(/<button id="dice-open"[^>]*class="edge-tab edge-right"/);
   });
 
   it('garde le journal lui-même, dans ce panneau', () => {

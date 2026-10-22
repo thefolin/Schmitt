@@ -94,6 +94,11 @@ export function attachDicePanel(
     elements.panel?.setAttribute('data-open', String(open));
     doc.body.setAttribute('data-dice-panel', open ? 'open' : 'closed');
 
+    // UN BOUTON QUI BASCULE DOIT DIRE S'IL EST OUVERT, sinon il ne
+    // s'annonce pas : c'est la même exigence que l'`aria-pressed` du mode
+    // cinéma.
+    elements.openButton?.setAttribute('aria-expanded', String(open));
+
     // `--dice-panel-width` porte la largeur voulue, bornée par la feuille de
     // style ; on ne fait que l'appliquer ou la rendre.
     doc.documentElement.style.setProperty(
@@ -150,7 +155,10 @@ export function attachDicePanel(
     },
   };
 
-  elements.openButton?.addEventListener('click', () => panel.open());
+  // L'ONGLET BASCULE : le même bouton ouvre et ferme. Deux cibles — un
+  // bouton pour ouvrir, une croix pour fermer — obligeaient à viser deux
+  // endroits différents, dont un petit.
+  elements.openButton?.addEventListener('click', () => panel.toggle());
   elements.closeButton?.addEventListener('click', () => panel.close());
 
   // LE LANCER REVIENT À LA SCÈNE. Le panneau ne fait que transmettre : c'est

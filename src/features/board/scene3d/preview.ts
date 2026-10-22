@@ -269,19 +269,37 @@ async function main(): Promise<void> {
   // pas la hauteur des bandeaux. C'est l'arbitrage retenu pour la modale
   // d'action, et il vaut pour la même raison — un recadrage à chaque
   // consultation ferait sauter l'image sous les yeux du joueur.
+  //
+  // IL COULISSE DEPUIS LA GAUCHE, par son onglet 📜 posé sur ce bord. Il ne
+  // prend PAS de largeur au plateau, contrairement au panneau des dés : on
+  // le consulte brièvement, et recadrer à chaque consultation ferait sauter
+  // l'image sous les yeux du joueur.
+  //
+  // `hidden` NE PORTE PLUS L'ÉTAT : un `display: none` empêcherait toute
+  // transition. C'est `data-open` qui le porte, et le tiroir fermé est
+  // neutralisé par `pointer-events` pour ne pas happer les gestes de caméra.
   const journalPanel = document.getElementById('journal-panel');
+  const journalTab = document.getElementById('journal-open');
+
   const showJournal = (open: boolean): void => {
-    if (journalPanel) journalPanel.hidden = !open;
+    journalPanel?.setAttribute('data-open', String(open));
+    document.body.setAttribute('data-journal-panel', open ? 'open' : 'closed');
+    journalTab?.setAttribute('aria-expanded', String(open));
   };
 
-  document.getElementById('journal-open')?.addEventListener('click', () => showJournal(true));
+  const journalIsOpen = (): boolean =>
+    journalPanel?.getAttribute('data-open') === 'true';
+
+  // L'ONGLET BASCULE : le même geste ouvre et ferme, au même endroit.
+  journalTab?.addEventListener('click', () => showJournal(!journalIsOpen()));
   document.getElementById('journal-close')?.addEventListener('click', () => showJournal(false));
 
-  // Toucher à côté de la carte referme : c'est le geste attendu d'un
-  // panneau posé par-dessus, et il évite de viser une croix de 36 px.
-  journalPanel?.addEventListener('click', event => {
-    if (event.target === journalPanel) showJournal(false);
-  });
+  showJournal(false);
+
+  // PLUS DE « TOUCHER À CÔTÉ POUR FERMER » : il visait le fond
+  // semi-transparent d'un panneau centré, qui n'existe plus. Le tiroir
+  // occupe toute sa largeur — il n'a pas de « à côté » — et son onglet
+  // referme d'un seul geste, au même endroit qu'il a servi à ouvrir.
 
   window.addEventListener('resize', remeasure);
   window.addEventListener('orientationchange', remeasure);

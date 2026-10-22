@@ -194,8 +194,13 @@
         .foot {
             position: fixed;
             left: 0;
-            right: 0;
+            /* ELLE S'ARRÊTE AU PANNEAU, comme le plateau : mesurée à 500 px
+               de large alors que le plateau n'en occupait que 290, ses
+               boutons de droite passaient DESSOUS et devenaient
+               intouchables. */
+            right: var(--dice-panel);
             bottom: 0;
+            transition: right 300ms cubic-bezier(0.22, 0.61, 0.36, 1);
             z-index: 10;
             display: flex;
             flex-direction: column;
@@ -283,7 +288,10 @@
             background: rgba(6, 10, 18, 0.55);
         }
 
-        #journal-panel[hidden] { display: none; }
+        /* `hidden` NE SERT PLUS ICI : le tiroir coulisse, et un
+           `display: none` empêcherait toute transition. C'est `data-open`
+           qui porte l'état — et un tiroir translaté hors de l'écran
+           n'intercepte aucun geste. */
 
         #journal-card {
             width: min(460px, 100%);
@@ -505,7 +513,12 @@
             transition: transform 300ms cubic-bezier(0.22, 0.61, 0.36, 1);
         }
 
-        #dice-panel[data-open="true"] { transform: translateX(0); }
+        #dice-panel { pointer-events: none; }
+
+        #dice-panel[data-open="true"] {
+            transform: translateX(0);
+            pointer-events: auto;
+        }
 
         @media (prefers-reduced-motion: reduce) {
             #dice-panel { transition: none; }
@@ -577,10 +590,141 @@
             min-height: 52px;
         }
 
-        /* LE BOUTON D'OUVERTURE s'efface quand le panneau est ouvert : il
-           ferait double emploi avec la croix, et sur un écran étroit les
-           deux se chevaucheraient. */
-        body[data-dice-panel="open"] #dice-open { display: none; }
+        /* L'ONGLET NE S'EFFACE PLUS À L'OUVERTURE : il BASCULE désormais,
+           c'est donc lui qui referme. L'effacer le réduisait à 0 × 0 px —
+           mesuré — et il n'y avait plus aucun moyen de refermer le panneau
+           hors la croix. Il suit le panneau (voir `.edge-right` ci-dessus)
+           pour rester atteignable. */
+
+
+        /*
+         * LES ONGLETS DE BORD — un par panneau, à l'endroit d'où il vient.
+         *
+         * Ils BASCULENT : le même bouton ouvre et ferme. Un bouton pour
+         * ouvrir et une croix pour fermer obligeaient à viser deux cibles
+         * différentes, dont une petite.
+         *
+         * Ils suivent leur panneau quand il coulisse, pour rester
+         * atteignables au lieu de passer dessous.
+         */
+        .edge-tab {
+            position: fixed;
+            top: 50%;
+            z-index: 46;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            /* 44 px : la cible tactile confortable. En dessous, on rate. */
+            width: 44px;
+            min-height: 56px;
+            padding: 0;
+            font-size: 20px;
+            line-height: 1;
+            color: #e8eefc;
+            background: rgba(13, 21, 36, 0.92);
+            border: 1px solid rgba(212, 175, 55, 0.4);
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+            transition: transform 300ms cubic-bezier(0.22, 0.61, 0.36, 1);
+        }
+
+        .edge-left {
+            left: 0;
+            border-left: 0;
+            border-radius: 0 14px 14px 0;
+            transform: translateY(-50%);
+        }
+
+        .edge-right {
+            right: 0;
+            border-right: 0;
+            border-radius: 14px 0 0 14px;
+            transform: translateY(-50%);
+        }
+
+        /* L'ONGLET SE DÉPLACE AVEC SON PANNEAU : sans cela il resterait
+           collé au bord, recouvert par le panneau ouvert. */
+        body[data-dice-panel="open"] .edge-right {
+            transform: translate(calc(-1 * var(--dice-panel-width)), -50%);
+        }
+
+        body[data-journal-panel="open"] .edge-left {
+            transform: translate(var(--journal-panel-width), -50%);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .edge-tab { transition: none; }
+        }
+
+        /*
+         * L'HISTORIQUE — il coulisse depuis la GAUCHE.
+         *
+         * Il se SUPERPOSE au plateau au lieu de lui prendre sa largeur,
+         * contrairement au panneau des dés : on le consulte brièvement,
+         * et recadrer le plateau à chaque consultation ferait sauter
+         * l'image sous les yeux du joueur.
+         */
+        :root { --journal-panel-width: min(300px, 78vw); }
+
+        #journal-panel {
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: auto;
+            inset: auto;
+            z-index: 44;
+            display: flex;
+            flex-direction: column;
+            width: var(--journal-panel-width);
+            padding: 16px;
+            padding-top: calc(16px + var(--safe-top));
+            padding-bottom: calc(16px + var(--safe-bottom));
+            background: rgba(13, 21, 36, 0.96);
+            border-right: 1px solid rgba(212, 175, 55, 0.4);
+            backdrop-filter: blur(10px);
+            transform: translateX(-100%);
+            transition: transform 300ms cubic-bezier(0.22, 0.61, 0.36, 1);
+        }
+
+        /* IL RESTE DANS LE FLUX quand il est fermé : `hidden` le retirerait,
+           et la transition ne jouerait pas. C'est l'attribut `data-open` qui
+           porte l'état, comme pour le panneau des dés. */
+        /* FERMÉ, IL NE DOIT RIEN INTERCEPTER : un tiroir translaté hors de
+           l'écran reste dans l'arbre, et happerait les gestes de caméra
+           lancés depuis le bord gauche du plateau. */
+        #journal-panel { pointer-events: none; }
+
+        #journal-panel[data-open="true"] {
+            transform: translateX(0);
+            pointer-events: auto;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            #journal-panel { transition: none; }
+        }
+
+        /* La carte ne flotte plus au milieu : elle remplit le tiroir. */
+        #journal-card {
+            display: flex;
+            flex-direction: column;
+            flex: 1 1 auto;
+            width: 100%;
+            min-height: 0;
+            padding: 0;
+            background: transparent;
+            border: 0;
+            backdrop-filter: none;
+        }
+
+        /* L'historique peut être long : il défile dans le tiroir. */
+        #journal {
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
 
     </style>
 </head>
@@ -644,8 +788,6 @@
                  d'Aphrodite. Voir TODO/epic-7-refonte-3d.md. -->
             <button id="test-poseidon" type="button" title="Test : simuler Poséidon" aria-label="Test : simuler Poséidon">🔱 Test</button>
             <button id="test-hermes" type="button" title="Test : simuler Hermès" aria-label="Test : simuler Hermès">👟 Test</button>
-            <button id="dice-open" type="button" title="Panneau des dés" aria-label="Ouvrir le panneau des dés">🎲</button>
-            <button id="journal-open" type="button" title="Historique de la partie" aria-label="Historique de la partie">📜</button>
             <button id="reset" type="button" title="Recadrer la vue" aria-label="Recadrer la vue">🎯</button>
             <button id="whole" type="button" title="Tout le plateau" aria-label="Tout le plateau">🗺️</button>
             <!-- MODE CINÉMA : le lancer se regarde en gros plan, puis la vue
@@ -663,6 +805,21 @@
          qui vient de se passer. On le consulte quand on en a besoin, et le
          plateau récupère la place le reste du temps.
     -->
+    <!--
+         LES DEUX ONGLETS, sur les bords de l'écran.
+         Ils ouvrent ET ferment leur panneau : un seul geste, au même
+         endroit, plutôt qu'un bouton pour ouvrir et une croix pour fermer.
+         Ils sont posés sur les BORDS parce que c'est de là que coulissent
+         les panneaux — le geste part d'où la chose arrive.
+    -->
+    <button id="journal-open" class="edge-tab edge-left" type="button"
+            aria-expanded="false" aria-controls="journal-panel"
+            title="Historique de la partie" aria-label="Historique de la partie">📜</button>
+
+    <button id="dice-open" class="edge-tab edge-right" type="button"
+            aria-expanded="false" aria-controls="dice-panel"
+            title="Panneau des dés" aria-label="Panneau des dés">🎲</button>
+
     <!--
          LE PANNEAU DES DÉS, à droite.
          Le plateau reste visible à gauche pendant que le dé roule : c'est
@@ -689,7 +846,7 @@
         <button id="dice-panel-roll" class="roll" type="button">Lancer le dé</button>
     </aside>
 
-    <div id="journal-panel" hidden>
+    <div id="journal-panel" data-open="false">
         <div id="journal-card">
             <div id="journal-head">
                 <span>Historique</span>
