@@ -1466,8 +1466,32 @@ function attachDice(
   // Deux chemins de lancer donneraient deux résultats concurrents pour un
   // seul tour : `roll` reste la seule porte d'entrée, et son garde du début
   // protège les deux boutons.
-  dicePanel = attachDicePanel(dicePanelElements(), {
+  // LE DÉ VU DE PRÈS, DANS LE PANNEAU — choix (C) de Quentin (22/10/2026) :
+  // « même scène, viewport découpé via setScissor, un seul contexte WebGL ».
+  //
+  // La position VIENT DU DÉ LUI-MÊME, à chaque image : c'est le même objet
+  // de la même scène, et la relire ailleurs ferait diverger la vue du
+  // panneau de ce qui se joue sur le plateau. Le dé bouge pendant le lancer,
+  // et la caméra doit le suivre.
+  const diceElements = dicePanelElements();
+
+  const aimDiceView = (open: boolean): void => {
+    scene.setDiceView(
+      open && diceElements.panel
+        ? {
+            panel: diceElements.panel,
+            get target() {
+              return die.group.position;
+            },
+            size: Dice3DScene.halfSize * 2,
+          }
+        : null
+    );
+  };
+
+  dicePanel = attachDicePanel(diceElements, {
     onRoll: roll,
+    onOpenChange: aimDiceView,
     onResize: () => {
       // LE RECADRAGE ATTEND LA FIN DE L'ANIMATION. `#scene` met 300 ms à
       // céder la place ; recadrer tout de suite mesurerait la largeur de

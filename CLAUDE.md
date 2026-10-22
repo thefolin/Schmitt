@@ -52,9 +52,13 @@ Champs du projet : `Status` (Todo / In Progress / Done) et `Priority`
 
 - **Le rendu ne suppose rien de la forme du parcours.** L'éditeur permet des
   plateaux en U, en cercle, en T : tous doivent se rendre correctement.
-- **Cible unique : Android** (APK, `minSdk 22` = Android 5.1), tranché le
-  19/09/2026. iOS, Android TV et Apple TV sont abandonnés — inutile de
-  prévoir une navigation sans tactile ni une seconde pile de rendu.
+- **Cible unique : Android** (APK, `minSdk 28` = Android 9), tranché le
+  19/09/2026 pour Android, relevé de 22 à 28 le 22/10/2026 — « la cible 5.1
+  était théorique et obsolète ». iOS, Android TV et Apple TV sont abandonnés
+  — inutile de prévoir une navigation sans tactile ni une seconde pile de
+  rendu. Les commentaires du code qui invoquent encore « Android 5.1 »
+  justifient des choix prudents qui restent valables ; ils datent d'avant ce
+  relèvement.
 - **Le cadrage en portrait** a déjà fait échouer une tentative de vue diagonale
   (voir `TODO.md §2`) : 8 cases visibles sur 23. À traiter en premier, jamais
   en dernier.

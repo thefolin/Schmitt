@@ -30,6 +30,13 @@ export interface DicePanelHooks {
   onRoll(): void;
   /** Prévenir que la largeur du plateau a changé, pour recadrer. */
   onResize?(): void;
+  /**
+   * Prévenir que le panneau s'ouvre ou se ferme.
+   *
+   * C'est ce qui arme et désarme la vue rapprochée du dé : inutile de
+   * dessiner un second viewport pour un panneau fermé.
+   */
+  onOpenChange?(open: boolean): void;
 }
 
 /** Les éléments que le panneau pilote. */
@@ -105,6 +112,11 @@ export function attachDicePanel(
       '--dice-panel',
       open ? 'var(--dice-panel-width)' : '0px'
     );
+
+    // LA VUE RAPPROCHÉE S'ARME TOUT DE SUITE, et non à la fin du
+    // coulissement : le panneau est déjà visible pendant qu'il glisse, et
+    // l'attendre montrerait un panneau vide pendant 300 ms.
+    hooks.onOpenChange?.(open);
 
     // LE RECADRAGE ATTEND LA FIN DE L'ANIMATION. Recadrer tout de suite
     // mesurerait la largeur de départ : `#scene` met 300 ms à céder la

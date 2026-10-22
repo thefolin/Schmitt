@@ -12,6 +12,7 @@ import {
   DirectionalLight,
 } from 'three';
 import { readSafeArea, disposeSafeAreaProbe } from './safe-area';
+import { panelViewport, toGlRect, diceCameraDistance } from './dice-viewport';
 import {
   computeFraming,
   measureExtent,
@@ -128,6 +129,23 @@ export interface BoardSceneOptions {
 export class BoardScene {
   readonly scene = new Scene();
   readonly camera: PerspectiveCamera;
+
+  /**
+   * La caméra du PANNEAU DES DÉS — le choix (C) de Quentin (22/10/2026).
+   *
+   * Elle regarde le MÊME dé, dans la MÊME scène : seul le point de vue
+   * change. C'est ce qui évite un second contexte WebGL, et surtout ce qui
+   * garantit qu'on ne peut pas montrer dans le panneau autre chose que ce
+   * qui se joue sur le plateau — le défaut que la refonte a fermé.
+   */
+  private readonly diceCamera: PerspectiveCamera;
+
+  /** Ce que le panneau doit cadrer, ou `null` quand il est fermé. */
+  private diceView: {
+    panel: { getBoundingClientRect(): DOMRect };
+    target: { x: number; y: number; z: number };
+    size: number;
+  } | null = null;
   /** Tout le contenu du plateau : c'est LUI qu'on tourne, pas la caméra. */
   readonly world = new Group();
 
@@ -234,6 +252,9 @@ export class BoardScene {
     // Les bornes sont posées au premier cadrage ; celles-ci évitent une
     // caméra dégénérée avant la première mesure.
     this.camera = new PerspectiveCamera(CAMERA_FOV_DEG, 1, 10, 40000);
+    // MÊME CHAMP que la caméra du plateau : le dé ne doit pas changer de
+    // proportions en passant d'une vue à l'autre.
+    this.diceCamera = new PerspectiveCamera(CAMERA_FOV_DEG, 1, 1, 40000);
     this.scene.add(this.world);
     this.addLights();
 
@@ -1033,9 +1054,102 @@ export class BoardScene {
     this.syncRunning();
   };
 
+  /**
+   * Dit où montrer le dé de près, ou `null` pour ne plus le montrer.
+   *
+   * Le panneau donne son élément ; la scène en mesure le rectangle à chaque
+   * image, parce qu'il BOUGE pendant les 300 ms du coulissement. Le mesurer
+   * une fois à l'ouverture figerait le dé à la position de départ.
+   */
+  public setDiceView(
+    view: {
+      panel: { getBoundingClientRect(): DOMRect };
+      target: { x: number; y: number; z: number };
+      size: number;
+    } | null
+  ): void {
+    this.diceView = view;
+  }
+
   private renderOnce(): void {
     if (!this.renderer || this.contextLost || this.disposed) return;
+
+    // LE PLATEAU D'ABORD, sur tout le canvas. Le découpage du second passage
+    // doit être DÉSARMÉ ici, sinon il persisterait d'une image à l'autre et
+    // le plateau ne serait plus dessiné que dans le rectangle du panneau.
+    // La taille est relue sur le CANVAS plutôt que gardée en champ : c'est
+    // elle qui fait foi au moment de dessiner, et `layout()` a pu la changer
+    // entre-temps.
+    const frame = this.canvas?.getBoundingClientRect();
+
+    // LE DÉCOUPAGE EST OPTIONNEL : un renderer de repli — ou celui d'un
+    // test — peut ne pas l'exposer. Le plateau doit se dessiner quand même ;
+    // c'est seulement la vue rapprochée du dé qui n'aura pas lieu.
+    if (typeof this.renderer.setScissorTest === 'function') {
+      this.renderer.setScissorTest(false);
+      if (frame) this.renderer.setViewport(0, 0, frame.width, frame.height);
+    }
+
     this.renderer.render(this.scene, this.camera);
+
+    this.renderDiceView();
+  }
+
+  /**
+   * Le SECOND PASSAGE : le même dé, vu de près, dans le rectangle du panneau.
+   *
+   * CHOIX (C) DE QUENTIN (22/10/2026) : « même scène, viewport découpé via
+   * setScissor, un seul contexte WebGL ». Rien n'est dupliqué — ni la scène,
+   * ni le dé, ni la face lue. Ce qui apparaît dans le panneau EST l'objet
+   * qui se joue sur le plateau, et le désaccord face vue / face jouée reste
+   * impossible par construction.
+   */
+  private renderDiceView(): void {
+    const view = this.diceView;
+    if (!this.renderer || !view || !this.canvas) return;
+
+    // Sans découpage, pas de second viewport — et pas de dessin erroné.
+    if (typeof this.renderer.setScissorTest !== 'function') return;
+
+    const rect = panelViewport(view.panel, this.canvas);
+    if (!rect) return;
+
+    // RIEN À DESSINER tant que le panneau n'est pas entré dans le canvas :
+    // pendant le coulissement il déborde encore à droite, et un rectangle
+    // hors cadre ferait travailler le GPU pour des pixels invisibles.
+    const frame = this.canvas.getBoundingClientRect();
+    if (rect.x >= frame.width || rect.x + rect.width <= 0) return;
+
+    const gl = toGlRect(rect, frame.height);
+    const aspect = rect.width / rect.height;
+
+    this.diceCamera.aspect = aspect;
+    this.diceCamera.position.set(
+      view.target.x,
+      view.target.y + view.size * 0.9,
+      view.target.z + diceCameraDistance(view.size, CAMERA_FOV_DEG, aspect)
+    );
+    this.diceCamera.lookAt(view.target.x, view.target.y, view.target.z);
+    this.diceCamera.updateProjectionMatrix();
+
+    // LE DÉCOUPAGE LIMITE AUSSI L'EFFACEMENT : sans lui, vider la profondeur
+    // effacerait le plateau déjà dessiné.
+    this.renderer.setScissorTest(true);
+    this.renderer.setScissor(gl.x, gl.y, gl.width, gl.height);
+    this.renderer.setViewport(gl.x, gl.y, gl.width, gl.height);
+
+    // `autoClear` EFFACERAIT TOUT L'ÉCRAN avant ce second passage, plateau
+    // compris : `render()` appelle `clear()` de lui-même, et le découpage ne
+    // protège que la zone — pas l'appel. Il faut donc le désarmer et ne
+    // remettre à zéro QUE la profondeur, pour que le dé se dessine par-dessus
+    // le panneau sans effacer le plateau déjà rendu à gauche.
+    const autoClear = this.renderer.autoClear;
+    this.renderer.autoClear = false;
+    this.renderer.clearDepth();
+    this.renderer.render(this.scene, this.diceCamera);
+    this.renderer.autoClear = autoClear;
+
+    this.renderer.setScissorTest(false);
   }
 
   /**

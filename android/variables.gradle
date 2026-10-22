@@ -1,5 +1,8 @@
 ext {
-    minSdkVersion = 22
+    // Android 9 (API 28). La cible 5.1 était théorique : Quentin l'a
+    // relevée le 22/10/2026 — « la cible 5.1 était théorique et obsolète,
+    // on optimise pour Android 10 à 13, pas pour du matériel fantôme ».
+    minSdkVersion = 28
     compileSdkVersion = 34
     targetSdkVersion = 34
     androidxActivityVersion = '1.8.0'
