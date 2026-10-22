@@ -780,9 +780,23 @@ export class BoardScene {
 
     // On ne prend la mesure du navigateur que si elle est plausible : un
     // `visualViewport` qui rapporterait zéro ferait disparaître le plateau.
+    //
+    // ET JAMAIS PLUS LARGE QUE LE CONTENEUR. `visualViewport` mesure la
+    // FENÊTRE ; depuis que le panneau des dés occupe une colonne, `#scene`
+    // est plus étroit qu'elle. Prendre la fenêtre ferait cadrer la caméra
+    // sur une largeur qui n'existe pas, et le plateau partirait sous le
+    // panneau — le défaut « 8 cases visibles sur 23 » de TODO.md §2.
+    //
+    // Le `min` ne change rien quand le conteneur occupe tout l'écran : les
+    // deux mesures coïncident alors, au pixel près.
+    const visualWidth =
+      visual.width > 0 ? Math.max(1, Math.round(visual.width)) : width;
+    const visualHeight =
+      visual.height > 0 ? Math.max(1, Math.round(visual.height)) : height;
+
     return {
-      width: visual.width > 0 ? Math.max(1, Math.round(visual.width)) : width,
-      height: visual.height > 0 ? Math.max(1, Math.round(visual.height)) : height,
+      width: Math.min(visualWidth, width),
+      height: Math.min(visualHeight, height),
     };
   }
 

@@ -58,6 +58,17 @@ import { modalSteps, runModalSteps, favorStep } from './action-modal';
 import { showAphroditeScreen } from './aphrodite-screen';
 import { showPoseidonScreen, POSEIDON_SUM } from './poseidon-screen';
 import { showHermesScreen } from './hermes-screen';
+import { attachDicePanel, dicePanelElements } from './dice-panel';
+
+/**
+ * La durée du coulissement du panneau des dés, en millisecondes.
+ *
+ * ELLE DOIT SUIVRE LA FEUILLE DE STYLE : `index-3d.html` déclare
+ * `transition: right 300ms` sur `#scene`. Recadrer avant la fin mesurerait
+ * la largeur de départ — le plateau garderait un cadrage pour une place
+ * qu'il n'a plus.
+ */
+const PANEL_SLIDE_MS = 300;
 import { HERMES_SUM } from './hermes-plan';
 import { APHRODITE_SUM } from './aphrodite-plan';
 // Les tokens du design system précèdent la feuille qui les consomme :
@@ -768,6 +779,13 @@ function attachDice(
     const face = physics.getState().currentValue;
     if (result) result.textContent = String(face);
 
+    // LE PANNEAU GARDE LA DERNIÈRE FACE. C'est l'état 4 de la demande : en
+    // le rouvrant plus tard, on doit retrouver le dernier dé. La face vient
+    // d'ICI, de la chaîne qui fait foi — la relire ailleurs risquerait de
+    // montrer autre chose que ce dont le pion a avancé.
+    dicePanel.showFace(face);
+    dicePanel.setRollEnabled(true);
+
     const outcome = runner.playTurn(face);
 
     walking = true;
@@ -1331,6 +1349,15 @@ function attachDice(
     listening = false;
   };
 
+  /**
+   * Le panneau des dés.
+   *
+   * DÉCLARÉ AVANT SES USAGES mais assigné plus bas : `step` et `roll` ne le
+   * touchent que depuis des callbacks — fin de course, clic — déclenchés
+   * bien après l'initialisation du module.
+   */
+  let dicePanel: ReturnType<typeof attachDicePanel>;
+
   const roll = (): void => {
     if (frame !== null || walking || favorDice.rolling || awaitingValidation) return;
 
@@ -1342,6 +1369,10 @@ function attachDice(
     }
 
     if (result) result.textContent = '…';
+    // DEUX LANCERS SIMULTANÉS feraient deux résultats pour un seul tour : le
+    // bouton du panneau se grise le temps de la course, comme celui du HUD
+    // se protège par le garde au début de `roll`.
+    dicePanel.setRollEnabled(false);
     physics.throw();
 
     frameTheRoll();
@@ -1412,6 +1443,21 @@ function attachDice(
   });
 
   document.getElementById('roll')?.addEventListener('click', roll);
+
+  // LE PANNEAU DES DÉS, branché sur le MÊME lancer que le bouton du HUD.
+  // Deux chemins de lancer donneraient deux résultats concurrents pour un
+  // seul tour : `roll` reste la seule porte d'entrée, et son garde du début
+  // protège les deux boutons.
+  dicePanel = attachDicePanel(dicePanelElements(), {
+    onRoll: roll,
+    onResize: () => {
+      // LE RECADRAGE ATTEND LA FIN DE L'ANIMATION. `#scene` met 300 ms à
+      // céder la place ; recadrer tout de suite mesurerait la largeur de
+      // DÉPART, et le plateau garderait un cadrage pour une place qu'il n'a
+      // plus. Mesuré sur la transition déclarée dans `index-3d.html`.
+      window.setTimeout(() => scene.layout(), PANEL_SLIDE_MS + 20);
+    },
+  });
 
   cinemaButton?.addEventListener('click', () => {
     // PENDANT UN LANCER, on ne bascule pas : le cadre est déjà posé et le

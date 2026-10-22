@@ -145,6 +145,52 @@ describe('HUD — le diagnostic a quitté l\'écran de jeu', () => {
   });
 });
 
+describe('HUD — le panneau des dés', () => {
+  it('porte son bouton d\'ouverture dans la barre du bas', () => {
+    expect(pageIds().has('dice-open')).toBe(true);
+
+    const foot = page.slice(page.indexOf('<div class="foot"'), page.indexOf('</body>'));
+    expect(foot).toContain('id="dice-open"');
+  });
+
+  it('porte les éléments que la scène pilote', () => {
+    // `getElementById` ne lève pas sur un identifiant disparu : le panneau
+    // cesserait simplement de répondre, sans que rien ne le signale.
+    for (const id of [
+      'dice-panel',
+      'dice-panel-close',
+      'dice-panel-roll',
+      'dice-panel-value',
+      'dice-panel-caption',
+    ]) {
+      expect(pageIds().has(id)).toBe(true);
+    }
+  });
+
+  it('laisse TOUTE la largeur au plateau tant qu\'il est fermé', () => {
+    // EN PORTRAIT LA LARGEUR EST COMPTÉE — contrainte de CLAUDE.md, et
+    // TODO.md §2 garde la trace d'un cadrage tombé à « 8 cases sur 23 ».
+    // Un panneau ouvert d'office amputerait le plateau en continu.
+    expect(page).toMatch(/--dice-panel:\s*0px/);
+    expect(page).toMatch(/<aside id="dice-panel"[^>]*data-open="false"/);
+  });
+
+  it('fait céder la place au plateau, au lieu de passer dessus', () => {
+    // `#scene` consomme la variable dans son `right` : la scène se mesure
+    // sur son conteneur et recadre sur ce qui lui reste.
+    const scene3d = page.slice(page.indexOf('#scene {'), page.indexOf('#scene:active'));
+
+    expect(scene3d).toMatch(/right:\s*var\(--dice-panel\)/);
+  });
+
+  it('accorde la durée du coulissement entre la feuille et la scène', () => {
+    // LA SCÈNE RECADRE APRÈS L'ANIMATION : si les deux durées divergent,
+    // elle mesure la largeur de départ et garde un cadrage périmé.
+    expect(page).toMatch(/transition:\s*right\s*300ms/);
+    expect(scene).toMatch(/PANEL_SLIDE_MS\s*=\s*300/);
+  });
+});
+
 describe('HUD — le bouton de recette de Poséidon', () => {
   it('existe dans la barre du bas', () => {
     expect(pageIds().has('test-poseidon')).toBe(true);

@@ -27,11 +27,30 @@
 
         /* Le canvas occupe tout l'écran ; le bandeau se superpose, comme le
            fera le vrai HUD. */
+        /* LA LARGEUR QUE LE PANNEAU DES DÉS LAISSE AU PLATEAU.
+           Zéro quand il est fermé : le plateau occupe alors tout l'écran,
+           exactement comme avant. */
+        :root { --dice-panel: 0px; }
+
         #scene {
             position: fixed;
-            inset: 0;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            /* Le plateau cède la place au panneau plutôt que de passer
+               dessous : la scène se mesure sur SON conteneur, et recadre
+               donc sur la largeur qui lui reste. Sans cela le plateau
+               partirait sous le panneau — le défaut « 8 cases sur 23 »
+               de TODO.md §2. */
+            right: var(--dice-panel);
             touch-action: none;
             cursor: grab;
+            transition: right 300ms cubic-bezier(0.22, 0.61, 0.36, 1);
+        }
+
+        /* UN APPAREIL QUI REFUSE LES ANIMATIONS les refuse toutes. */
+        @media (prefers-reduced-motion: reduce) {
+            #scene { transition: none; }
         }
 
         #scene:active { cursor: grabbing; }
@@ -454,6 +473,115 @@
             opacity: 1;
         }
 
+
+        /*
+         * LE PANNEAU DES DÉS — il coulisse depuis la droite.
+         *
+         * Il TRANSLATE au lieu de changer de largeur : animer `width` ou
+         * `right` sur le panneau relancerait une mise en page à chaque
+         * image, et le téléphone d'entrée de gamme est la cible. La
+         * translation est prise en charge par le compositeur.
+         *
+         * C'est `--dice-panel` qui pousse le plateau, et lui seul : le
+         * panneau ne fait que glisser par-dessus le bord libéré.
+         */
+        #dice-panel {
+            position: fixed;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 45;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            width: var(--dice-panel-width);
+            padding: 16px;
+            padding-top: calc(16px + var(--safe-top));
+            padding-bottom: calc(16px + var(--safe-bottom));
+            background: rgba(13, 21, 36, 0.96);
+            border-left: 1px solid rgba(212, 175, 55, 0.4);
+            backdrop-filter: blur(10px);
+            transform: translateX(100%);
+            transition: transform 300ms cubic-bezier(0.22, 0.61, 0.36, 1);
+        }
+
+        #dice-panel[data-open="true"] { transform: translateX(0); }
+
+        @media (prefers-reduced-motion: reduce) {
+            #dice-panel { transition: none; }
+        }
+
+        /* LA LARGEUR DU PANNEAU, et donc ce qu'il retire au plateau.
+           Bornée en pourcentage : sur un écran étroit, une largeur fixe
+           mangerait tout le plateau.
+
+           C'EST LE RÉGLAGE À TOUCHER EN PREMIER si le plateau se retrouve
+           trop à l'étroit sur le téléphone. Panneau ouvert, il lui reste
+           58 % de la largeur (mesuré de 360 à 430 px). Quentin a tranché
+           d'essayer le layout gauche/droite et d'itérer sur le rendu réel
+           (22/10/2026), en connaissance du précédent de TODO.md §2 —
+           « 8 cases visibles sur 23 ». Baisser ce 42vw rend de la place au
+           plateau sans toucher au reste. */
+        :root { --dice-panel-width: min(260px, 42vw); }
+
+        #dice-panel-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: #d4af37;
+        }
+
+        #dice-panel-close {
+            min-width: 44px;
+            min-height: 44px;
+            font-size: 22px;
+            line-height: 1;
+            color: #e8eefc;
+            background: transparent;
+            border: 0;
+            cursor: pointer;
+        }
+
+        /* LA FACE LUE, en grand : c'est ce qu'on vient chercher ici. */
+        #dice-panel-face {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            flex: 1 1 auto;
+            min-height: 0;
+        }
+
+        #dice-panel-value {
+            font-family: 'Cinzel', Georgia, serif;
+            font-size: clamp(44px, 16vw, 86px);
+            font-weight: 700;
+            line-height: 1;
+            color: #f3c969;
+        }
+
+        #dice-panel-caption {
+            font-size: 12px;
+            letter-spacing: 0.04em;
+            text-align: center;
+            color: #9fb0c9;
+        }
+
+        #dice-panel-roll {
+            flex: 0 0 auto;
+            min-height: 52px;
+        }
+
+        /* LE BOUTON D'OUVERTURE s'efface quand le panneau est ouvert : il
+           ferait double emploi avec la croix, et sur un écran étroit les
+           deux se chevaucheraient. */
+        body[data-dice-panel="open"] #dice-open { display: none; }
+
     </style>
 </head>
 <body>
@@ -516,6 +644,7 @@
                  d'Aphrodite. Voir TODO/epic-7-refonte-3d.md. -->
             <button id="test-poseidon" type="button" title="Test : simuler Poséidon" aria-label="Test : simuler Poséidon">🔱 Test</button>
             <button id="test-hermes" type="button" title="Test : simuler Hermès" aria-label="Test : simuler Hermès">👟 Test</button>
+            <button id="dice-open" type="button" title="Panneau des dés" aria-label="Ouvrir le panneau des dés">🎲</button>
             <button id="journal-open" type="button" title="Historique de la partie" aria-label="Historique de la partie">📜</button>
             <button id="reset" type="button" title="Recadrer la vue" aria-label="Recadrer la vue">🎯</button>
             <button id="whole" type="button" title="Tout le plateau" aria-label="Tout le plateau">🗺️</button>
@@ -534,6 +663,32 @@
          qui vient de se passer. On le consulte quand on en a besoin, et le
          plateau récupère la place le reste du temps.
     -->
+    <!--
+         LE PANNEAU DES DÉS, à droite.
+         Le plateau reste visible à gauche pendant que le dé roule : c'est
+         tout l'objet de la demande. Le panneau garde la DERNIÈRE face lue,
+         pour qu'on la retrouve en le rouvrant.
+
+         IL EST FERMÉ PAR DÉFAUT : en portrait la largeur est comptée, et un
+         panneau permanent amputerait le plateau en continu.
+    -->
+    <aside id="dice-panel" aria-label="Dés" data-open="false">
+        <div id="dice-panel-head">
+            <span>Dés</span>
+            <button id="dice-panel-close" type="button" aria-label="Fermer le panneau des dés">×</button>
+        </div>
+
+        <!-- LA DERNIÈRE FACE LUE. « Aucun lancer » tant que la partie n'a
+             pas commencé : un « 1 » affiché d'office se confondrait avec un
+             vrai résultat. -->
+        <div id="dice-panel-face" aria-live="polite">
+            <span id="dice-panel-value">—</span>
+            <span id="dice-panel-caption">Aucun lancer</span>
+        </div>
+
+        <button id="dice-panel-roll" class="roll" type="button">Lancer le dé</button>
+    </aside>
+
     <div id="journal-panel" hidden>
         <div id="journal-card">
             <div id="journal-head">
