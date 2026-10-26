@@ -220,3 +220,30 @@ describe('3D — regrouper les deux dés dans le cadre du panneau', () => {
     }
   });
 });
+
+/**
+ * LA PAIRE EST PLUS SERRÉE QUE LE DÉ SEUL (Quentin, 26/10/2026).
+ *
+ * « Les deux dés sont trop visibles dans le panel et trop écartés. » Le dé
+ * du tour, lui, est validé à sa taille : le réglage ne devait donc toucher
+ * QUE la paire.
+ */
+describe('3D — la paire du temple tient dans le panneau sans l\'emplir', () => {
+  it('les tient GROUPÉS, sans les coller l\'un à l\'autre', () => {
+    // LE RÉGLAGE EST ENCADRÉ DES DEUX CÔTÉS, parce que les deux excès sont
+    // réels et ont chacun été vus :
+    //   trop écartés (3 arêtes = 348) — « trop écartés », dit Quentin ;
+    //   trop serrés (1,5 arête = 174) — ils se recouvriraient en roulant,
+    //   `DicePhysics` ne gérant que les collisions avec les BORDS.
+    // Deux arêtes donnent 232, au milieu des deux.
+    const dice = new FavorDice(ARENA);
+
+    dice.gatherForPanel();
+
+    const [a, b] = dice.views.map(view => view.group.position.z);
+    const gap = Math.abs(a - b);
+
+    expect(gap).toBeGreaterThan(174);
+    expect(gap).toBeLessThan(348);
+  });
+});

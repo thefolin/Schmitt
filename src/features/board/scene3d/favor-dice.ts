@@ -74,11 +74,15 @@ const LAUNCH_SPREAD = 0.22;
  * Les écarter comme sur le plateau — 638 unités, en LARGEUR — demanderait un
  * cadre où chaque dé ne ferait plus que 9 % de la largeur : exactement le dé
  * minuscule et illisible qu'on vient de corriger. On les écarte donc en
- * PROFONDEUR, la dimension que le panneau a en abondance. Vus de 35°, 174
- * unités les séparent de 18 % de la hauteur du cadre : assez pour qu'ils ne
- * se recouvrent pas, sans rien élargir.
+ * PROFONDEUR, la dimension que le panneau a en abondance.
+ *
+ * DEUX ARÊTES, et non trois. Quentin, 26/10/2026 : les dés sont « trop
+ * écartés ». À trois arêtes ils se séparaient de 18 % de la hauteur du
+ * cadre ; à deux, de 8 %, tout en gardant un espace libre réel entre eux.
+ * Descendre à une arête et demie ne laisserait plus que 2 % — ils se
+ * recouvriraient en roulant, et `DicePhysics` ne gère que les bords.
  */
-const PANEL_SPREAD = DIE_EDGE * 3;
+const PANEL_SPREAD = DIE_EDGE * 2;
 
 /** Un dé de faveur : son corps physique et son rendu. */
 interface FavorDie {

@@ -522,6 +522,30 @@ function attachDice(
   }
 
   /**
+   * Le MILIEU de la paire du temple, que la caméra du panneau vise.
+   *
+   * Relu à chaque image, comme la position du dé du tour : les deux dés
+   * roulent, et un point calculé une fois pour toutes laisserait la paire
+   * sortir du cadre. Viser leur milieu les garde tous les deux en vue sans
+   * avoir à élargir davantage.
+   */
+  const favorMidpoint = (): { x: number; y: number; z: number } => {
+    const views = favorDice.views;
+    const sum = views.reduce(
+      (total, view) => ({
+        x: total.x + view.group.position.x,
+        y: total.y + view.group.position.y,
+        z: total.z + view.group.position.z,
+      }),
+      { x: 0, y: 0, z: 0 }
+    );
+
+    const count = Math.max(1, views.length);
+
+    return { x: sum.x / count, y: sum.y / count, z: sum.z / count };
+  };
+
+  /**
    * Applique qui est posé sur le plateau.
    *
    * JAMAIS TROIS DÉS. Le dé du tour et les deux dés de la faveur sont trois
@@ -1515,8 +1539,12 @@ function attachDice(
       open && diceElements.panel
         ? {
             panel: diceElements.panel,
+            // CE QUE LA CAMÉRA VISE DÉPEND DE CE QU'IL Y A À MONTRER : le
+            // dé du tour, ou le MILIEU de la paire du temple. Viser le dé
+            // du tour pendant la faveur aurait cadré un dé effacé, et la
+            // paire serait restée hors champ.
             get target() {
-              return die.group.position;
+              return runner.getAwaitingGodFavor() ? favorMidpoint() : die.group.position;
             },
             size: Dice3DScene.halfSize * 2,
             // LE DÉ LUI-MÊME, pour que la scène le bascule d'un point de vue
@@ -1535,7 +1563,16 @@ function attachDice(
             // ÉLARGIR LE CADRE NE SERT À RIEN depuis que la caméra suit :
             // à trois arêtes le dé retombe à 13 % de la largeur, et on
             // reperd ce qu'on venait de gagner.
-            frameSize: Dice3DScene.halfSize * 2,
+            // LE CADRE S'ÉLARGIT POUR LA PAIRE. Quentin, 26/10/2026 : les
+            // deux dés sont « trop visibles dans le panel et trop
+            // écartés ». Un seul dé garde son arête — il est validé à 38 %
+            // de la largeur ; la paire prend une arête et demie, ce qui
+            // ramène chaque dé à 26 % et laisse de la place entre eux.
+            get frameSize() {
+              return runner.getAwaitingGodFavor()
+                ? Dice3DScene.halfSize * 2 * 1.5
+                : Dice3DScene.halfSize * 2;
+            },
           }
         : null
     );
