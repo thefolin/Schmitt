@@ -109,6 +109,24 @@ describe('Panneau fermé — le dé revient sur le plateau', () => {
   });
 });
 
+describe('La caméra du panneau voit de PRÈS', () => {
+  it('garde un tronc de vision serré, et non celui du plateau', () => {
+    // LE `far` DU PLATEAU EST 40 000, pour contenir tout le parcours. La
+    // caméra du panneau, elle, regarde un objet de quelques dizaines
+    // d'unités à quelques centaines de distance : garder ce `far` écrasait
+    // la précision de profondeur — le dé se projetait à z = 0,997, au ras
+    // du plan lointain. Mesuré en projetant sa position dans le repère de
+    // cette caméra, après que la trace du rendu eut montré qu'il dessinait
+    // pourtant bien.
+    const camera = (scene as unknown as {
+      diceCamera: { near: number; far: number };
+    }).diceCamera;
+
+    expect(camera.far).toBeLessThanOrEqual(5000);
+    expect(camera.near).toBeGreaterThanOrEqual(10);
+  });
+});
+
 describe('Le dé n\'est jamais dupliqué', () => {
   it('garde le MÊME objet des deux côtés', () => {
     // C'est tout l'intérêt du calque. `dice-3d-scene.ts` rappelle que les

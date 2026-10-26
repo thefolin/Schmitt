@@ -272,7 +272,12 @@ export class BoardScene {
     this.camera = new PerspectiveCamera(CAMERA_FOV_DEG, 1, 10, 40000);
     // MÊME CHAMP que la caméra du plateau : le dé ne doit pas changer de
     // proportions en passant d'une vue à l'autre.
-    this.diceCamera = new PerspectiveCamera(CAMERA_FOV_DEG, 1, 1, 40000);
+    // UN TRONC DE VISION SERRÉ. La caméra du panneau regarde un objet de
+    // quelques dizaines d'unités à quelques centaines de distance : garder
+    // le `far` du plateau (40 000) écrasait toute la précision de
+    // profondeur — le dé se projetait à z = 0,997, au ras du plan lointain.
+    // Mesuré en projetant sa position dans le repère de cette caméra.
+    this.diceCamera = new PerspectiveCamera(CAMERA_FOV_DEG, 1, 10, 5000);
     // ELLE NE VOIT QUE LE DÉ : on retire le calque ordinaire de son masque et
     // on n'y laisse que celui du panneau. Sans cela, le second passage
     // dessinerait le plateau entier en très gros plan, et le dé serait noyé
