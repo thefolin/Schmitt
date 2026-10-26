@@ -1120,6 +1120,49 @@ export class BoardScene {
    * place dans la vue ordinaire. C'est tout l'inverse du dé, qui lui CHANGE
    * de calque pour ne pas apparaître en double.
    */
+  /**
+   * Où et comment viser le dé DANS le panneau, ou `null` s'il n'y est pas.
+   *
+   * Le geste de prise raisonne en coordonnées écran et lance un rayon depuis
+   * la caméra. Le dé ne vivant plus que dans le panneau, c'est la caméra DU
+   * PANNEAU qu'il faut employer, et le rectangle du panneau — et non le
+   * canvas entier — qui sert de repère. Viser avec la caméra du plateau
+   * manquerait le dé de plusieurs centaines d'unités.
+   */
+  /**
+   * Pose le dé DÉFINITIVEMENT sur le calque du panneau.
+   *
+   * Quentin, 26/10/2026 : « retirer le dé du plateau central complètement.
+   * Le dé n'apparaît SEULEMENT que dans le panneau. » Il ne bascule donc
+   * plus d'un calque à l'autre — il naît dans le panneau et y reste, ce qui
+   * supprime toute possibilité qu'il réapparaisse sur le plateau.
+   *
+   * C'est TOUJOURS le même objet de la même scène : rien n'est dupliqué, et
+   * la face vue reste la face jouée.
+   */
+  public keepDiceInPanel(die: Object3D): void {
+    die.traverse((object: Object3D) => {
+      object.layers.set(DICE_PANEL_LAYER);
+    });
+
+    this.panelDie = die;
+  }
+
+  /** Le dé que le panneau montre, posé une fois pour toutes. */
+  private panelDie: Object3D | null = null;
+
+  public diceViewAim(): {
+    camera: PerspectiveCamera;
+    rect: { x: number; y: number; width: number; height: number };
+  } | null {
+    if (!this.diceView || !this.canvas) return null;
+
+    const rect = panelViewport(this.diceView.panel, this.canvas);
+    if (!rect) return null;
+
+    return { camera: this.diceCamera, rect };
+  }
+
   public alsoShowInDicePanel(object: Object3D): void {
     object.traverse((child: Object3D) => {
       child.layers.enable(DICE_PANEL_LAYER);
@@ -1139,25 +1182,11 @@ export class BoardScene {
       frameSize?: number;
     } | null
   ): void {
-    // LE DÉ CHANGE DE CALQUE, il ne change pas d'objet.
-    //
-    // Panneau OUVERT : il quitte le calque ordinaire pour celui du panneau —
-    // il disparaît donc du plateau et n'apparaît qu'en gros plan. C'est ce
-    // que Quentin a demandé : « les dés roulent dans le panel, ils
-    // disparaissent du plateau, pas de doublon ».
-    //
-    // Panneau FERMÉ : il revient sur le calque ordinaire et roule sur le
-    // plateau comme avant.
-    const die = view?.die ?? this.diceView?.die;
-
-    if (die) {
-      const layer = view ? DICE_PANEL_LAYER : 0;
-
-      die.traverse((object: Object3D) => {
-        object.layers.set(layer);
-      });
-    }
-
+    // LE DÉ NE BASCULE PLUS. Il est posé une fois pour toutes sur le calque
+    // du panneau par `keepDiceInPanel` : « le dé n'apparaît SEULEMENT que
+    // dans le panneau » (Quentin, 26/10/2026). Le faire revenir sur le
+    // plateau à la fermeture le ferait réapparaître là où il ne doit plus
+    // être.
     this.diceView = view;
   }
 

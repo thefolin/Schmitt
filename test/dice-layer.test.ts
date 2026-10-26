@@ -62,50 +62,72 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('Panneau ouvert — le dé passe en gros plan', () => {
-  it('bascule le dé sur le calque du panneau', () => {
-    // IL QUITTE DONC LE PLATEAU : la caméra du plateau ne regarde que le
-    // calque ordinaire. « Les dés disparaissent du plateau, pas de doublon. »
+describe('Le dé ne vit QUE dans le panneau', () => {
+  it('le pose sur le calque du panneau, une fois pour toutes', () => {
+    // RÈGLE DE QUENTIN (26/10/2026) : « retirer le dé du plateau central
+    // complètement. Le dé n'apparaît SEULEMENT que dans le panneau. »
+    // La caméra du plateau ne regarde que le calque ordinaire : poser le dé
+    // ailleurs suffit à l'en faire disparaître, sans rien dupliquer.
     const die = fakeDie();
 
-    scene!.setDiceView({ panel, target: { x: 0, y: 0, z: 0 }, size: 10, die });
+    scene!.keepDiceInPanel(die);
 
     expect(layersOf(die)).toEqual([maskOf(DICE_PANEL_LAYER), maskOf(DICE_PANEL_LAYER)]);
   });
 
   it('emmène aussi les ENFANTS du dé', () => {
-    // Un calque posé sur le seul groupe laisserait les faces sur le plateau :
-    // le dé serait à moitié ici, à moitié là.
+    // Un calque posé sur le seul groupe laisserait les faces sur le
+    // plateau : le dé serait à moitié ici, à moitié là.
     const die = fakeDie();
 
-    scene!.setDiceView({ panel, target: { x: 0, y: 0, z: 0 }, size: 10, die });
+    scene!.keepDiceInPanel(die);
 
-    expect(layersOf(die)).toHaveLength(2);
     expect(new Set(layersOf(die)).size).toBe(1);
+    expect(layersOf(die)).toHaveLength(2);
+  });
+
+  it('NE LE REND PAS au plateau quand le panneau se ferme', () => {
+    // C'EST LE CŒUR DE LA NOUVELLE RÈGLE, et l'inverse de la précédente :
+    // le dé ne doit JAMAIS réapparaître sur le plateau, pas même panneau
+    // fermé. Le joueur ouvre le panneau pour lancer — le bouton « Lancer »
+    // s'en charge pour lui.
+    const die = fakeDie();
+
+    scene!.keepDiceInPanel(die);
+    scene!.setDiceView({ panel, target: { x: 0, y: 0, z: 0 }, size: 10, die });
+    scene!.setDiceView(null);
+
+    expect(layersOf(die)).toEqual([maskOf(DICE_PANEL_LAYER), maskOf(DICE_PANEL_LAYER)]);
   });
 });
 
-describe('Panneau fermé — le dé revient sur le plateau', () => {
-  it('le remet sur le calque ordinaire', () => {
-    // C'EST LA RÉGRESSION À NE PAS REFAIRE : un dé laissé sur le calque du
-    // panneau après fermeture ne serait plus visible NULLE PART.
-    const die = fakeDie();
-
-    scene!.setDiceView({ panel, target: { x: 0, y: 0, z: 0 }, size: 10, die });
-    scene!.setDiceView(null);
-
-    expect(layersOf(die)).toEqual([maskOf(0), maskOf(0)]);
+describe('Viser le dé dans le panneau', () => {
+  it('ne donne aucune cible tant que le panneau est fermé', () => {
+    // Le geste de prise s'appuie dessus : sans vue, pas de dé à attraper.
+    expect(scene!.diceViewAim()).toBeNull();
   });
 
-  it('retrouve le dé même si on ne le redonne pas à la fermeture', () => {
-    // L'appelant ferme avec `null` : la scène doit se souvenir de QUEL dé
-    // elle avait basculé, sinon il resterait invisible.
-    const die = fakeDie();
+  it('n\'en donne pas davantage sans contexte graphique', () => {
+    // SANS WEBGL IL N'Y A PAS DE CANVAS, donc pas de repère écran : la visée
+    // n'a rien à offrir, et elle doit le dire plutôt que de rendre un
+    // rectangle inventé. C'est le cas d'un appareil sans accélération, le
+    // même chemin de repli que teste `board-scene.test.ts`.
+    scene!.setDiceView({ panel, target: { x: 0, y: 0, z: 0 }, size: 10, die: fakeDie() });
 
-    scene!.setDiceView({ panel, target: { x: 0, y: 0, z: 0 }, size: 10, die });
-    scene!.setDiceView(null);
+    expect(scene!.diceViewAim()).toBeNull();
+  });
 
-    expect(layersOf(die)[0]).toBe(maskOf(0));
+  it('vise avec une caméra DISTINCTE de celle du plateau', () => {
+    // C'est tout l'objet de `diceViewAim` : le geste lance un rayon depuis
+    // une caméra, et viser avec celle du plateau manquerait le dé de
+    // plusieurs centaines d'unités — ce sont deux points de vue sur le même
+    // objet. On vérifie la séparation, que WebGL manque ou non.
+    const dicePanelCamera = (scene as unknown as {
+      diceCamera: unknown;
+    }).diceCamera;
+
+    expect(dicePanelCamera).toBeDefined();
+    expect(dicePanelCamera).not.toBe(scene!.camera);
   });
 });
 

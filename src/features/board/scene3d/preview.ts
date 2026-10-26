@@ -194,6 +194,13 @@ async function main(): Promise<void> {
   const die = new Dice3DScene();
   scene.world.add(die.group);
 
+  // LE DÉ NE VIT QUE DANS LE PANNEAU. Quentin, 26/10/2026 : « retirer le dé
+  // du plateau central complètement ». Il n'apparaît donc JAMAIS sur le
+  // plateau — ni au démarrage, ni panneau fermé — et c'est pour cela qu'on
+  // le pose d'emblée sur le calque du panneau plutôt que d'attendre une
+  // première ouverture.
+  scene.keepDiceInPanel(die.group);
+
   /**
    * Choisit la vue d'après la forme de l'écran.
    *
@@ -1385,6 +1392,11 @@ function attachDice(
   const roll = (): void => {
     if (frame !== null || walking || favorDice.rolling || awaitingValidation) return;
 
+    // LE PANNEAU S'OUVRE AVANT DE LANCER. Le dé n'existe plus que là :
+    // lancer sans l'ouvrir ferait rouler un dé que personne ne voit. Décidé
+    // avec la règle « plus de dé sur le plateau » (26/10/2026).
+    if (!dicePanel.isOpen()) dicePanel.open();
+
     // Le bouton sert aussi la faveur : c'est le repli de ceux qui ne font
     // pas le geste, et il ne doit pas laisser la partie bloquée.
     if (runner.getAwaitingGodFavor()) {
@@ -1800,13 +1812,33 @@ function attachDiceGrab(
     // On teste donc le centre du doigt PUIS quelques points autour, à la
     // distance qui complète la cible. Le dé n'a pas besoin de grossir pour
     // être attrapable — c'est la zone sensible qui s'élargit, pas l'objet.
+    // LE DÉ VIT DANS LE PANNEAU. Quentin a tranché le 26/10/2026 : « retirer
+    // le dé du plateau central complètement », et le geste de prise le suit
+    // — il a choisi que le joueur puisse toujours l'attraper au doigt, pour
+    // ne pas perdre sa règle « le joueur doit le lancer lui-même ».
+    //
+    // On vise donc avec la caméra DU PANNEAU, dans le repère DU PANNEAU.
+    // Viser avec celle du plateau manquerait le dé de plusieurs centaines
+    // d'unités : ce sont deux points de vue différents sur le même objet.
+    const aim = scene.diceViewAim();
+
+    const frame = aim
+      ? { left: box.left + aim.rect.x, top: box.top + aim.rect.y, width: aim.rect.width, height: aim.rect.height }
+      : { left: box.left, top: box.top, width: box.width, height: box.height };
+
+    const camera = aim ? aim.camera : scene.camera;
+
     return grabProbes(clientX, clientY).some(probe => {
       const pointer = new Vector2(
-        ((probe.x - box.left) / Math.max(1, box.width)) * 2 - 1,
-        -((probe.y - box.top) / Math.max(1, box.height)) * 2 + 1
+        ((probe.x - frame.left) / Math.max(1, frame.width)) * 2 - 1,
+        -((probe.y - frame.top) / Math.max(1, frame.height)) * 2 + 1
       );
 
-      raycaster.setFromCamera(pointer, scene.camera);
+      // HORS DU CADRE, PAS DE PRISE : un doigt posé sur le plateau ne doit
+      // pas attraper un dé qui n'y est plus.
+      if (Math.abs(pointer.x) > 1 || Math.abs(pointer.y) > 1) return false;
+
+      raycaster.setFromCamera(pointer, camera);
 
       return dice().some(die => raycaster.intersectObject(die.group, true).length > 0);
     });
