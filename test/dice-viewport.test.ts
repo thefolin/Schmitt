@@ -81,15 +81,35 @@ describe('Viewport des dés — le haut et le bas', () => {
 });
 
 describe('Viewport des dés — à quelle distance reculer', () => {
-  it('recule assez pour que le dé tienne dans la hauteur', () => {
-    // Un dé qui déborde du panneau serait coupé par le découpage.
-    const distance = diceCameraDistance(100, 50, 1);
+  it('cadre sur la LARGEUR, la dimension rare du panneau', () => {
+    // LE PANNEAU EST HAUT ET ÉTROIT (210 × 915). Reculer jusqu'à ce que
+    // l'empattement tienne en HAUTEUR envoyait la caméra à 7 600 unités
+    // d'un dé qui en fait 57 : il occupait 3,5 % du cadre, c'est-à-dire
+    // rien. Le panneau paraissait vide alors que le rendu avait bien lieu
+    // — vérifié par une trace avant de toucher au calcul.
+    const aspect = 210 / 915;
+    const distance = diceCameraDistance(100, 50, aspect);
 
-    // Vérification indépendante : la demi-hauteur visible à cette distance
-    // doit couvrir la moitié de l'empattement voulu.
-    const halfVisible = distance * Math.tan((50 * Math.PI) / 180 / 2);
+    // Vérification indépendante : la demi-LARGEUR visible couvre la moitié
+    // de l'empattement voulu, sans excès.
+    const halfHeight = distance * Math.tan((50 * Math.PI) / 180 / 2);
+    const halfWidth = halfHeight * aspect;
 
-    expect(halfVisible).toBeGreaterThanOrEqual((100 * 2.6) / 2 - 0.001);
+    expect(halfWidth).toBeCloseTo((100 * 2.6) / 2, 0);
+  });
+
+  it('ne recule PAS jusqu\'à cadrer la hauteur entière', () => {
+    // C'EST LA RÉGRESSION À NE PAS REFAIRE : cadrer la hauteur d'un panneau
+    // quatre fois plus haut que large éloigne la caméra d'autant, et le dé
+    // devient invisible.
+    const aspect = 210 / 915;
+    const distance = diceCameraDistance(100, 50, aspect);
+
+    const forHeight = (100 * 2.6) / 2 / Math.tan((50 * Math.PI) / 180 / 2);
+
+    // La distance qui cadre la LARGEUR est plus grande que celle qui
+    // cadrerait la hauteur — mais on ne cumule pas les deux.
+    expect(distance).toBeLessThan(forHeight / aspect + 1);
   });
 
   it('RECULE DAVANTAGE dans un panneau étroit', () => {

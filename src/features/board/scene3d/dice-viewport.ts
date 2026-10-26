@@ -102,8 +102,17 @@ export function diceCameraDistance(
   // rapport d'image. On recule assez pour contenir la plus contraignante des
   // deux — sinon le dé déborde dans un panneau étroit.
   const halfFov = (fovDeg * Math.PI) / 180 / 2;
-  const forHeight = span / 2 / Math.tan(halfFov);
-  const forWidth = forHeight / Math.max(aspect, 0.0001);
 
-  return Math.max(forHeight, forWidth, dieSize);
+  // LA LARGEUR COMMANDE, pas la hauteur. Le panneau est HAUT ET ÉTROIT
+  // (210 × 915) : reculer jusqu'à ce que l'empattement tienne en HAUTEUR
+  // envoyait la caméra à 7 600 unités d'un dé qui en fait 57 — il occupait
+  // 3,5 % du cadre, c'est-à-dire rien. Mesuré, après avoir vérifié par une
+  // trace que le rendu avait bien lieu.
+  //
+  // On cadre donc l'empattement sur la LARGEUR, la dimension rare. Le dé
+  // remplit alors le panneau, et la hauteur en trop lui laisse de la place
+  // pour rouler de haut en bas.
+  const forWidth = span / 2 / Math.tan(halfFov) / Math.max(aspect, 0.0001);
+
+  return Math.max(forWidth, dieSize);
 }

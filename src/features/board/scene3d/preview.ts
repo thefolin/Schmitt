@@ -1511,7 +1511,19 @@ function attachDice(
             //
             // Huit arêtes de dé : assez large pour qu'on le voie se déplacer
             // et rouler, assez serré pour qu'il reste gros.
-            frameSize: Dice3DScene.halfSize * 2 * 8,
+            // DEUX ARÊTES ET DEMIE. `diceCameraDistance` applique en plus
+            // sa marge de 2,6 : le cadre fait donc environ six arêtes de
+            // large, assez pour voir le dé se déplacer sans qu'il devienne
+            // minuscule.
+            //
+            // MESURÉ : à huit arêtes, la caméra reculait à 7 600 unités d'un
+            // dé qui en fait 57 — il n'occupait plus qu'une fraction de
+            // pixel, et le panneau paraissait vide alors que le rendu avait
+            // bien lieu (trace « DESSINE » à l'appui).
+            // UNE ARÊTE DE DÉ. Avec la marge de 2,6 de
+            // `diceCameraDistance`, le dé occupe alors ~38 % de la largeur
+            // du panneau — calculé, puis vérifié à l'image.
+            frameSize: Dice3DScene.halfSize * 2,
           }
         : null
     );
