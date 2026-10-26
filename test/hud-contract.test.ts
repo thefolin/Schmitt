@@ -228,12 +228,30 @@ describe('HUD — le panneau des dés', () => {
     expect(page).toMatch(/<aside id="dice-panel"[^>]*data-open="false"/);
   });
 
-  it('fait céder la place au plateau, au lieu de passer dessus', () => {
-    // `#scene` consomme la variable dans son `right` : la scène se mesure
-    // sur son conteneur et recadre sur ce qui lui reste.
+  it('garde le canvas PLEINE LARGEUR, pour pouvoir dessiner dans le panneau', () => {
+    // CE FUT UNE ERREUR D'ARCHITECTURE, trouvée en mesurant : le canvas
+    // s'arrêtait au bord du panneau (0..290) alors que le panneau occupait
+    // 290..500. Le rectangle du panneau tombait donc HORS du canvas, et le
+    // second passage — celui qui dessine le dé en gros plan — était sauté.
+    // Un canvas ne peut pas dessiner là où il n'est pas.
+    //
+    // Le plateau n'en déborde pas pour autant : c'est le VIEWPORT du premier
+    // passage qui le borne désormais (voir `renderOnce`), ce qui préserve le
+    // cadrage portrait — contrainte de CLAUDE.md, défaut « 8 cases sur 23 »
+    // de TODO.md §2.
     const scene3d = page.slice(page.indexOf('#scene {'), page.indexOf('#scene:active'));
 
-    expect(scene3d).toMatch(/right:\s*var\(--dice-panel\)/);
+    expect(scene3d).not.toMatch(/right:\s*var\(--dice-panel\)/);
+
+    // C'est la SCÈNE qui retranche la largeur du panneau, et elle seule.
+    // (`scene` ci-dessus est `preview.ts` ; le cadrage vit dans
+    // `board-scene.ts`, qu'on lit ici expressément.)
+    const boardScene = readFileSync(
+      resolve(ROOT, 'src/features/board/scene3d/board-scene.ts'),
+      'utf8'
+    );
+
+    expect(boardScene).toContain('usable.width - this.panelWidth()');
   });
 
   it('accorde la durée du coulissement entre la feuille et la scène', () => {

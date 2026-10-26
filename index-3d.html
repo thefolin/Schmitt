@@ -37,12 +37,18 @@
             top: 0;
             bottom: 0;
             left: 0;
-            /* Le plateau cède la place au panneau plutôt que de passer
-               dessous : la scène se mesure sur SON conteneur, et recadre
-               donc sur la largeur qui lui reste. Sans cela le plateau
-               partirait sous le panneau — le défaut « 8 cases sur 23 »
-               de TODO.md §2. */
-            right: var(--dice-panel);
+            /* LE CANVAS GARDE TOUTE LA LARGEUR, et c'est indispensable
+               depuis que le dé se dessine DANS le panneau : un canvas
+               arrêté au bord du panneau ne peut pas dessiner dedans — le
+               rectangle tombait hors cadre et le second passage était
+               sauté. Mesuré : panneau 290..500, canvas 0..290.
+
+               Le plateau n'en occupe pas moins la seule partie libre : ce
+               n'est plus le canvas qui le borne, mais le VIEWPORT du
+               premier passage, posé sur la largeur restante. Le cadrage
+               portrait est donc préservé — c'est la contrainte de
+               CLAUDE.md et le défaut « 8 cases sur 23 » de TODO.md §2. */
+            right: 0;
             touch-action: none;
             cursor: grab;
             transition: right 300ms cubic-bezier(0.22, 0.61, 0.36, 1);

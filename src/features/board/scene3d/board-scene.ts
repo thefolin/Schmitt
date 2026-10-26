@@ -10,9 +10,22 @@ import {
   MathUtils,
   AmbientLight,
   DirectionalLight,
+  type Object3D,
 } from 'three';
 import { readSafeArea, disposeSafeAreaProbe } from './safe-area';
 import { panelViewport, toGlRect, diceCameraDistance } from './dice-viewport';
+
+/**
+ * Le calque réservé au PANNEAU DES DÉS.
+ *
+ * Le second passage ne doit dessiner QUE le dé, et non toute la scène vue de
+ * près : le plateau y occuperait tout le cadre et le dé s'y perdrait. Un
+ * calque Three.js sépare les deux points de vue sans dupliquer le moindre
+ * objet — c'est TOUJOURS le même dé, regardé par une autre caméra.
+ *
+ * Le calque 0 porte la scène ordinaire ; celui-ci s'y ajoute sur le dé seul.
+ */
+export const DICE_PANEL_LAYER = 1;
 import {
   computeFraming,
   measureExtent,
@@ -145,6 +158,11 @@ export class BoardScene {
     panel: { getBoundingClientRect(): DOMRect };
     target: { x: number; y: number; z: number };
     size: number;
+    die?: Object3D;
+    /** Le point FIXE que la caméra vise — le centre de l'aire de jeu. */
+    frame?: { x: number; y: number; z: number };
+    /** L'étendue à cadrer autour de ce point. */
+    frameSize?: number;
   } | null = null;
   /** Tout le contenu du plateau : c'est LUI qu'on tourne, pas la caméra. */
   readonly world = new Group();
@@ -255,6 +273,12 @@ export class BoardScene {
     // MÊME CHAMP que la caméra du plateau : le dé ne doit pas changer de
     // proportions en passant d'une vue à l'autre.
     this.diceCamera = new PerspectiveCamera(CAMERA_FOV_DEG, 1, 1, 40000);
+    // ELLE NE VOIT QUE LE DÉ : on retire le calque ordinaire de son masque et
+    // on n'y laisse que celui du panneau. Sans cela, le second passage
+    // dessinerait le plateau entier en très gros plan, et le dé serait noyé
+    // dedans — c'est le défaut que Quentin a vu, « les dés ne sont plus
+    // visibles du tout ».
+    this.diceCamera.layers.set(DICE_PANEL_LAYER);
     this.scene.add(this.world);
     this.addLights();
 
@@ -724,6 +748,11 @@ export class BoardScene {
     // Le rapport d'image est celui de la SOUS-FENÊTRE, celle où le plateau
     // doit tenir. C'est elle qu'on cadre ; le canvas entier n'est que le
     // support sur lequel elle est découpée.
+    // LE PANNEAU RETRANCHE SA LARGEUR au cadrage : sans cela la caméra
+    // cadrerait sur toute la fenêtre et le plateau passerait sous le
+    // panneau — « 8 cases visibles sur 23 », TODO.md §2.
+    usable.width = Math.max(1, usable.width - this.panelWidth());
+
     this.camera.aspect = usable.width / usable.height;
 
     // LA DISTANCE N'EST RECALCULÉE QUE SUR DEMANDE. Un déplacement ou une
@@ -1000,20 +1029,34 @@ export class BoardScene {
    * plat malgré des cases réellement épaisses.
    */
   private addLights(): void {
+    /**
+     * LES LUMIÈRES ÉCLAIRENT LES DEUX VUES.
+     *
+     * Une lumière n'éclaire que les calques qu'elle porte. Laissées sur le
+     * seul calque ordinaire, elles n'atteignaient plus le dé une fois
+     * celui-ci passé sur le calque du panneau : il y était rendu NOIR sur
+     * fond sombre, donc invisible. Vu à l'image — le panneau restait vide
+     * alors que le dé avait bien quitté le plateau.
+     */
+    const lightBoth = (light: Object3D): void => {
+      light.layers.enable(DICE_PANEL_LAYER);
+      this.scene.add(light);
+    };
+
     // L'ambiante empêche les faces à l'ombre de tomber dans le noir.
-    this.scene.add(new AmbientLight(0xffffff, 0.62));
+    lightBoth(new AmbientLight(0xffffff, 0.62));
 
     // La directionnelle vient de l'avant-gauche et en hauteur : elle éclaire
     // le dessus des cases plus que leur tranche, ce qui suffit à distinguer
     // l'un de l'autre sans y réfléchir.
     const key = new DirectionalLight(0xffffff, 0.85);
     key.position.set(-0.45, 1, 0.35);
-    this.scene.add(key);
+    lightBoth(key);
 
     // Une seconde lumière, opposée et faible, détache les tranches du fond.
     const fill = new DirectionalLight(0xffffff, 0.3);
     fill.position.set(0.6, 0.5, -0.5);
-    this.scene.add(fill);
+    lightBoth(fill);
   }
 
   /** Démarre la boucle de rendu. */
@@ -1061,13 +1104,55 @@ export class BoardScene {
    * image, parce qu'il BOUGE pendant les 300 ms du coulissement. Le mesurer
    * une fois à l'ouverture figerait le dé à la position de départ.
    */
+  /**
+   * Fait voir un objet par les DEUX caméras.
+   *
+   * Le plateau s'en sert : il reste le plateau, et devient en plus le SOL de
+   * la vue rapprochée. Sans lui, le dé flottait dans le vide — aucune ombre,
+   * aucun repère de profondeur, « on ne voit pas bien le dé ».
+   *
+   * `enable` AJOUTE le calque au lieu de le remplacer : l'objet garde donc sa
+   * place dans la vue ordinaire. C'est tout l'inverse du dé, qui lui CHANGE
+   * de calque pour ne pas apparaître en double.
+   */
+  public alsoShowInDicePanel(object: Object3D): void {
+    object.traverse((child: Object3D) => {
+      child.layers.enable(DICE_PANEL_LAYER);
+    });
+  }
+
   public setDiceView(
     view: {
       panel: { getBoundingClientRect(): DOMRect };
       target: { x: number; y: number; z: number };
       size: number;
+      /** Le dé lui-même, à basculer d'un point de vue à l'autre. */
+      die?: Object3D;
+      /** Le point FIXE que la caméra vise — le centre de l'aire de jeu. */
+      frame?: { x: number; y: number; z: number };
+      /** L'étendue à cadrer autour de ce point. */
+      frameSize?: number;
     } | null
   ): void {
+    // LE DÉ CHANGE DE CALQUE, il ne change pas d'objet.
+    //
+    // Panneau OUVERT : il quitte le calque ordinaire pour celui du panneau —
+    // il disparaît donc du plateau et n'apparaît qu'en gros plan. C'est ce
+    // que Quentin a demandé : « les dés roulent dans le panel, ils
+    // disparaissent du plateau, pas de doublon ».
+    //
+    // Panneau FERMÉ : il revient sur le calque ordinaire et roule sur le
+    // plateau comme avant.
+    const die = view?.die ?? this.diceView?.die;
+
+    if (die) {
+      const layer = view ? DICE_PANEL_LAYER : 0;
+
+      die.traverse((object: Object3D) => {
+        object.layers.set(layer);
+      });
+    }
+
     this.diceView = view;
   }
 
@@ -1085,9 +1170,21 @@ export class BoardScene {
     // LE DÉCOUPAGE EST OPTIONNEL : un renderer de repli — ou celui d'un
     // test — peut ne pas l'exposer. Le plateau doit se dessiner quand même ;
     // c'est seulement la vue rapprochée du dé qui n'aura pas lieu.
+    // LE PLATEAU N'OCCUPE QUE LA PART LIBRE. Le canvas, lui, garde toute la
+    // largeur — il le faut pour que le second passage puisse dessiner dans
+    // le rectangle du panneau, qui sinon tomberait hors cadre. C'est donc le
+    // VIEWPORT qui borne le plateau, et non la taille du canvas.
+    const taken = this.diceView ? this.panelWidth() : 0;
+    const boardWidth = frame ? Math.max(1, frame.width - taken) : 0;
+
     if (typeof this.renderer.setScissorTest === 'function') {
       this.renderer.setScissorTest(false);
-      if (frame) this.renderer.setViewport(0, 0, frame.width, frame.height);
+      if (frame) {
+        // Le plateau est poussé à GAUCHE : l'origine WebGL étant en bas à
+        // gauche, un viewport de largeur réduite posé en x = 0 laisse
+        // exactement la place du panneau à droite.
+        this.renderer.setViewport(0, 0, boardWidth, frame.height);
+      }
     }
 
     this.renderer.render(this.scene, this.camera);
@@ -1104,6 +1201,25 @@ export class BoardScene {
    * qui se joue sur le plateau, et le désaccord face vue / face jouée reste
    * impossible par construction.
    */
+  /**
+   * La largeur que le panneau prend au plateau, en pixels CSS.
+   *
+   * Mesurée sur l'élément à chaque image : il COULISSE, et une largeur figée
+   * à l'ouverture ferait sauter le plateau d'un coup au lieu de l'accompagner.
+   */
+  private panelWidth(): number {
+    if (!this.diceView || !this.canvas) return 0;
+
+    const box = this.diceView.panel.getBoundingClientRect();
+    const frame = this.canvas.getBoundingClientRect();
+
+    // Ce qui déborde à droite du canvas ne compte pas : pendant le
+    // coulissement, le panneau n'a pas encore pris toute sa place.
+    const visible = frame.right - Math.max(box.left, frame.left);
+
+    return Math.max(0, Math.min(box.width, visible));
+  }
+
   private renderDiceView(): void {
     const view = this.diceView;
     if (!this.renderer || !view || !this.canvas) return;
@@ -1123,13 +1239,33 @@ export class BoardScene {
     const gl = toGlRect(rect, frame.height);
     const aspect = rect.width / rect.height;
 
+    // LA CAMÉRA NE SUIT PAS LE DÉ — elle regarde son AIRE DE JEU.
+    //
+    // Elle le collait : `target` donnait la position du dé, recalculée à
+    // chaque image. Le dé restait donc figé au centre du cadre, et comme il
+    // est seul sur son calque — ni tapis ni plateau autour — plus rien ne
+    // servait de repère. Il tournait réellement, mais RIEN NE LE MONTRAIT :
+    // ni sa rotation, ni son déplacement. C'est ce que Quentin a vu : « le
+    // dé ne tourne pas bien », « on ne voit pas bien », « impossible de le
+    // lancer avec la physique normale ».
+    //
+    // LA PHYSIQUE N'A JAMAIS ÉTÉ EN CAUSE : `DicePhysics` ne connaît ni
+    // caméra ni calque — vérifié, elle n'y fait aucune référence. Le lancer
+    // se calculait exactement comme sur le plateau ; c'est le CADRAGE qui le
+    // rendait illisible.
+    //
+    // En visant un point fixe, le dé traverse le cadre comme il traverse le
+    // tapis : on voit enfin qu'il roule.
+    const aim = view.frame ?? view.target;
+    const span = view.frameSize ?? view.size;
+
     this.diceCamera.aspect = aspect;
     this.diceCamera.position.set(
-      view.target.x,
-      view.target.y + view.size * 0.9,
-      view.target.z + diceCameraDistance(view.size, CAMERA_FOV_DEG, aspect)
+      aim.x,
+      aim.y + span * 0.75,
+      aim.z + diceCameraDistance(span, CAMERA_FOV_DEG, aspect)
     );
-    this.diceCamera.lookAt(view.target.x, view.target.y, view.target.z);
+    this.diceCamera.lookAt(aim.x, aim.y, aim.z);
     this.diceCamera.updateProjectionMatrix();
 
     // LE DÉCOUPAGE LIMITE AUSSI L'EFFACEMENT : sans lui, vider la profondeur

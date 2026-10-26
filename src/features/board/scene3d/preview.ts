@@ -142,6 +142,12 @@ async function main(): Promise<void> {
   const tiles = new BoardTiles3D();
   scene.world.add(tiles.group);
 
+  // LE PLATEAU SERT AUSSI DE SOL AU PANNEAU DES DÉS. Sans lui, le dé y
+  // flottait dans le vide : ni ombre, ni repère de profondeur, et on ne
+  // distinguait pas qu'il roulait. Il n'est pas dupliqué — c'est le même
+  // objet, simplement visible des deux caméras.
+  scene.alsoShowInDicePanel(tiles.group);
+
   // Les vraies données du jeu : mêmes cases, même parcours, mêmes
   // illustrations. Un aperçu sur des données inventées ne prouverait rien.
   const [catalog, layout] = await Promise.all([
@@ -1484,6 +1490,28 @@ function attachDice(
               return die.group.position;
             },
             size: Dice3DScene.halfSize * 2,
+            // LE DÉ LUI-MÊME, pour que la scène le bascule d'un point de vue
+            // à l'autre. Il QUITTE le plateau quand le panneau s'ouvre —
+            // « ils disparaissent du plateau, pas de doublon » — et y revient
+            // quand il se referme.
+            die: die.group,
+            // LE POINT FIXE QUE LA CAMÉRA VISE : le centre du tapis, et non
+            // le dé. Viser le dé le figeait au centre du cadre — il tournait
+            // sans qu'on puisse le voir tourner, faute de repère. Ici il
+            // traverse le cadre comme il traverse le tapis.
+            frame: {
+              x: (arena.minX + arena.maxX) / 2,
+              y: BoardTiles3D.diceSurface,
+              z: (arena.minZ + arena.maxZ) / 2,
+            },
+            // LE CADRE RESTE SERRÉ AUTOUR DU DÉ. L'aire de jeu couvre TOUT
+            // le plateau — ce n'est pas une petite piste de lancer — et la
+            // cadrer en entier rendait le dé minuscule, jusqu'à ne plus rien
+            // dessiner du tout (mesuré : zéro pixel clair dans le panneau).
+            //
+            // Huit arêtes de dé : assez large pour qu'on le voie se déplacer
+            // et rouler, assez serré pour qu'il reste gros.
+            frameSize: Dice3DScene.halfSize * 2 * 8,
           }
         : null
     );
