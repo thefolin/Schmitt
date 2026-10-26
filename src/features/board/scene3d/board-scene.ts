@@ -159,9 +159,7 @@ export class BoardScene {
     target: { x: number; y: number; z: number };
     size: number;
     die?: Object3D;
-    /** Le point FIXE que la caméra vise — le centre de l'aire de jeu. */
-    frame?: { x: number; y: number; z: number };
-    /** L'étendue à cadrer autour de ce point. */
+    /** L'étendue à cadrer autour du dé. */
     frameSize?: number;
   } | null = null;
   /** Tout le contenu du plateau : c'est LUI qu'on tourne, pas la caméra. */
@@ -1062,6 +1060,28 @@ export class BoardScene {
     const fill = new DirectionalLight(0xffffff, 0.3);
     fill.position.set(0.6, 0.5, -0.5);
     lightBoth(fill);
+
+    // UNE LUMIÈRE RIEN QUE POUR LE PANNEAU.
+    //
+    // Le plateau se lit à plat, vu de haut : les lumières ci-dessus lui
+    // suffisent, et il atteint 237 de luminosité. LE DÉ, LUI, EST UN CUBE
+    // qu'on regarde de biais — ses faces visibles prennent la lumière de
+    // travers, et il ne recevait en pratique QUE L'AMBIANTE.
+    //
+    // MESURÉ : moyenne 148 et maximum 173 sur le dé, soit exactement
+    // l'ambiante seule (0,62 × 244 = 151) — pas de face claire, pas de face
+    // sombre, aucun dégradé. C'est la signature d'un objet qu'aucune
+    // directionnelle n'atteint utilement. Un dé crème y paraissait gris
+    // sale : le « petit flou en arrière-plan » de Quentin.
+    //
+    // ELLE NE TOUCHE PAS LE PLATEAU : `layers.set` REMPLACE le masque au
+    // lieu de l'étendre, donc cette lumière n'existe que pour le panneau.
+    // Monter l'éclairage général aurait brûlé le plateau, qui est déjà bien
+    // exposé.
+    const panelKey = new DirectionalLight(0xffffff, 1.5);
+    panelKey.position.set(-0.3, 1, 0.9);
+    panelKey.layers.set(DICE_PANEL_LAYER);
+    this.scene.add(panelKey);
   }
 
   /** Démarre la boucle de rendu. */
@@ -1176,9 +1196,7 @@ export class BoardScene {
       size: number;
       /** Le dé lui-même, à basculer d'un point de vue à l'autre. */
       die?: Object3D;
-      /** Le point FIXE que la caméra vise — le centre de l'aire de jeu. */
-      frame?: { x: number; y: number; z: number };
-      /** L'étendue à cadrer autour de ce point. */
+      /** L'étendue à cadrer autour du dé. */
       frameSize?: number;
     } | null
   ): void {
@@ -1273,31 +1291,52 @@ export class BoardScene {
     const gl = toGlRect(rect, frame.height);
     const aspect = rect.width / rect.height;
 
-    // LA CAMÉRA NE SUIT PAS LE DÉ — elle regarde son AIRE DE JEU.
+    // LA CAMÉRA SUIT LE DÉ, de près.
     //
-    // Elle le collait : `target` donnait la position du dé, recalculée à
-    // chaque image. Le dé restait donc figé au centre du cadre, et comme il
-    // est seul sur son calque — ni tapis ni plateau autour — plus rien ne
-    // servait de repère. Il tournait réellement, mais RIEN NE LE MONTRAIT :
-    // ni sa rotation, ni son déplacement. C'est ce que Quentin a vu : « le
-    // dé ne tourne pas bien », « on ne voit pas bien », « impossible de le
-    // lancer avec la physique normale ».
+    // DEUX CADRAGES FIXES ONT ÉCHOUÉ, chacun sur la moitié du problème.
+    // Cadrer toute l'aire de jeu (1 451 unités de large) réduisait un dé de
+    // 58 unités à une fraction de pixel : le panneau paraissait vide. Cadrer
+    // une seule arête rendait le dé énorme, mais le cadre ne faisait plus
+    // que 58 unités de large — MESURÉ : le dé en sort après un demi-dé de
+    // déplacement, alors qu'il roule sur 1 451. C'est exactement ce que
+    // Quentin décrit : « un petit flou en arrière-plan », puis le résultat
+    // seul, parce que le dé revient mourir près de son point de départ.
     //
-    // LA PHYSIQUE N'A JAMAIS ÉTÉ EN CAUSE : `DicePhysics` ne connaît ni
-    // caméra ni calque — vérifié, elle n'y fait aucune référence. Le lancer
-    // se calculait exactement comme sur le plateau ; c'est le CADRAGE qui le
-    // rendait illisible.
-    //
-    // En visant un point fixe, le dé traverse le cadre comme il traverse le
-    // tapis : on voit enfin qu'il roule.
-    const aim = view.frame ?? view.target;
+    // Un cadre FIXE ne peut pas tenir les deux : il faudrait qu'il soit à la
+    // fois large de 1 451 unités et serré autour d'un dé de 58. La caméra
+    // suit donc le dé, et c'est le PLATEAU qui fait le repère — il est
+    // visible dans le panneau (`alsoShowInDicePanel`), et c'est lui qui
+    // défile derrière le dé et montre qu'il roule.
+    const aim = view.target;
     const span = view.frameSize ?? view.size;
 
     this.diceCamera.aspect = aspect;
+
+    // LA CAMÉRA REGARDE LE DÉ D'EN HAUT, à 35°.
+    //
+    // POURQUOI CET ANGLE. Elle était posée à `span * 0.75` au-dessus du dé
+    // pour un recul de 963 unités — soit 2,6° au-dessus de l'horizontale.
+    // Elle ne voyait donc QUE LES FACES LATÉRALES, alors que la lumière
+    // principale descend presque à la verticale (composante verticale 0,87
+    // sur une direction (-0,45, 1, 0,35)) : elle éclaire LE DESSUS. Les
+    // côtés ne recevaient que l'ambiante, et un dé crème (0xf4f1e8) s'y
+    // rendait gris très sombre.
+    //
+    // MESURÉ à l'image : le dé plafonnait à 164 de luminosité quand le
+    // plateau, ÉCLAIRÉ PAR LES MÊMES LUMIÈRES dans la même scène, montait à
+    // 237. Le dé était bien dessiné, bien cadré (107 × 102 px dans un
+    // panneau de 173 de large) et bien en mouvement — il était seulement
+    // dans l'ombre. C'est le « petit flou en arrière-plan » de Quentin.
+    //
+    // À 35° la caméra voit le dessus éclairé ET une face latérale : la face
+    // se lit, et le relief reste visible.
+    const elevation = MathUtils.degToRad(35);
+    const reach = diceCameraDistance(span, CAMERA_FOV_DEG, aspect);
+
     this.diceCamera.position.set(
       aim.x,
-      aim.y + span * 0.75,
-      aim.z + diceCameraDistance(span, CAMERA_FOV_DEG, aspect)
+      aim.y + Math.sin(elevation) * reach,
+      aim.z + Math.cos(elevation) * reach
     );
     this.diceCamera.lookAt(aim.x, aim.y, aim.z);
     this.diceCamera.updateProjectionMatrix();

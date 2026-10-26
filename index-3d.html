@@ -512,9 +512,19 @@
             padding: 16px;
             padding-top: calc(16px + var(--safe-top));
             padding-bottom: calc(16px + var(--safe-bottom));
-            background: rgba(13, 21, 36, 0.96);
+            /* LE PANNEAU NE PEINT PLUS PAR-DESSUS LE DÉ.
+               Il portait `rgba(13, 21, 36, 0.96)` et `blur(10px)` : une
+               vitre opaque à 96 %, posée sur le canvas À L'ENDROIT MÊME où
+               le dé est dessiné. Le dé était donc rendu correctement —
+               mesuré à 196 de luminosité moyenne derrière la vitre — mais
+               personne ne pouvait le voir. C'est le « petit flou en
+               arrière-plan » que Quentin décrit : le flou, c'était le
+               `backdrop-filter`.
+               Le fond passe donc sur les ENFANTS du panneau (en-tête,
+               résultat, bouton), qui ont besoin d'être lisibles, et le
+               panneau lui-même devient une simple fenêtre. */
+            background: transparent;
             border-left: 1px solid rgba(212, 175, 55, 0.4);
-            backdrop-filter: blur(10px);
             transform: translateX(100%);
             transition: transform 300ms cubic-bezier(0.22, 0.61, 0.36, 1);
         }
@@ -543,10 +553,18 @@
            plateau sans toucher au reste. */
         :root { --dice-panel-width: min(260px, 42vw); }
 
+        /* LE CHROME PORTE SON PROPRE FOND. Le panneau est devenu une
+           fenêtre transparente pour laisser voir le dé : chaque élément
+           qui doit rester LISIBLE se peint donc son propre fond, au lieu
+           de compter sur celui du panneau. */
         #dice-panel-head {
             display: flex;
             align-items: center;
             justify-content: space-between;
+            padding: 6px 10px;
+            margin: -6px -10px 0;
+            border-radius: 10px;
+            background: rgba(13, 21, 36, 0.92);
             font-size: 13px;
             font-weight: 600;
             letter-spacing: 0.04em;
@@ -566,25 +584,42 @@
         }
 
         /* LA FACE LUE, en grand : c'est ce qu'on vient chercher ici. */
+        /* LA FENÊTRE SUR LE DÉ. Elle occupe tout le milieu du panneau et
+           ne peint RIEN : c'est à travers elle qu'on voit le dé rouler. */
         #dice-panel-face {
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
+            justify-content: flex-end;
             gap: 6px;
             flex: 1 1 auto;
             min-height: 0;
+            pointer-events: none;
         }
 
+        /* LE CHIFFRE NE COUVRE PLUS LE DÉ. Il s'affichait en 86 px au
+           MILIEU du panneau, c'est-à-dire sur le dé lui-même : on venait
+           regarder le dé et on lisait le résultat par-dessus. Il descend
+           donc au-dessus du bouton, en plus petit, avec son propre fond.
+           La face reste lue sur le DÉ, qui est l'objet du panneau. */
         #dice-panel-value {
+            align-self: center;
+            margin-top: auto;
+            padding: 2px 16px;
+            border-radius: 10px;
+            background: rgba(13, 21, 36, 0.92);
             font-family: 'Cinzel', Georgia, serif;
-            font-size: clamp(44px, 16vw, 86px);
+            font-size: clamp(28px, 9vw, 44px);
             font-weight: 700;
-            line-height: 1;
+            line-height: 1.2;
             color: #f3c969;
         }
 
         #dice-panel-caption {
+            align-self: center;
+            padding: 2px 10px;
+            border-radius: 8px;
+            background: rgba(13, 21, 36, 0.92);
             font-size: 12px;
             letter-spacing: 0.04em;
             text-align: center;

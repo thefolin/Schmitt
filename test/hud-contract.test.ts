@@ -118,6 +118,43 @@ describe('HUD — l\'historique n\'est plus affiché d\'office', () => {
     expect(page).toMatch(/body\[data-dice-panel="open"\]\s*\.edge-right\s*\{[^}]*translate/);
   });
 
+  it('LAISSE VOIR LE DÉ : le panneau ne peint pas par-dessus lui', () => {
+    // LE DÉFAUT QUE CE TEST FERME. Le panneau portait
+    // `background: rgba(13, 21, 36, 0.96)` et `backdrop-filter: blur(10px)`
+    // — une vitre opaque à 96 %, posée sur le canvas À L'ENDROIT EXACT où
+    // le second passage dessine le dé.
+    //
+    // Le dé était rendu correctement tout du long : mesuré à 196 de
+    // luminosité moyenne et 107 × 102 px DERRIÈRE la vitre, et en mouvement
+    // à chaque image. Rien dans le rendu n'était en cause — on ne pouvait
+    // simplement pas le voir. Quentin : « on voit juste un petit flou en
+    // arrière-plan ». Le flou, c'était le `backdrop-filter`.
+    //
+    // AUCUN TEST NE POUVAIT L'ATTRAPER : jsdom ne calcule aucun style, et
+    // le DOM était parfaitement conforme. D'où ce contrôle sur le texte de
+    // la règle, comme pour les autres défauts vus à l'image seulement.
+    const start = page.indexOf('\n        #dice-panel {');
+    const rule = page.slice(start, page.indexOf('}', start));
+
+    // LA DÉCLARATION, et non le mot : le commentaire ci-dessus explique le
+    // défaut et cite `backdrop-filter`, ce qu'une recherche du simple mot
+    // attraperait.
+    const declarations = rule.replace(/\/\*[\s\S]*?\*\//g, '');
+
+    expect(declarations).toMatch(/background:\s*transparent/);
+    expect(declarations).not.toMatch(/backdrop-filter\s*:/);
+  });
+
+  it('garde le chiffre du résultat HORS du dé', () => {
+    // Il s'affichait en 86 px au MILIEU du panneau, c'est-à-dire par-dessus
+    // le dé qu'on vient y regarder. La face se lit sur le DÉ ; le chiffre
+    // n'est qu'un rappel, et il descend au-dessus du bouton.
+    const start = page.indexOf('\n        #dice-panel-face {');
+    const zone = page.slice(start, page.indexOf('}', start));
+
+    expect(zone).toMatch(/justify-content:\s*flex-end/);
+  });
+
   it('arrête la barre du bas au panneau, et non au bord de l\'écran', () => {
     // MESURÉ : 500 px de large alors que le plateau n'en occupait que 290.
     // Ses boutons de droite passaient SOUS le panneau et devenaient

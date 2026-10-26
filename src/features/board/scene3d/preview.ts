@@ -1507,34 +1507,17 @@ function attachDice(
             // « ils disparaissent du plateau, pas de doublon » — et y revient
             // quand il se referme.
             die: die.group,
-            // LE POINT FIXE QUE LA CAMÉRA VISE : le centre du tapis, et non
-            // le dé. Viser le dé le figeait au centre du cadre — il tournait
-            // sans qu'on puisse le voir tourner, faute de repère. Ici il
-            // traverse le cadre comme il traverse le tapis.
-            frame: {
-              x: (arena.minX + arena.maxX) / 2,
-              y: BoardTiles3D.diceSurface,
-              z: (arena.minZ + arena.maxZ) / 2,
-            },
-            // LE CADRE RESTE SERRÉ AUTOUR DU DÉ. L'aire de jeu couvre TOUT
-            // le plateau — ce n'est pas une petite piste de lancer — et la
-            // cadrer en entier rendait le dé minuscule, jusqu'à ne plus rien
-            // dessiner du tout (mesuré : zéro pixel clair dans le panneau).
+            // UNE ARÊTE DE DÉ — et c'est la CAMÉRA QUI SUIT, désormais.
             //
-            // Huit arêtes de dé : assez large pour qu'on le voie se déplacer
-            // et rouler, assez serré pour qu'il reste gros.
-            // DEUX ARÊTES ET DEMIE. `diceCameraDistance` applique en plus
-            // sa marge de 2,6 : le cadre fait donc environ six arêtes de
-            // large, assez pour voir le dé se déplacer sans qu'il devienne
-            // minuscule.
+            // `diceCameraDistance` applique en plus sa marge de 2,6 : le
+            // cadre fait donc ~2,6 arêtes de large et le dé y occupe 38 %
+            // de la largeur (mesuré sur un panneau de 210 × 915). Assez
+            // gros pour qu'on lise la face, assez d'air autour pour que le
+            // plateau défile derrière lui et montre qu'il roule.
             //
-            // MESURÉ : à huit arêtes, la caméra reculait à 7 600 unités d'un
-            // dé qui en fait 57 — il n'occupait plus qu'une fraction de
-            // pixel, et le panneau paraissait vide alors que le rendu avait
-            // bien lieu (trace « DESSINE » à l'appui).
-            // UNE ARÊTE DE DÉ. Avec la marge de 2,6 de
-            // `diceCameraDistance`, le dé occupe alors ~38 % de la largeur
-            // du panneau — calculé, puis vérifié à l'image.
+            // ÉLARGIR LE CADRE NE SERT À RIEN depuis que la caméra suit :
+            // à trois arêtes le dé retombe à 13 % de la largeur, et on
+            // reperd ce qu'on venait de gagner.
             frameSize: Dice3DScene.halfSize * 2,
           }
         : null
