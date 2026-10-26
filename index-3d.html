@@ -800,7 +800,23 @@
                  revient au plateau. Le choix est rangé d'une partie à
                  l'autre. `aria-pressed` porte l'état : un bouton qui bascule
                  doit dire s'il est enfoncé, sinon il ne s'annonce pas. -->
-            <button id="cinema" type="button" aria-pressed="false" title="Mode cinéma" aria-label="Mode cinéma">🎬</button>
+            <!-- MODE CINÉMA — CACHÉ, pas supprimé (Quentin, 26/10/2026 :
+                 « on le laisse mais plus visible », « on le cache pour
+                 l'instant »).
+
+                 IL CADRAIT LE DÉ SUR LE PLATEAU, où le dé n'est plus : il
+                 ne vit désormais que dans le panneau de droite. Le bouton
+                 n'avait donc plus rien à montrer.
+
+                 L'ÉLÉMENT RESTE DANS LA PAGE, et c'est voulu : la scène le
+                 retrouve par `getElementById`, et le lancer par SECOUSSE du
+                 téléphone n'est branché que dans ce mode
+                 (`if (cinema) listenForShakes()`, EPIC-8). Le retirer
+                 emporterait la secousse avec lui.
+
+                 POUR LE FAIRE RÉAPPARAÎTRE : supprimer l'attribut `hidden`
+                 ci-dessous, et rien d'autre. -->
+            <button id="cinema" type="button" aria-pressed="false" title="Mode cinéma" aria-label="Mode cinéma" hidden>🎬</button>
             <button id="roll" class="roll" type="button">Lancer <span id="dice-value">1</span></button>
         </div>
     </div>

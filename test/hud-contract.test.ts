@@ -198,6 +198,42 @@ describe('HUD — le diagnostic a quitté l\'écran de jeu', () => {
   });
 });
 
+describe('HUD — le mode cinéma est caché, pas supprimé', () => {
+  it('cache le bouton 🎬', () => {
+    // Quentin, 26/10/2026 : « on le laisse mais plus visible ». Il cadrait
+    // le dé SUR LE PLATEAU, où le dé n'est plus — il ne vit désormais que
+    // dans le panneau de droite.
+    expect(page).toMatch(/<button id="cinema"[^>]*\bhidden\b/);
+  });
+
+  it('GARDE l\'élément dans la page', () => {
+    // LE RETIRER EMPORTERAIT LE LANCER PAR SECOUSSE : il n'est branché que
+    // dans ce mode (`if (cinema) listenForShakes()`, EPIC-8), et la scène
+    // retrouve le bouton par `getElementById`. Un identifiant disparu ne
+    // casse rien à la compilation — le code cesse simplement de répondre.
+    expect(pageIds().has('cinema')).toBe(true);
+    expect(scene).toContain("document.getElementById('cinema')");
+  });
+
+  it('le cache VRAIMENT, et pas seulement dans le DOM', () => {
+    // CE DÉFAUT EST APPARU TROIS FOIS dans ce projet : `hidden` ne vaut
+    // qu'un `display: none` de la feuille par défaut, que la moindre règle
+    // d'auteur écrase. Vérifié ici dans un vrai navigateur —
+    // `display: none`, largeur 0 — faute de pouvoir le calculer en jsdom.
+    //
+    // Si une règle `display` apparaît un jour sur les boutons de la barre,
+    // ce bouton RÉAPPARAÎTRA sans que rien ne le signale. Ce test garde la
+    // trace de la vérification ; c'est l'absence d'une telle règle qui le
+    // rend valable.
+    const actions = page.slice(
+      page.indexOf('.foot .actions button {'),
+      page.indexOf('}', page.indexOf('.foot .actions button {'))
+    );
+
+    expect(actions).not.toMatch(/display:\s*(flex|block|inline)/);
+  });
+});
+
 describe('HUD — le panneau des dés', () => {
   it('porte son bouton d\'ouverture dans la barre du bas', () => {
     expect(pageIds().has('dice-open')).toBe(true);
