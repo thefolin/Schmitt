@@ -65,6 +65,21 @@ function applyBody(physics: DicePhysics, body: MovingBody): void {
  */
 const LAUNCH_SPREAD = 0.22;
 
+/**
+ * Écart entre les deux dés quand ils sont lancés DANS LE PANNEAU.
+ *
+ * Le panneau est haut et étroit : son cadre fait 151 unités de large pour
+ * 798 de haut, soit 5,3 fois plus haut que large (mesuré sur 173 × 915 px).
+ *
+ * Les écarter comme sur le plateau — 638 unités, en LARGEUR — demanderait un
+ * cadre où chaque dé ne ferait plus que 9 % de la largeur : exactement le dé
+ * minuscule et illisible qu'on vient de corriger. On les écarte donc en
+ * PROFONDEUR, la dimension que le panneau a en abondance. Vus de 35°, 174
+ * unités les séparent de 18 % de la hauteur du cadre : assez pour qu'ils ne
+ * se recouvrent pas, sans rien élargir.
+ */
+const PANEL_SPREAD = DIE_EDGE * 3;
+
 /** Un dé de faveur : son corps physique et son rendu. */
 interface FavorDie {
   physics: DicePhysics;
@@ -168,6 +183,46 @@ export class FavorDice {
 
       die.physics = fresh;
     });
+  }
+
+  /**
+   * Regroupe les deux dés AU CENTRE DE L'AIRE, écartés en profondeur.
+   *
+   * C'est le pendant de `keepDiceInPanel` pour la paire du temple : le
+   * panneau cadre un point fixe du plateau, et les dés doivent s'y trouver
+   * pour être vus. Leurs points de lancer d'origine les écartent de 638
+   * unités EN LARGEUR, soit quatre fois le cadre du panneau — l'un des deux
+   * serait toujours hors champ.
+   *
+   * L'écart passe donc sur l'axe Z, que le panneau a en abondance (son cadre
+   * est 5,3 fois plus haut que large). Les dés restent séparés, et chacun
+   * garde sa taille à l'écran.
+   */
+  public gatherForPanel(): void {
+    const width = this.arena.maxX - this.arena.minX;
+    const height = this.arena.maxZ - this.arena.minZ;
+    const midX = (this.arena.minX + this.arena.maxX) / 2;
+    const midZ = (this.arena.minZ + this.arena.maxZ) / 2;
+
+    this.dice.forEach((die, index) => {
+      const side = index === 0 ? -1 : 1;
+
+      const z = Math.min(
+        Math.max(midZ + side * PANEL_SPREAD, this.arena.minZ),
+        this.arena.maxZ
+      );
+
+      const fresh = new DicePhysics(WORLD_DICE_CONFIG, { x: midX, y: z }, { width, height });
+
+      fresh.setTableBounds(
+        { minX: this.arena.minX, maxX: this.arena.maxX, minY: this.arena.minZ, maxY: this.arena.maxZ },
+        { top: true, right: true, bottom: true, left: true }
+      );
+
+      die.physics = fresh;
+    });
+
+    this.rest();
   }
 
   public rest(): void {

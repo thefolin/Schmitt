@@ -101,6 +101,23 @@ describe('Le dé ne vit QUE dans le panneau', () => {
   });
 });
 
+describe('LES DEUX DÉS DU TEMPLE vivent aussi dans le panneau', () => {
+  it('les pose sur le calque du panneau, comme le dé du tour', () => {
+    // RÈGLE DE QUENTIN (26/10/2026) : « il faut intégrer le pouvoir des
+    // dieux, le lancer des deux dés dans le panel aussi, même
+    // intervention ». Les laisser sur le calque ordinaire aurait remis DEUX
+    // dés au centre du plateau le temps de la faveur, alors que celui du
+    // tour venait d'en être retiré.
+    const pair = [fakeDie(), fakeDie()];
+
+    for (const die of pair) scene!.keepDiceInPanel(die);
+
+    for (const die of pair) {
+      expect(layersOf(die)).toEqual([maskOf(DICE_PANEL_LAYER), maskOf(DICE_PANEL_LAYER)]);
+    }
+  });
+});
+
 describe('Viser le dé dans le panneau', () => {
   it('ne donne aucune cible tant que le panneau est fermé', () => {
     // Le geste de prise s'appuie dessus : sans vue, pas de dé à attraper.

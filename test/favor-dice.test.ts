@@ -162,3 +162,61 @@ describe('3D-61 — les dés posés doivent être attrapables', () => {
     dice.dispose();
   });
 });
+
+/**
+ * LES DEUX DÉS DANS LE PANNEAU (Quentin, 26/10/2026).
+ *
+ * « Il faut intégrer le pouvoir des dieux, le lancer des deux dés dans le
+ * panel aussi, même intervention. »
+ *
+ * Le panneau cadre un point fixe du plateau, sur une fenêtre 5,3 fois plus
+ * haute que large (151 × 798 unités, mesuré sur 173 × 915 px). Les points de
+ * lancer d'origine écartent les dés de 638 unités EN LARGEUR : quatre fois le
+ * cadre, donc l'un des deux toujours hors champ. Les contenir aurait demandé
+ * un cadre où chaque dé ne ferait plus que 9 % de la largeur — le dé
+ * minuscule et illisible qu'on venait de corriger.
+ *
+ * L'écart passe donc sur la PROFONDEUR, la dimension que le panneau a en
+ * abondance.
+ */
+describe('3D — regrouper les deux dés dans le cadre du panneau', () => {
+  /** Les deux dés, regroupés, lus sur leurs rendus. */
+  function gathered(): { x: number; z: number }[] {
+    const dice = new FavorDice(ARENA);
+
+    dice.gatherForPanel();
+
+    return dice.views.map(view => ({
+      x: view.group.position.x,
+      z: view.group.position.z,
+    }));
+  }
+
+  it('les aligne sur l\'axe du cadre, et non de part et d\'autre', () => {
+    // C'EST LE CŒUR DE LA RÈGLE : écartés en largeur, l'un des deux sort du
+    // panneau. Ils partagent donc la même abscisse, celle que la caméra vise.
+    const [a, b] = gathered();
+
+    expect(a.x).toBeCloseTo(b.x, 5);
+    expect(a.x).toBeCloseTo((ARENA.minX + ARENA.maxX) / 2, 5);
+  });
+
+  it('les sépare EN PROFONDEUR, pour qu\'ils ne se recouvrent pas', () => {
+    // Deux dés à la même place se traverseraient : `DicePhysics` ne gère que
+    // les bords. L'écart doit rester réel, simplement porté par l'autre axe.
+    const [a, b] = gathered();
+
+    expect(Math.abs(a.z - b.z)).toBeGreaterThan(58);
+  });
+
+  it('les garde DANS l\'aire de jeu', () => {
+    // Un dé posé hors de l'aire démarrerait dans le mur : la physique le
+    // ramènerait d'un coup au premier pas de simulation.
+    for (const die of gathered()) {
+      expect(die.x).toBeGreaterThanOrEqual(ARENA.minX);
+      expect(die.x).toBeLessThanOrEqual(ARENA.maxX);
+      expect(die.z).toBeGreaterThanOrEqual(ARENA.minZ);
+      expect(die.z).toBeLessThanOrEqual(ARENA.maxZ);
+    }
+  });
+});

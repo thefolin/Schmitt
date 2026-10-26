@@ -508,7 +508,18 @@ function attachDice(
   // physique et sa chaîne « la face vue est celle dont on avance ». Ils
   // restent invisibles tant que personne ne se pose sur le temple.
   const favorDice = new FavorDice(arena, () => tiles.pawnObstacles());
-  for (const view of favorDice.views) scene.world.add(view.group);
+  for (const view of favorDice.views) {
+    scene.world.add(view.group);
+    // LES DEUX DÉS DU TEMPLE VIVENT AUSSI DANS LE PANNEAU. Quentin, le
+    // 26/10/2026 : « il faut intégrer le pouvoir des dieux, le lancer des
+    // deux dés dans le panel aussi, même intervention ».
+    //
+    // Même raison que pour le dé du tour : il n'y a plus de dé sur le
+    // plateau. Les laisser sur le calque ordinaire aurait remis DEUX dés au
+    // centre du plateau le temps de la faveur, alors que celui du tour
+    // venait d'en être retiré.
+    scene.keepDiceInPanel(view.group);
+  }
 
   /**
    * Applique qui est posé sur le plateau.
@@ -924,19 +935,22 @@ function attachDice(
     // sans consigne se regardent sans qu'on sache qu'il faut les jeter.
     say(`\u{26A1} ${runner.currentPlayerName()} — attrape les 2 dés et lance-les !`);
 
-    // Le tirage se regarde : on cadre le plateau entier, sinon un dé peut
-    // tomber hors du cadre suivi de sept cases.
-    scene.showWholeBoard();
+    // LE PANNEAU S'OUVRE, comme pour le dé du tour. Les dés n'existent plus
+    // que là : sans cette ouverture, le joueur lirait la consigne « attrape
+    // les 2 dés » sans avoir aucun dé sous les yeux.
+    if (!dicePanel.isOpen()) dicePanel.open();
 
     // LE DÉ DU TOUR S'EFFACE le temps de la faveur : sinon il en reste trois
     // sur le plateau, et la somme annoncée n'est plus recomptable.
     showDice(duringFavor());
 
-    // Et les deux dés sont POSÉS à leurs points de lancer. Sans cela leur
-    // position n'est fixée que pendant l'animation : des dés jamais lancés
-    // resteraient à l'origine du monde, hors du plateau et l'un dans
-    // l'autre, sans rien à attraper.
-    favorDice.rest();
+    // Et les deux dés sont REGROUPÉS dans le cadre du panneau, écartés en
+    // profondeur. Leurs points de lancer d'origine les séparent de 638
+    // unités en largeur — quatre fois le cadre — et l'un des deux serait
+    // toujours hors champ. `gatherForPanel` les pose aussi : sans cela leur
+    // position n'est fixée que pendant l'animation, et des dés jamais lancés
+    // resteraient à l'origine du monde.
+    favorDice.gatherForPanel();
   };
 
   /**
@@ -1066,9 +1080,12 @@ function attachDice(
       `\u{1F495} ${runner.currentPlayerName()} — relance les 2 d\u00e9s pour d\u00e9placer !`
     );
 
-    scene.showWholeBoard();
+    // MÊME TRAITEMENT QUE LA FAVEUR : c'est la même paire qu'on relance, et
+    // elle ne vit que dans le panneau.
+    if (!dicePanel.isOpen()) dicePanel.open();
+
     showDice(duringFavor());
-    favorDice.rest();
+    favorDice.gatherForPanel();
 
     refresh();
   };
