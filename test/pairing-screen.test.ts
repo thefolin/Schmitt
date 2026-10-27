@@ -74,6 +74,7 @@ beforeEach(() => {
     host: async () => ({ transport, code: OFFER, accept: async (a) => { accepted.push(a); return true; } }),
     join: async () => ({ transport, code: ANSWER }),
     scan: scanner.scan,
+    joinBase: () => 'https://192.168.1.15:3001/index-3d.html',
   };
 });
 
@@ -187,5 +188,37 @@ describe('Un échec se dit, et se rattrape', () => {
     await click('link-retry');
 
     expect(document.getElementById('link-as-master')).not.toBeNull();
+  });
+});
+
+describe('L\'appareil photo du téléphone suffit', () => {
+  // Quentin (27/10/2026) : scanné à l'appareil photo, le QR « ne redirige
+  // pas vers l'application ou le web ».
+  it('le QR du plateau porte un LIEN vers le jeu, que l\'appareil photo ouvre', async () => {
+    void showPairingScreen(document.body, deps);
+    await click('link-as-master');
+
+    const text = document.getElementById('link-qr')!.dataset.text!;
+    expect(text.startsWith('https://192.168.1.15:3001/index-3d.html#join=')).toBe(true);
+  });
+
+  it('garde le code brut quand la page n\'est joignable que d\'elle-même (APK)', async () => {
+    deps.joinBase = () => 'https://localhost/index.html';
+    void showPairingScreen(document.body, deps);
+    await click('link-as-master');
+
+    expect(document.getElementById('link-qr')!.dataset.text).toBe(OFFER);
+  });
+
+  it('ouverte par ce lien, la page passe droit à la réponse, sans caméra', async () => {
+    const pairing = showPairingScreen(document.body, deps, OFFER);
+    await flush();
+
+    expect(document.getElementById('link-as-master')).toBeNull();
+    expect(cameraShown()).toBe(false);
+    expect(document.getElementById('link-qr')!.dataset.text).toBe(ANSWER);
+
+    transport.open();
+    expect(await pairing).toEqual({ role: 'slave', transport });
   });
 });

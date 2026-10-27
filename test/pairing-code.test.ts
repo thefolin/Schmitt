@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { fromSdp, toSdp, encode, decode } from '@/features/link/pairing-code';
+import { fromSdp, toSdp, encode, decode, toJoinUrl, offerFromUrl } from '@/features/link/pairing-code';
 
 /**
  * L'APPAIRAGE PAR QR CODE (épique 8, lot D — Quentin, 27/10/2026).
@@ -137,5 +137,51 @@ describe('La caméra lit n\'importe quel QR : seuls les nôtres passent', () => 
   ])('refuse %s, sans jeter', (_label, text) => {
     expect(() => decode(text)).not.toThrow();
     expect(decode(text)).toBeNull();
+  });
+});
+
+describe('Le QR du plateau s\'ouvre avec l\'appareil photo du téléphone', () => {
+  // Quentin (27/10/2026) a scanné avec l'appareil photo et « n'est pas
+  // redirigé vers l'application ou le web » : un appareil photo n'ouvre
+  // qu'un lien. Le QR porte donc l'adresse du jeu, l'offre après le `#`.
+  const code = encode(fromSdp('offer', CHROME_OFFER)!);
+  const base = 'https://192.168.1.15:3001/index-3d.html?x=1#ancien';
+
+  it('fait un lien vers la page du jeu, l\'offre rangée après le #', () => {
+    const url = toJoinUrl(base, code)!;
+
+    expect(url.startsWith('https://192.168.1.15:3001/index-3d.html#join=')).toBe(true);
+  });
+
+  it('se relit, lien ou code brut', () => {
+    const url = toJoinUrl(base, code)!;
+
+    expect(decode(url)).toEqual(decode(code));
+  });
+
+  it('rend l\'offre à la page ouverte par ce lien', () => {
+    expect(offerFromUrl(toJoinUrl(base, code)!)).toBe(code);
+  });
+
+  it('n\'ouvre rien sur une page sans invitation', () => {
+    expect(offerFromUrl('https://192.168.1.15:3001/index-3d.html')).toBeNull();
+  });
+
+  it('n\'ouvre pas sur une RÉPONSE glissée dans un lien', () => {
+    const answer = encode(fromSdp('answer', CHROME_OFFER)!);
+
+    expect(offerFromUrl(`https://h/index-3d.html#join=${encodeURIComponent(answer)}`)).toBeNull();
+  });
+
+  it('garde le code brut quand la page n\'est joignable que d\'elle-même', () => {
+    // L'APK se sert en https://localhost : un lien vers « localhost »
+    // ouvrirait le téléphone sur lui-même.
+    expect(toJoinUrl('https://localhost/index.html', code)).toBeNull();
+    expect(toJoinUrl('http://127.0.0.1:3000/index-3d.html', code)).toBeNull();
+  });
+
+  it('refuse un lien mal encodé, sans jeter', () => {
+    expect(() => decode('https://h/#join=%E0%A4%A')).not.toThrow();
+    expect(decode('https://h/#join=%E0%A4%A')).toBeNull();
   });
 });

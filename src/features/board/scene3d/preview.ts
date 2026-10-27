@@ -86,6 +86,7 @@ import { fetchBoardLayout } from '../camera/board-layout.config';
 import { Link } from '@/features/link/link';
 import { MasterRemote, REMOTE_LOG_DEPTH, showRemote } from '@/features/link/remote';
 import { showPairingScreen } from '@/features/link/pairing-screen';
+import { offerFromUrl } from '@/features/link/pairing-code';
 
 /**
  * Aperçu du rendu 3D, isolé du jeu.
@@ -182,6 +183,18 @@ async function main(): Promise<void> {
   offerRemoteJoin((link) => {
     pendingMaster = link;
   });
+
+  // OUVERTE PAR L'APPAREIL PHOTO, sur le lien du QR du plateau : la page
+  // rejoint d'elle-même comme manette. L'offre est retirée de la barre
+  // d'adresse aussitôt — un rechargement ne doit pas rejouer un appairage
+  // déjà consommé, ni un favori garder une offre périmée.
+  const invitation = offerFromUrl(window.location.href);
+  if (invitation !== null) {
+    history.replaceState(null, '', window.location.pathname + window.location.search);
+    void pairDevice((link) => {
+      pendingMaster = link;
+    }, invitation);
+  }
 
   logic.startGame(await players);
 
@@ -2191,8 +2204,8 @@ function renderActions(
  *
  * Abandonner l'appairage ne change rien : le jeu reste tel qu'il était.
  */
-async function pairDevice(asMaster: (link: Link) => void): Promise<void> {
-  const pairing = await showPairingScreen();
+async function pairDevice(asMaster: (link: Link) => void, offer: string | null = null): Promise<void> {
+  const pairing = await showPairingScreen(document.body, undefined, offer);
   if (pairing === null) return;
 
   const link = new Link(pairing.role, pairing.transport);

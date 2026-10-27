@@ -1,5 +1,5 @@
 import qrcode from 'qrcode-generator';
-import { decode } from './pairing-code';
+import { decode, toJoinUrl } from './pairing-code';
 import type { Role } from './protocol';
 import { scanQr, type ScanHandle } from './qr-scanner';
 import type { Transport } from './transport';
@@ -40,12 +40,15 @@ export interface PairingDeps {
   host(): Promise<HostPairing | null>;
   join(offer: string): Promise<{ transport: Transport; code: string } | null>;
   scan(video: HTMLVideoElement, accept: (text: string) => boolean): ScanHandle;
+  /** L'adresse de cette page, base du lien que porte le QR du plateau. */
+  joinBase(): string;
 }
 
 const realDeps: PairingDeps = {
   host: () => WebRtcTransport.host(),
   join: (offer) => WebRtcTransport.join(offer),
   scan: scanQr,
+  joinBase: () => window.location.href,
 };
 
 /** Le QR en SVG : sombre sur fond clair, la seule combinaison que lisent tous les lecteurs. */
@@ -68,7 +71,13 @@ function qrSvg(text: string): string {
  */
 export function showPairingScreen(
   host: HTMLElement = document.body,
-  deps: PairingDeps = realDeps
+  deps: PairingDeps = realDeps,
+  /**
+   * Une offre déjà en main : la page a été ouverte par l'appareil photo, sur
+   * le lien du QR du plateau. On passe alors directement à la réponse, sans
+   * demander le rôle ni rouvrir la caméra.
+   */
+  offer: string | null = null
 ): Promise<Pairing | null> {
   return new Promise((resolve) => {
     let transport: Transport | null = null;
@@ -150,6 +159,9 @@ export function showPairingScreen(
       step.textContent = text;
 
       qr.innerHTML = options.qr ? qrSvg(options.qr) : '';
+      // Le texte porté par le QR, lisible sans décoder l'image : pour les
+      // tests, et pour diagnostiquer un appairage sur un appareil réel.
+      qr.dataset.text = options.qr ?? '';
       show(qr, Boolean(options.qr));
       show(camera, Boolean(options.camera));
 
@@ -205,8 +217,11 @@ export function showPairingScreen(
         });
       };
 
-      render('1. Scannez ce code avec la manette.', {
-        qr: pairing.code,
+      // LE QR PORTE UN LIEN quand cette page est joignable depuis le WiFi :
+      // l'appareil photo du téléphone l'ouvre et la page rejoint d'elle-même.
+      // Le scanner du jeu, lui, lit les deux formes.
+      render('1. Scannez ce code avec le téléphone — appareil photo ou bouton « manette ».', {
+        qr: toJoinUrl(deps.joinBase(), pairing.code) ?? pairing.code,
         actions: [button('link-scan-answer', '2. Scanner sa réponse', true, scanAnswer)],
       });
     };
@@ -216,19 +231,22 @@ export function showPairingScreen(
 
       scan = deps.scan(camera, (text) => decode(text)?.kind === 'offer');
 
-      void scan.result.then(async (offer) => {
-        if (done || offer === null) return;
-
-        render('Préparation de la réponse…');
-
-        const joined = await deps.join(offer);
-        if (done) return joined?.transport.close();
-        if (joined === null) return fail('Ce code n’a pas pu être lu. Recommencez.');
-
-        transport = joined.transport;
-        render('Montrez ce code au plateau.', { qr: joined.code });
-        awaitLink('slave', joined.transport);
+      void scan.result.then((scanned) => {
+        if (done || scanned === null) return;
+        void joinWith(scanned);
       });
+    };
+
+    const joinWith = async (offer: string) => {
+      render('Préparation de la réponse…');
+
+      const joined = await deps.join(offer);
+      if (done) return joined?.transport.close();
+      if (joined === null) return fail('Ce code n’a pas pu être lu. Recommencez.');
+
+      transport = joined.transport;
+      render('Montrez ce code au plateau : il le scanne avec « 2. Scanner sa réponse ».', { qr: joined.code });
+      awaitLink('slave', joined.transport);
     };
 
     function choose(): void {
@@ -243,6 +261,7 @@ export function showPairingScreen(
       });
     }
 
-    choose();
+    if (offer !== null) void joinWith(offer);
+    else choose();
   });
 }

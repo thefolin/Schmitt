@@ -152,7 +152,7 @@ export function encode(code: PairingCode): string {
  * le code d'un autre jeu. Rien de cela ne doit faire tomber l'écran.
  */
 export function decode(text: string): PairingCode | null {
-  const fields = text.trim().split('|');
+  const fields = unwrapJoinUrl(text).trim().split('|');
   if (fields.length !== 6) return null;
 
   const [version, kindTag, ufrag, pwd, print, list] = fields;
@@ -183,6 +183,62 @@ export function decode(text: string): PairingCode | null {
   }
 
   return { kind: kindTag === 'o' ? 'offer' : 'answer', ufrag, pwd, fingerprint, candidates };
+}
+
+/** Le repère qui porte l'offre dans un lien d'invitation. */
+const JOIN_MARK = '#join=';
+
+/**
+ * L'offre en LIEN, pour l'appareil photo du téléphone.
+ *
+ * Quentin (27/10/2026) a scanné le QR du plateau avec l'appareil photo de
+ * son téléphone, et « n'est pas redirigé vers l'application ou le web ». Un
+ * appareil photo n'ouvre qu'un lien : le code brut ne lui disait rien. Le
+ * QR porte donc l'adresse du jeu, l'offre rangée après le `#` — le serveur
+ * ne la voit jamais, seule la page l'ouvre.
+ *
+ * Rend `null` quand l'adresse ne mène nulle part depuis un autre appareil :
+ * l'APK se sert lui-même en `https://localhost`, et un lien vers
+ * « localhost » ouvrirait le téléphone… sur lui-même. Le QR garde alors le
+ * code brut, à scanner depuis le jeu.
+ */
+export function toJoinUrl(base: string, code: string): string | null {
+  let url: URL;
+
+  try {
+    url = new URL(base);
+  } catch {
+    return null;
+  }
+
+  if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') return null;
+
+  return `${url.origin}${url.pathname}${JOIN_MARK}${encodeURIComponent(code)}`;
+}
+
+/**
+ * L'offre portée par une adresse de page, ou `null` s'il n'y en a pas.
+ *
+ * C'est ce que lit la page ouverte par l'appareil photo, au démarrage.
+ */
+export function offerFromUrl(href: string): string | null {
+  const at = href.indexOf(JOIN_MARK);
+  if (at < 0) return null;
+
+  const code = unwrapJoinUrl(href.slice(at));
+  return decode(code)?.kind === 'offer' ? code : null;
+}
+
+/** Retire l'enveloppe du lien, s'il y en a une. Un code brut passe tel quel. */
+function unwrapJoinUrl(text: string): string {
+  const at = text.indexOf(JOIN_MARK);
+  if (at < 0) return text;
+
+  try {
+    return decodeURIComponent(text.slice(at + JOIN_MARK.length));
+  } catch {
+    return '';
+  }
 }
 
 function fromHex(text: string): Uint8Array | null {
