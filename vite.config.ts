@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import path from 'path';
 import basicSsl from '@vitejs/plugin-basic-ssl';
+import { pairRelayPlugin } from './server/pair-relay';
 
 export default defineConfig({
   // Base URL: GitHub Pages en production, racine pour Capacitor mobile
@@ -10,7 +11,10 @@ export default defineConfig({
   // deux appareils (épique 8) : sur http://192.168…, le téléphone refuse la
   // caméra, donc le scan des QR. Le certificat est auto-signé — le navigateur
   // demandera une fois de passer outre. Sans la variable, rien ne change.
-  plugins: process.env.DEV_HTTPS ? [basicSsl()] : [],
+  //
+  // LE RELAIS DU WIFI (épique 8) : deux appareils se relient par un code à
+  // 4 chiffres, par ce même serveur qui sert le jeu. Rien à installer de plus.
+  plugins: [pairRelayPlugin(), ...(process.env.DEV_HTTPS ? [basicSsl()] : [])],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

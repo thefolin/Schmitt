@@ -75,6 +75,13 @@ beforeEach(() => {
     join: async () => ({ transport, code: ANSWER }),
     scan: scanner.scan,
     joinBase: () => 'https://192.168.1.15:3001/index-3d.html',
+    // SANS RELAIS par défaut : ces tests-là suivent le parcours par QR, celui
+    // d'une page servie par GitHub Pages. Le parcours par code a les siens.
+    relay: {
+      available: async () => false,
+      host: async () => null,
+      join: async () => null,
+    },
   };
 });
 
@@ -220,5 +227,108 @@ describe('L\'appareil photo du téléphone suffit', () => {
 
     transport.open();
     expect(await pairing).toEqual({ role: 'slave', transport });
+  });
+});
+
+describe('Le code à 4 chiffres, par le serveur du WiFi', () => {
+  // Quentin (27/10/2026) : la caméra du Mac lisait mal le QR ; il veut « un
+  // code temporaire pour rentrer sur la partie », par le WiFi.
+  let joined: string[];
+
+  beforeEach(() => {
+    joined = [];
+    deps.relay = {
+      available: async () => true,
+      host: async () => ({ transport, pin: '0427' }),
+      join: async (pin) => {
+        joined.push(pin);
+        return pin === '0427' ? transport : null;
+      },
+    };
+  });
+
+  const type = async (code: string) => {
+    (document.getElementById('link-code') as HTMLInputElement).value = code;
+    await click('link-join');
+  };
+
+  it('le plateau affiche le code, sans caméra ni QR', async () => {
+    void showPairingScreen(document.body, deps);
+    await click('link-as-master');
+
+    expect(document.getElementById('link-pin')!.textContent).toBe('0427');
+    expect(visible('link-pin')).toBe(true);
+    expect(cameraShown()).toBe(false);
+    expect(qrShown()).toBe(false);
+  });
+
+  it('l\'autre appareil tape le code et la liaison s\'ouvre', async () => {
+    const pairing = showPairingScreen(document.body, deps);
+    await click('link-as-slave');
+    expect(visible('link-code-form')).toBe(true);
+
+    await type('0427');
+    transport.open();
+
+    expect(joined).toEqual(['0427']);
+    expect(await pairing).toEqual({ role: 'slave', transport });
+  });
+
+  it('le plateau se relie quand l\'autre a tapé le code', async () => {
+    const pairing = showPairingScreen(document.body, deps);
+    await click('link-as-master');
+
+    transport.open();
+
+    expect(await pairing).toEqual({ role: 'master', transport });
+  });
+
+  it('un code faux reste sur la saisie et dit quoi vérifier', async () => {
+    void showPairingScreen(document.body, deps);
+    await click('link-as-slave');
+
+    await type('1111');
+
+    expect(visible('link-code-form')).toBe(true);
+    expect(document.getElementById('link-code-error')!.textContent).toMatch(/inconnu ou expiré/);
+  });
+
+  it('le plateau attend un humain : pas d\'échec au bout de 15 s', async () => {
+    void showPairingScreen(document.body, deps);
+    await click('link-as-master');
+
+    await vi.advanceTimersByTimeAsync(60000);
+
+    expect(document.getElementById('link-pin')!.textContent).toBe('0427');
+    expect(document.getElementById('link-retry')).toBeNull();
+  });
+
+  it('mais dit que le code a expiré au bout de deux minutes', async () => {
+    void showPairingScreen(document.body, deps);
+    await click('link-as-master');
+
+    await vi.advanceTimersByTimeAsync(2 * 60 * 1000);
+
+    expect(step()).toMatch(/expiré/);
+    expect(transport.closed).toBe(true);
+  });
+
+  it('les QR codes restent à portée d\'un bouton', async () => {
+    void showPairingScreen(document.body, deps);
+    await click('link-as-master');
+
+    await click('link-use-qr');
+
+    expect(transport.closed).toBe(true);
+    expect(document.querySelector('#link-qr svg')).not.toBeNull();
+  });
+
+  it('sans relais (GitHub Pages), on passe directement aux QR', async () => {
+    deps.relay.available = async () => false;
+    void showPairingScreen(document.body, deps);
+    await click('link-as-master');
+
+    expect(visible('link-pin')).toBe(false);
+    expect(document.querySelector('#link-qr svg')).not.toBeNull();
   });
 });

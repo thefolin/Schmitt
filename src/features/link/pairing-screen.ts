@@ -5,6 +5,7 @@ import type { Role } from './protocol';
 import { scanQr, type ScanHandle } from './qr-scanner';
 import type { Transport } from './transport';
 import { WebRtcTransport, type HostPairing } from './webrtc-transport';
+import { RelayTransport } from './relay-transport';
 
 /**
  * L'ÉCRAN QUI RELIE DEUX APPAREILS (épique 8, lot D3).
@@ -43,6 +44,12 @@ export interface PairingDeps {
   scan(video: HTMLVideoElement, accept: (text: string) => boolean): ScanHandle;
   /** L'adresse de cette page, base du lien que porte le QR du plateau. */
   joinBase(): string;
+  /** Le relais du serveur du WiFi : l'appairage par code. */
+  relay: {
+    available(): Promise<boolean>;
+    host(): Promise<{ transport: Transport; pin: string } | null>;
+    join(pin: string): Promise<Transport | null>;
+  };
 }
 
 const realDeps: PairingDeps = {
@@ -50,7 +57,15 @@ const realDeps: PairingDeps = {
   join: (offer) => WebRtcTransport.join(offer),
   scan: scanQr,
   joinBase: () => window.location.href,
+  relay: {
+    available: () => RelayTransport.available(),
+    host: () => RelayTransport.host(),
+    join: (pin) => RelayTransport.join(pin),
+  },
 };
+
+/** Le serveur du WiFi garde un code deux minutes (`server/pair-relay.ts`). */
+const PIN_LIFETIME_MS = 2 * 60 * 1000;
 
 /** Le QR en SVG : sombre sur fond clair, la seule combinaison que lisent tous les lecteurs. */
 function qrSvg(text: string): string {
@@ -108,10 +123,37 @@ export function showPairingScreen(
     camera.className = 'link-camera';
     camera.id = 'link-camera';
 
+    // LE CODE, en très gros : il se lit de loin, sur l'écran du plateau.
+    const pin = document.createElement('p');
+    pin.className = 'link-pin';
+    pin.id = 'link-pin';
+
+    // LA SAISIE DU CODE. Clavier numérique sur téléphone ; la validation
+    // part aussi de la touche Entrée.
+    const codeForm = document.createElement('form');
+    codeForm.className = 'link-code-form';
+    codeForm.id = 'link-code-form';
+    const codeInput = document.createElement('input');
+    codeInput.id = 'link-code';
+    codeInput.className = 'link-code';
+    codeInput.inputMode = 'numeric';
+    codeInput.autocomplete = 'one-time-code';
+    codeInput.maxLength = 4;
+    codeInput.placeholder = '0000';
+    codeInput.setAttribute('aria-label', 'Code du plateau');
+    const codeError = document.createElement('p');
+    codeError.className = 'link-code-error';
+    codeError.id = 'link-code-error';
+    codeError.setAttribute('role', 'alert');
+    codeForm.append(codeInput, codeError);
+
     const buttons = document.createElement('div');
     buttons.className = 'action-modal-buttons';
 
-    panel.append(title, step, qr, camera, buttons);
+    panel.append(title, step, pin, codeForm, qr, camera, buttons);
+
+    /** Le relais répond-il ? Demandé une fois, dès l'ouverture. */
+    const relayReady = deps.relay.available();
     screen.appendChild(panel);
     host.appendChild(screen);
 
@@ -156,8 +198,16 @@ export function showPairingScreen(
     const cancel = () => button('link-cancel', 'Annuler', false, () => finish(null));
 
     /** Un état de l'écran : la consigne, ce qu'on montre, les boutons. */
-    const render = (text: string, options: { qr?: string; camera?: boolean; actions?: HTMLElement[] } = {}) => {
+    const render = (
+      text: string,
+      options: { qr?: string; camera?: boolean; pin?: string; codeEntry?: boolean; actions?: HTMLElement[] } = {}
+    ) => {
       step.textContent = text;
+
+      pin.textContent = options.pin ?? '';
+      show(pin, Boolean(options.pin));
+      show(codeForm, Boolean(options.codeEntry));
+      codeError.textContent = '';
 
       qr.innerHTML = options.qr ? qrSvg(options.qr) : '';
       // Le texte porté par le QR, lisible sans décoder l'image : pour les
@@ -181,18 +231,56 @@ export function showPairingScreen(
      * Attend que la voie s'ouvre, avec un délai : sans lui, deux appareils
      * sur deux WiFi différents laisseraient l'écran figé sur « en cours ».
      */
-    const awaitLink = (role: Role, channel: Transport) => {
-      timer = setTimeout(
-        () => fail('La liaison ne s’établit pas. Les deux appareils sont-ils sur le même WiFi ?'),
-        LINK_TIMEOUT_MS
-      );
+    const awaitLink = (
+      role: Role,
+      channel: Transport,
+      timeout: number = LINK_TIMEOUT_MS,
+      message: string = 'La liaison ne s’établit pas. Les deux appareils sont-ils sur le même WiFi ?'
+    ) => {
+      timer = setTimeout(() => fail(message), timeout);
 
       channel.onStatus((status) => {
         if (status === 'linked' && !done) finish({ role, transport: channel });
       });
     };
 
+    /**
+     * PLATEAU, PAR CODE : le serveur du WiFi donne 4 chiffres, l'autre
+     * appareil les tape. Aucune caméra.
+     */
+    const asMasterByCode = async () => {
+      render('Préparation du code…');
+
+      const room = await deps.relay.host();
+      if (done) return room?.transport.close();
+      if (room === null) return asMasterByQr();
+
+      transport = room.transport;
+      render(LINK_TEXT.masterShowsPin, {
+        pin: room.pin,
+        actions: [button('link-use-qr', LINK_TEXT.useQr, false, switchToQr(() => void asMasterByQr()))],
+      });
+
+      // LE PLATEAU ATTEND UN HUMAIN qui tape le code : pas les 15 s d'une
+      // liaison technique, mais la vie du code sur le serveur.
+      awaitLink('master', room.transport, PIN_LIFETIME_MS, LINK_TEXT.pinExpired);
+    };
+
+    /** Passe aux QR codes : le code en cours est abandonné. */
+    const switchToQr = (next: () => void) => () => {
+      if (timer !== null) clearTimeout(timer);
+      timer = null;
+      transport?.close();
+      transport = null;
+      next();
+    };
+
     const asMaster = async () => {
+      if (await relayReady) return asMasterByCode();
+      return asMasterByQr();
+    };
+
+    const asMasterByQr = async () => {
       render('Préparation du code…');
 
       const pairing = await deps.host();
@@ -227,7 +315,46 @@ export function showPairingScreen(
       });
     };
 
-    const asSlave = () => {
+    /** APPAREIL DE CONTRÔLE, PAR CODE : il tape les 4 chiffres du plateau. */
+    const asSlaveByCode = () => {
+      render(LINK_TEXT.slaveEntersPin, {
+        codeEntry: true,
+        actions: [
+          button('link-join', LINK_TEXT.join, true, () => codeForm.requestSubmit()),
+          button('link-use-qr', LINK_TEXT.useQr, false, switchToQr(asSlaveByQr)),
+        ],
+      });
+      codeInput.value = '';
+      codeInput.focus();
+    };
+
+    codeForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      void (async () => {
+        const typed = codeInput.value.replace(/\D/g, '');
+        const joined = await deps.relay.join(typed);
+        if (done) return joined?.close();
+
+        // UN CODE FAUX NE RAMÈNE PAS AU DÉBUT : on reste sur la saisie, le
+        // message dit quoi vérifier.
+        if (joined === null) {
+          codeError.textContent = LINK_TEXT.pinRejected;
+          codeInput.select();
+          return;
+        }
+
+        transport = joined;
+        render('Liaison en cours…');
+        awaitLink('slave', joined, LINK_TIMEOUT_MS, LINK_TEXT.masterSilent);
+      })();
+    });
+
+    const asSlave = async () => {
+      if (await relayReady) return asSlaveByCode();
+      return asSlaveByQr();
+    };
+
+    const asSlaveByQr = () => {
       render(LINK_TEXT.slaveAimsAtMaster, { camera: true });
 
       scan = deps.scan(camera, (text) => decode(text)?.kind === 'offer');
@@ -257,7 +384,7 @@ export function showPairingScreen(
       render('Quel rôle pour cet appareil ?', {
         actions: [
           button('link-as-master', LINK_TEXT.asMaster, true, () => void asMaster()),
-          button('link-as-slave', LINK_TEXT.asSlave, true, asSlave),
+          button('link-as-slave', LINK_TEXT.asSlave, true, () => void asSlave()),
         ],
       });
     }

@@ -24,6 +24,15 @@ export const LINK_TEXT = {
   masterScanAnswer: '2. Scanner sa réponse',
   masterAimsAtSlave: 'Visez le code affiché par l’appareil de contrôle.',
 
+  /** L'appairage par CODE, par le serveur du WiFi (Quentin, 27/10/2026). */
+  masterShowsPin: 'Sur l’autre appareil : « Relier un second appareil », « Utiliser comme appareil de contrôle », puis tapez ce code.',
+  slaveEntersPin: 'Tapez le code affiché sur le plateau.',
+  join: 'Rejoindre',
+  useQr: 'Utiliser les QR codes',
+  pinRejected: 'Code inconnu ou expiré. Vérifiez-le sur le plateau.',
+  pinExpired: 'Le code a expiré. Recommencez pour en avoir un nouveau.',
+  masterSilent: 'Le plateau ne répond pas. Les deux appareils sont-ils sur le même WiFi ?',
+
   /** Côté appareil de contrôle. */
   slaveAimsAtMaster: 'Visez le code affiché par le plateau.',
   slaveShowsAnswer: 'Montrez ce code au plateau : il le scanne avec « 2. Scanner sa réponse ».',

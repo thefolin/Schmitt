@@ -801,6 +801,46 @@
             margin-top: 10px;
         }
 
+        /* LE CODE À 4 CHIFFRES, sur l'écran du plateau : il se lit de
+           l'autre bout de la table. Chiffres à chasse fixe, espacés, pour
+           ne pas confondre 1 et 7 sous un éclairage de soirée. */
+        .link-pin {
+            margin: 6px 0;
+            font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+            font-size: clamp(56px, 20vw, 96px);
+            font-weight: 700;
+            letter-spacing: 0.25em;
+            text-align: center;
+            color: #d4af37;
+        }
+
+        .link-code-form {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .link-code {
+            width: min(70vw, 240px);
+            padding: 10px;
+            border: 2px solid rgba(212, 175, 55, 0.6);
+            border-radius: var(--radius-md);
+            font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+            font-size: 40px;
+            letter-spacing: 0.3em;
+            text-align: center;
+            color: #f4ecd8;
+            background: rgba(13, 21, 36, 0.92);
+        }
+
+        .link-code-error {
+            min-height: 1.2em;
+            margin: 0;
+            font-size: 14px;
+            color: #ff8a80;
+        }
+
         /* LES BOUTONS DE L'APPAIRAGE S'EMPILENT. Côte à côte, trois sur un
            téléphone de 360 px, « Utiliser comme appareil de contrôle » se
            cassait sur cinq lignes et « Annuler » touchait le bord (vu au
