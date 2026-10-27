@@ -103,6 +103,26 @@ describe('L\'esclave demande, le maître tranche', () => {
   });
 });
 
+describe('La liaison se branche sur une voie DÉJÀ ouverte', () => {
+  it('se sait reliée, et la manette reçoit la partie', () => {
+    // C'est le cas ordinaire : l'écran d'appairage ne rend la voie qu'une
+    // fois ouverte, et les deux liaisons se construisent après.
+    const wire = pairedInMemory();
+    wire.restore();
+
+    const master = new Link('master', wire.a);
+    master.publish({ turn: 1 });
+    const slave = new Link('slave', wire.b);
+    const heard: Announcement[] = [];
+    slave.onAnnouncement((a) => heard.push(a));
+    master.publish({ turn: 2 });
+
+    expect(master.status()).toBe('linked');
+    expect(slave.status()).toBe('linked');
+    expect(heard).toEqual([{ kind: 'state', version: 2, state: { turn: 2 } }]);
+  });
+});
+
 describe('Une coupure du WiFi ne fige pas le téléphone au mauvais tour', () => {
   it('refuse une demande pendant la coupure, pour que le joueur relance', () => {
     // Sans ce refus, le bouton Lancer partirait dans le vide : le téléphone

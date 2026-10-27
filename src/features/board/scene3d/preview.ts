@@ -83,6 +83,9 @@ import { TurnRunner } from './turn-runner';
 import { loadTileConfigs, TILE_CONFIGS } from '@/features/tiles/tile.config';
 import type { TileConfig } from '@/core/models/Tile';
 import { fetchBoardLayout } from '../camera/board-layout.config';
+import { Link } from '@/features/link/link';
+import { MasterRemote, REMOTE_LOG_DEPTH, showRemote } from '@/features/link/remote';
+import { showPairingScreen } from '@/features/link/pairing-screen';
 
 /**
  * Aperçu du rendu 3D, isolé du jeu.
@@ -170,9 +173,35 @@ async function main(): Promise<void> {
   //
   // Les noms sont retenus d'une partie à l'autre : on ne se renomme pas à
   // chaque manche.
-  logic.startGame(await askForPlayers());
+  const players = askForPlayers();
+
+  // REJOINDRE COMME MANETTE se décide AVANT de nommer les joueurs : le
+  // téléphone qui sert de manette n'a pas de partie à lui, il pilote celle
+  // du plateau. L'écran des joueurs reste dessous, simplement recouvert.
+  let pendingMaster: Link | null = null;
+  offerRemoteJoin((link) => {
+    pendingMaster = link;
+  });
+
+  logic.startGame(await players);
 
   const runner = new TurnRunner(logic);
+
+  // LE PLATEAU PILOTÉ À DISTANCE (épique 8). Il existe dès le départ et ne
+  // fait rien tant qu'aucun téléphone n'est relié : la partie l'appelle sans
+  // se demander si quelqu'un écoute — c'est le repli mono-appareil.
+  const remote = new MasterRemote(() => ({
+    turn: runner.currentPlayerName(),
+    players: logic.getPlayers().map(({ name, position, color }) => ({ name, position, color })),
+    log: runner.history().slice(-REMOTE_LOG_DEPTH),
+    awaitingFavor: runner.getAwaitingGodFavor() !== null,
+  }));
+  notify = (message) => remote.notice(message);
+  if (pendingMaster) remote.attach(pendingMaster);
+
+  document.getElementById('link-open')?.addEventListener('click', () => {
+    void pairDevice((link) => remote.attach(link));
+  });
 
   // Les cases telles qu'elles sont POSÉES sur le parcours, et non le
   // catalogue : sur un plateau composé dans l'éditeur, la case du rang N
@@ -223,6 +252,7 @@ async function main(): Promise<void> {
     renderProgress(runner.tileToFollow(), positions.length);
     announce(runner);
     labelViewButton(scene);
+    remote.publish();
   };
 
   // Le tour complet : lancer → avancer → joueur suivant (#46).
@@ -236,7 +266,8 @@ async function main(): Promise<void> {
     scene,
     applyPreferredView,
     refresh,
-    overrides.favor
+    overrides.favor,
+    remote
   );
 
   // Basculer entre « tout voir » et « suivre le pion », quand le joueur
@@ -451,7 +482,9 @@ function attachDice(
   follow: () => void,
   refresh: () => void,
   /** La faveur forcée en recette (`?favor=4`), ou `null` en partie. */
-  forcedFavor: number | null
+  forcedFavor: number | null,
+  /** La manette, quand un téléphone est relié : elle lance et elle regarde. */
+  remote: MasterRemote
 ): (x: number, y: number) => boolean {
   // L'aire de jeu épouse le PLATEAU, et non un carré inventé : le dé roule
   // sur les cases et rebondit sur leurs bords. « Pas de je jette le dé dans
@@ -852,6 +885,11 @@ function attachDice(
     dicePanel.showFace(face);
     dicePanel.setRollEnabled(true);
 
+    // LA MANETTE REÇOIT CETTE FACE-LÀ, celle dont le pion avance. Elle n'en
+    // tire jamais une à elle : deux tirages, et les deux écrans pourraient
+    // se contredire.
+    remote.rolled(face);
+
     const outcome = runner.playTurn(face);
 
     walking = true;
@@ -993,6 +1031,7 @@ function attachDice(
       // sont celles que la physique a posées.
       const forced = forcedFaces(forcedFavor);
       const [a, b] = forced ?? [rolledA, rolledB];
+      remote.favorRolled(a, b);
       // LE SECOND JET D'APHRODITE NE PASSE PAS PAR LES RÈGLES DES FAVEURS.
       // `resolveGodFavor` lit la somme comme une nouvelle faveur ET rend la
       // main au joueur suivant : ces dés-là ne désignent rien, ils
@@ -1520,6 +1559,10 @@ function attachDice(
   });
 
   document.getElementById('roll')?.addEventListener('click', roll);
+
+  // LA MANETTE APPUIE SUR CE MÊME BOUTON, avec le même garde : elle ne
+  // lance pas pendant qu'un dé roule ou qu'une fenêtre attend un choix.
+  remote.roll = roll;
 
   // LE PANNEAU DES DÉS, branché sur le MÊME lancer que le bouton du HUD.
   // Deux chemins de lancer donneraient deux résultats concurrents pour un
@@ -2139,10 +2182,57 @@ function renderActions(
   return runModalSteps(steps, onValidated);
 }
 
+/**
+ * Relie un second appareil (épique 8) et branche la liaison selon le rôle.
+ *
+ * PLATEAU : la partie la reçoit, et la manette pourra lancer. MANETTE :
+ * son écran recouvre la page — la partie locale, s'il y en a une, n'est
+ * plus touchée, c'est le plateau qui joue.
+ *
+ * Abandonner l'appairage ne change rien : le jeu reste tel qu'il était.
+ */
+async function pairDevice(asMaster: (link: Link) => void): Promise<void> {
+  const pairing = await showPairingScreen();
+  if (pairing === null) return;
+
+  const link = new Link(pairing.role, pairing.transport);
+
+  if (pairing.role === 'master') asMaster(link);
+  else showRemote(link);
+}
+
+/**
+ * Ajoute à l'écran des joueurs le bouton qui relie un second appareil.
+ *
+ * L'ÉCRAN DES JOUEURS N'EN SAIT RIEN : il reste une question posée et une
+ * réponse rendue (`setup-screen.ts`). Le bouton est posé de l'extérieur.
+ */
+function offerRemoteJoin(asMaster: (link: Link) => void): void {
+  const panel = document.querySelector('#setup-screen .setup-panel');
+  if (!panel) return;
+
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'btn btn-secondary';
+  button.id = 'setup-link';
+  button.textContent = '\u{1F4F1} Relier un second appareil';
+  button.addEventListener('click', () => void pairDevice(asMaster));
+
+  panel.appendChild(button);
+}
+
+/** Où relayer les messages du plateau — la manette, quand il y en a une. */
+let notify: ((message: string) => void) | null = null;
+
 /** Raconte le dernier tour joué. */
 function say(message: string): void {
   const line = document.getElementById('turn-log');
   if (line) line.textContent = message;
+
+  // LES MESSAGES PARTENT AUSSI SUR LA MANETTE (Quentin, 27/10/2026 :
+  // « notifications partout, plateau ET esclave »). Tous passent par ici :
+  // un seul point d'accroche suffit.
+  notify?.(message);
 }
 
 /**

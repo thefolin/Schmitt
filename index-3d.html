@@ -767,6 +767,139 @@
             -webkit-overflow-scrolling: touch;
         }
 
+        /* ── RELIER UN SECOND APPAREIL (épique 8) ─────────────────────── */
+
+        /* LE QR RESTE SOMBRE SUR FOND BLANC, quel que soit le thème : c'est
+           la seule combinaison que lisent tous les lecteurs, et un QR doré
+           sur fond bleu nuit ne se scannerait pas sous l'éclairage d'une
+           soirée. La marge blanche fait partie du code. */
+        .link-qr {
+            align-self: center;
+            width: min(72vw, 300px);
+            padding: 8px;
+            border-radius: 12px;
+            background: #ffffff;
+        }
+
+        .link-qr svg {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+
+        .link-camera {
+            align-self: center;
+            width: min(80vw, 340px);
+            aspect-ratio: 1;
+            object-fit: cover;
+            border: 2px solid rgba(212, 175, 55, 0.6);
+            border-radius: 12px;
+            background: #000000;
+        }
+
+        #setup-link {
+            margin-top: 10px;
+        }
+
+        /* LA MANETTE RECOUVRE TOUT, l'écran des joueurs compris (z 1000) :
+           sur le téléphone qui pilote, il n'y a pas de partie à voir
+           dessous — c'est le plateau qui joue. */
+        .remote-screen {
+            position: fixed;
+            inset: 0;
+            z-index: 1001;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+            padding: calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
+            overflow-y: auto;
+            color: #f4ecd8;
+            background: radial-gradient(circle at 50% 30%, #1d2b45 0%, #0d1524 70%);
+        }
+
+        .remote-status {
+            margin: 0;
+            font-size: 14px;
+        }
+
+        .remote-turn {
+            margin: 0;
+            font-family: var(--font-display);
+            font-size: 20px;
+            font-weight: 600;
+            color: #d4af37;
+        }
+
+        .remote-face {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 140px;
+            min-height: 140px;
+            padding: 0 16px;
+            border: 3px solid #d4af37;
+            border-radius: 24px;
+            font-size: clamp(48px, 18vw, 96px);
+            font-weight: 700;
+            background: rgba(13, 21, 36, 0.92);
+        }
+
+        /* LE BOUTON SE PREND AU POUCE : c'est tout ce que fait la manette.
+           Il reprend le doré de « Jouer » par les jetons du thème : `.roll`
+           et `.btn-primary` ne sont stylés que dans leur conteneur (pied du
+           HUD, panneau des joueurs), et laissaient ici un bouton gris. */
+        .remote-roll {
+            width: min(100%, 360px);
+            min-height: 64px;
+            font-family: var(--font-display);
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--text-on-gold);
+            background: var(--grad-gold);
+            border: 1px solid var(--gold-700);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-gold), var(--shadow-inset);
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+
+        .remote-roll:active {
+            transform: translateY(1px) scale(0.995);
+        }
+
+        .remote-roll:disabled {
+            opacity: 0.5;
+        }
+
+        .remote-log,
+        .remote-players {
+            width: min(100%, 360px);
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+
+        .remote-log li {
+            padding: 6px 10px;
+            border-bottom: 1px solid rgba(212, 175, 55, 0.2);
+            font-size: 15px;
+        }
+
+        .remote-log li:first-child {
+            font-weight: 600;
+        }
+
+        .remote-players li {
+            margin-top: 4px;
+            padding: 4px 10px;
+            border-left: 6px solid transparent;
+            font-size: 14px;
+            opacity: 0.85;
+        }
+
     </style>
 </head>
 <body>
@@ -829,6 +962,9 @@
                  d'Aphrodite. Voir TODO/epic-7-refonte-3d.md. -->
             <button id="test-poseidon" type="button" title="Test : simuler Poséidon" aria-label="Test : simuler Poséidon">🔱 Test</button>
             <button id="test-hermes" type="button" title="Test : simuler Hermès" aria-label="Test : simuler Hermès">👟 Test</button>
+            <!-- RELIER UN SECOND APPAREIL (épique 8) : un téléphone devient
+                 la manette du plateau, par deux QR codes. -->
+            <button id="link-open" type="button" title="Relier un second appareil" aria-label="Relier un second appareil">📱</button>
             <button id="reset" type="button" title="Recadrer la vue" aria-label="Recadrer la vue">🎯</button>
             <button id="whole" type="button" title="Tout le plateau" aria-label="Tout le plateau">🗺️</button>
             <!-- MODE CINÉMA : le lancer se regarde en gros plan, puis la vue

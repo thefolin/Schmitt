@@ -24,7 +24,15 @@ export interface Transport {
   send(raw: string): void;
   /** S'abonne aux messages reçus. Rend de quoi se désabonner. */
   onMessage(listener: (raw: string) => void): () => void;
-  /** S'abonne aux changements d'état. Rend de quoi se désabonner. */
+  /**
+   * S'abonne aux changements d'état. Rend de quoi se désabonner.
+   *
+   * UN ABONNÉ TARDIF APPREND AUSSITÔT OÙ L'ON EN EST, dès que ce n'est plus
+   * `connecting`. C'est le cas ordinaire, pas un détail : l'écran
+   * d'appairage ne rend la voie qu'une fois OUVERTE, et la liaison se branche
+   * après. Sans ce rappel elle attendrait une ouverture déjà passée, et
+   * refuserait chaque lancer.
+   */
   onStatus(listener: (status: LinkStatus) => void): () => void;
   close(): void;
 }
@@ -59,6 +67,7 @@ export function pairedInMemory(): {
     const statusListeners = new Set<(status: LinkStatus) => void>();
     let peer: End | null = null;
     let closed = false;
+    let current: LinkStatus = 'connecting';
 
     const self: End = {
       messageListeners,
@@ -67,6 +76,7 @@ export function pairedInMemory(): {
         peer = other;
       },
       emitStatus(status: LinkStatus) {
+        current = status;
         for (const listener of [...statusListeners]) listener(status);
       },
       transport: {
@@ -83,6 +93,7 @@ export function pairedInMemory(): {
         },
         onStatus(listener: (status: LinkStatus) => void) {
           statusListeners.add(listener);
+          if (current !== 'connecting') listener(current);
           return () => statusListeners.delete(listener);
         },
         close() {
