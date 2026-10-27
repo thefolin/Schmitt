@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Link } from '@/features/link/link';
 import { pairedInMemory } from '@/features/link/transport';
 import { MasterRemote, showRemote, type RemoteSummary } from '@/features/link/remote';
+import { showActionModal } from '@/features/board/scene3d/action-modal';
+import { showHermesScreen } from '@/features/board/scene3d/hermes-screen';
 
 /**
  * LE TÉLÉPHONE COMMANDE, LE PLATEAU JOUE (épique 8, SCH-32 / SCH-33).
@@ -10,7 +12,7 @@ import { MasterRemote, showRemote, type RemoteSummary } from '@/features/link/re
  * liaison, sans le réseau.
  */
 
-const SUMMARY: RemoteSummary = {
+const SUMMARY: Omit<RemoteSummary, 'prompt'> = {
   turn: 'Bastien',
   players: [
     { name: 'Quentin', position: 0, color: '#ff0000' },
@@ -23,7 +25,7 @@ const SUMMARY: RemoteSummary = {
 let wire: ReturnType<typeof pairedInMemory>;
 let master: MasterRemote;
 let rolls: number;
-let summary: RemoteSummary;
+let summary: Omit<RemoteSummary, 'prompt'>;
 let close: () => void;
 
 const el = (id: string) => document.getElementById(id)!;
@@ -149,5 +151,59 @@ describe('Sans téléphone, le plateau joue comme avant', () => {
       alone.favorRolled(1, 2);
       alone.notice('rien');
     }).not.toThrow();
+  });
+});
+
+describe('Le téléphone valide les fenêtres du plateau', () => {
+  // Quentin (27/10/2026) : « valider / confirmer les notifications, pas
+  // juste les recevoir ». Les fenêtres sont les vraies fenêtres du jeu.
+  const STEP = { title: 'Case Poulet', tile: null, lines: ['Tu deviens le Petit Poulet.'] };
+  const settle = () => vi.advanceTimersByTimeAsync(0);
+  const shown = (id: string) => el(id).style.display !== 'none';
+
+  beforeEach(() => master.watch(document.body));
+
+  it('affiche la fenêtre ouverte sur le plateau', async () => {
+    showActionModal(STEP, () => {});
+    await settle();
+
+    expect(shown('remote-prompt')).toBe(true);
+    expect(el('remote-prompt-title').textContent).toBe('Case Poulet');
+    expect(el('remote-validate').textContent).toBe('Valider');
+  });
+
+  it('la valide sur le plateau d\'un appui sur le téléphone', async () => {
+    const onValidate = vi.fn();
+    showActionModal(STEP, onValidate);
+    await settle();
+
+    el('remote-validate').click();
+    await settle();
+
+    expect(onValidate).toHaveBeenCalledOnce();
+    expect(document.getElementById('action-modal')).toBeNull();
+    expect(shown('remote-prompt')).toBe(false);
+  });
+
+  it('grise « Lancer » tant qu\'une fenêtre attend, puis le rend', async () => {
+    // Le plateau refuse de lancer pendant une fenêtre : un appui sans
+    // réponse laisserait croire à une panne.
+    showActionModal(STEP, () => {});
+    await settle();
+    expect((el('remote-roll') as HTMLButtonElement).disabled).toBe(true);
+
+    el('remote-validate').click();
+    await settle();
+
+    expect((el('remote-roll') as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('montre un choix d\'Hermès sans bouton : il se fait sur le plateau', async () => {
+    showHermesScreen(0, 3, [{ index: 1, name: 'Quentin', position: 8 }], () => {});
+    await settle();
+
+    expect(shown('remote-prompt')).toBe(true);
+    expect(shown('remote-validate')).toBe(false);
+    expect(shown('remote-prompt-note')).toBe(true);
   });
 });

@@ -39,6 +39,12 @@ export type Command =
   | { kind: 'roll-request' }
   /** « Je veux lancer les deux dés de la faveur. » Même règle. */
   | { kind: 'favor-request' }
+  /**
+   * « J'ai lu, on continue » : valide la fenêtre ouverte sur le plateau.
+   * Elle est désignée par son numéro, pour qu'un appui en retard ne solde
+   * pas la fenêtre suivante.
+   */
+  | { kind: 'validate'; prompt: number }
   /** Reprise de liaison : l'esclave annonce la dernière version qu'il a vue. */
   | { kind: 'resync'; since: number };
 

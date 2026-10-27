@@ -210,6 +210,9 @@ async function main(): Promise<void> {
     awaitingFavor: runner.getAwaitingGodFavor() !== null,
   }));
   notify = (message) => remote.notice(message);
+  // LES FENÊTRES DU PLATEAU partent sur le téléphone, qui peut valider
+  // celles qui ne demandent aucun choix (Quentin, 27/10/2026).
+  remote.watch(document.body);
   if (pendingMaster) remote.attach(pendingMaster);
 
   document.getElementById('link-open')?.addEventListener('click', () => {

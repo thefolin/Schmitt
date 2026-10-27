@@ -874,6 +874,55 @@
             opacity: 0.5;
         }
 
+        /* LA FENÊTRE DU PLATEAU, sur le téléphone : la règle à appliquer,
+           et le bouton qui la valide quand elle ne demande aucun choix. */
+        .remote-prompt {
+            width: min(100%, 360px);
+            padding: 12px 14px;
+            border: 1px solid rgba(212, 175, 55, 0.6);
+            border-radius: var(--radius-md);
+            background: rgba(13, 21, 36, 0.92);
+            text-align: center;
+        }
+
+        .remote-prompt-title {
+            margin: 0 0 6px;
+            font-family: var(--font-display);
+            font-size: 18px;
+            color: #d4af37;
+        }
+
+        .remote-prompt-lines p {
+            margin: 4px 0;
+            font-size: 15px;
+        }
+
+        .remote-validate {
+            width: 100%;
+            min-height: 52px;
+            margin-top: 10px;
+            font-family: var(--font-display);
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--text-on-gold);
+            background: var(--grad-gold);
+            border: 1px solid var(--gold-700);
+            border-radius: var(--radius-md);
+            touch-action: manipulation;
+        }
+
+        .remote-validate:disabled {
+            opacity: 0.5;
+        }
+
+        .remote-prompt-note {
+            margin: 8px 0 0;
+            font-size: 14px;
+            opacity: 0.8;
+        }
+
         .remote-log,
         .remote-players {
             width: min(100%, 360px);
