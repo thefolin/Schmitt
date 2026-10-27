@@ -801,6 +801,19 @@
             margin-top: 10px;
         }
 
+        /* LES BOUTONS DE L'APPAIRAGE S'EMPILENT. Côte à côte, trois sur un
+           téléphone de 360 px, « Utiliser comme appareil de contrôle » se
+           cassait sur cinq lignes et « Annuler » touchait le bord (vu au
+           rendu réel). */
+        .link-panel .action-modal-buttons {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .link-panel .action-modal-buttons .btn {
+            width: 100%;
+        }
+
         /* LA MANETTE RECOUVRE TOUT, l'écran des joueurs compris (z 1000) :
            sur le téléphone qui pilote, il n'y a pas de partie à voir
            dessous — c'est le plateau qui joue. */

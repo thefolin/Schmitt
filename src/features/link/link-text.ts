@@ -1,13 +1,13 @@
 /**
  * LES MOTS DE LA LIAISON À DEUX APPAREILS, RÉUNIS ICI.
  *
- * Quentin (27/10/2026) trouve que « manette » ne convient pas à tous les
- * rôles, et choisira les noms. Tant qu'il n'a pas tranché, les textes
- * restent ceux d'origine ; RENOMMER SE FAIT DANS CE FICHIER SEUL.
+ * Quentin (27/10/2026) : « manette » ne convenait pas à tous les rôles. Il
+ * a retenu « appareil de contrôle » ; « plateau » reste. RENOMMER SE FAIT
+ * DANS CE FICHIER SEUL.
  *
  * Des PHRASES ENTIÈRES plutôt qu'un nom glissé dans des modèles : le
- * français accorde — « le plateau » / « la manette », « au plateau » / « à la
- * manette ». Un nom variable donnerait « Montrez ce code à le manette ».
+ * français accorde — « le plateau », « l'appareil de contrôle », « à
+ * l'appareil ». Un nom variable donnerait « Visez le code de le appareil ».
  */
 export const LINK_TEXT = {
   /** Le bouton et le titre de l'écran d'appairage. */
@@ -15,14 +15,16 @@ export const LINK_TEXT = {
 
   /** Le choix du rôle. */
   asMaster: 'Cet écran est le plateau',
-  asSlave: 'Cet appareil est la manette',
+  // « Cet appareil est l'appareil de contrôle » se répète : le bouton dit
+  // plutôt ce qu'on en fait.
+  asSlave: 'Utiliser comme appareil de contrôle',
 
   /** Côté plateau. */
-  masterShowsOffer: '1. Scannez ce code avec le téléphone — appareil photo ou bouton « manette ».',
+  masterShowsOffer: '1. Scannez ce code avec l’appareil de contrôle — son appareil photo, ou le bouton du jeu.',
   masterScanAnswer: '2. Scanner sa réponse',
-  masterAimsAtSlave: 'Visez le code affiché par la manette.',
+  masterAimsAtSlave: 'Visez le code affiché par l’appareil de contrôle.',
 
-  /** Côté manette. */
+  /** Côté appareil de contrôle. */
   slaveAimsAtMaster: 'Visez le code affiché par le plateau.',
   slaveShowsAnswer: 'Montrez ce code au plateau : il le scanne avec « 2. Scanner sa réponse ».',
   slaveWaiting: 'En attente du plateau…',
