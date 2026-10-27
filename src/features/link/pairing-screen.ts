@@ -1,5 +1,6 @@
 import qrcode from 'qrcode-generator';
 import { decode, toJoinUrl } from './pairing-code';
+import { LINK_TEXT } from './link-text';
 import type { Role } from './protocol';
 import { scanQr, type ScanHandle } from './qr-scanner';
 import type { Transport } from './transport';
@@ -93,7 +94,7 @@ export function showPairingScreen(
     panel.className = 'setup-panel action-modal-panel link-panel';
 
     const title = document.createElement('h2');
-    title.textContent = '\u{1F4F1} Relier un second appareil';
+    title.textContent = LINK_TEXT.title;
 
     const step = document.createElement('p');
     step.className = 'action-modal-line';
@@ -201,7 +202,7 @@ export function showPairingScreen(
       transport = pairing.transport;
 
       const scanAnswer = () => {
-        render('Visez le code affiché par la manette.', { camera: true });
+        render(LINK_TEXT.masterAimsAtSlave, { camera: true });
 
         // SEULE UNE RÉPONSE EST RETENUE : la caméra du plateau peut
         // reprendre sa propre offre en reflet, ou celle d'un autre plateau.
@@ -220,14 +221,14 @@ export function showPairingScreen(
       // LE QR PORTE UN LIEN quand cette page est joignable depuis le WiFi :
       // l'appareil photo du téléphone l'ouvre et la page rejoint d'elle-même.
       // Le scanner du jeu, lui, lit les deux formes.
-      render('1. Scannez ce code avec le téléphone — appareil photo ou bouton « manette ».', {
+      render(LINK_TEXT.masterShowsOffer, {
         qr: toJoinUrl(deps.joinBase(), pairing.code) ?? pairing.code,
-        actions: [button('link-scan-answer', '2. Scanner sa réponse', true, scanAnswer)],
+        actions: [button('link-scan-answer', LINK_TEXT.masterScanAnswer, true, scanAnswer)],
       });
     };
 
     const asSlave = () => {
-      render('Visez le code affiché par le plateau.', { camera: true });
+      render(LINK_TEXT.slaveAimsAtMaster, { camera: true });
 
       scan = deps.scan(camera, (text) => decode(text)?.kind === 'offer');
 
@@ -245,7 +246,7 @@ export function showPairingScreen(
       if (joined === null) return fail('Ce code n’a pas pu être lu. Recommencez.');
 
       transport = joined.transport;
-      render('Montrez ce code au plateau : il le scanne avec « 2. Scanner sa réponse ».', { qr: joined.code });
+      render(LINK_TEXT.slaveShowsAnswer, { qr: joined.code });
       awaitLink('slave', joined.transport);
     };
 
@@ -255,8 +256,8 @@ export function showPairingScreen(
 
       render('Quel rôle pour cet appareil ?', {
         actions: [
-          button('link-as-master', 'Cet écran est le plateau', true, () => void asMaster()),
-          button('link-as-slave', 'Cet appareil est la manette', true, asSlave),
+          button('link-as-master', LINK_TEXT.asMaster, true, () => void asMaster()),
+          button('link-as-slave', LINK_TEXT.asSlave, true, asSlave),
         ],
       });
     }

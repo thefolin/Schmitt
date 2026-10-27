@@ -1,6 +1,7 @@
 import type { Link } from './link';
 import type { Announcement } from './protocol';
 import { watchPrompts, type Prompt, type PromptWatch } from './prompt-mirror';
+import { LINK_TEXT } from './link-text';
 
 /**
  * LE PLATEAU PILOTÉ À DISTANCE (épique 8, SCH-32 et SCH-33).
@@ -123,13 +124,13 @@ export function showRemote(link: Link, host: HTMLElement = document.body): () =>
   screen.id = 'remote-screen';
   screen.innerHTML = `
     <p class="remote-status" id="remote-status"></p>
-    <p class="remote-turn" id="remote-turn">En attente du plateau…</p>
+    <p class="remote-turn" id="remote-turn">${LINK_TEXT.slaveWaiting}</p>
     <div class="remote-face" id="remote-face" aria-live="polite">–</div>
     <section class="remote-prompt" id="remote-prompt" aria-live="polite">
       <h3 class="remote-prompt-title" id="remote-prompt-title"></h3>
       <div class="remote-prompt-lines" id="remote-prompt-lines"></div>
       <button type="button" class="remote-validate" id="remote-validate"></button>
-      <p class="remote-prompt-note" id="remote-prompt-note">Le choix se fait sur le plateau.</p>
+      <p class="remote-prompt-note" id="remote-prompt-note">${LINK_TEXT.choiceOnMaster}</p>
     </section>
     <button type="button" class="remote-roll" id="remote-roll">Lancer le dé</button>
     <ul class="remote-log" id="remote-log" aria-live="polite"></ul>
@@ -223,7 +224,7 @@ export function showRemote(link: Link, host: HTMLElement = document.body): () =>
 
   const renderStatus = (state: string) => {
     status.textContent =
-      state === 'linked' ? '\u{1F7E2} Relié au plateau' : '\u{1F534} Liaison perdue — vérifiez le WiFi';
+      state === 'linked' ? LINK_TEXT.slaveLinked : LINK_TEXT.slaveLost;
     status.dataset.state = state;
   };
 

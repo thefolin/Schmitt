@@ -87,6 +87,7 @@ import { Link } from '@/features/link/link';
 import { MasterRemote, REMOTE_LOG_DEPTH, showRemote } from '@/features/link/remote';
 import { showPairingScreen } from '@/features/link/pairing-screen';
 import { offerFromUrl } from '@/features/link/pairing-code';
+import { LINK_TEXT } from '@/features/link/link-text';
 
 /**
  * Aperçu du rendu 3D, isolé du jeu.
@@ -2231,7 +2232,7 @@ function offerRemoteJoin(asMaster: (link: Link) => void): void {
   button.type = 'button';
   button.className = 'btn btn-secondary';
   button.id = 'setup-link';
-  button.textContent = '\u{1F4F1} Relier un second appareil';
+  button.textContent = LINK_TEXT.title;
   button.addEventListener('click', () => void pairDevice(asMaster));
 
   panel.appendChild(button);
